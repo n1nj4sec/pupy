@@ -38,10 +38,14 @@ def execute_final(query):
     result = []
 
     for item in response:
-        columns.update(item.properties.keys())
+        columns.update(item.properties)
 
         result.append(
-            tuple((to_utf8(column), to_utf8(getattr(item, column))) for column in item.properties)
+            tuple(
+                (
+                    to_utf8(column), to_utf8(getattr(item, column))
+                ) for column in item.properties
+            )
         )
 
     _query = query.lower()

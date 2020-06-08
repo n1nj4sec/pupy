@@ -17,6 +17,7 @@ from network.conf import transports
 from network.lib import Proxy
 from network.lib.proxies import ProxyInfo
 from network.lib.utils import HostInfo, TransportInfo
+from network.lib.convcompat import unicodify
 
 from umsgpack import Ext, packb, unpackb
 
@@ -32,7 +33,8 @@ KNOWN_NAMED_TUPLES = (
 def register_named_tuple(code, type):
     MSG_TYPES_PACK[type] = lambda obj: Ext(
         code, packb(tuple(x for x in obj)))
-    MSG_TYPES_UNPACK[code] = lambda obj: type(*unpackb(obj.data))
+    MSG_TYPES_UNPACK[code] = lambda obj: type(
+        *unpackb(obj.data))
 
 
 def register_string(type, code, name):
@@ -51,7 +53,8 @@ for idx, name in enumerate(transports):
 
 wrapext = namedtuple('Ext', ('code', 'data'))
 
+
 def msgpack_exthook(code, data):
     if code in MSG_TYPES_UNPACK:
         obj = wrapext(code, data)
-        return MSG_TYPES_UNPACK[code](obj)
+        return unicodify(MSG_TYPES_UNPACK[code](obj))

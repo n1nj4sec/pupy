@@ -357,7 +357,7 @@ def get_last_events_journald(count=10, includes=[], excludes=[], filter_source=N
         re.compile(x, re.IGNORECASE | re.MULTILINE) for x in excludes
     ]
 
-    events = SDJournalReader(fields=field_mappings.keys())
+    events = SDJournalReader(fields=tuple(field_mappings))
     source_events = {}
 
     amount = 0

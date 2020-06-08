@@ -18,7 +18,7 @@ usage  = "Show/set log level"
 parser = PupyArgumentParser(prog='logging', description='change pupysh logging level')
 parser.add_argument(
     '-L', '--logger', help='Apply log level only for specified logger',
-    choices=logging.Logger.manager.loggerDict.keys()
+    choices=tuple(logging.Logger.manager.loggerDict)
 )
 parser.add_argument('-s', '--set-level', choices=levels, help='Set log level')
 parser.add_argument('-g', '--get-level', action='store_true', help='Get log level')

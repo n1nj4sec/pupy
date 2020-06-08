@@ -20,8 +20,15 @@ except ValueError:
     logger = logging
 
 if sys.version_info.major > 2:
+    try:
+        import py2c
+    except ImportError:
+        py2c = None
+
     xrange = range
     unicode = str
+else:
+    py2c = None
 
 
 class Compiler(ast.NodeTransformer):
@@ -47,22 +54,29 @@ class Compiler(ast.NodeTransformer):
             self._source_ast = ast.parse(source)
         except SyntaxError as e:
             if path:
-                logger.error('Compilation error: {} {}:{}'.format(e.msg, data, e.lineno))
+                logger.error(
+                    'Compilation error: %s %s:%s', e.msg, data, e.lineno
+                )
             else:
-                logger.error('Compilation error: {} line: {}'.format(
-                    e.msg, source.split('\n')[e.lineno]))
+                logger.error(
+                    'Compilation error: %s line: %s',
+                    e.msg, source.split('\n')[e.lineno]
+                )
 
     def compile(self, filename, obfuscate=False, raw=False, magic=b'\x00'*8):
         if self._source_ast is None:
             return None
 
-        body = marshal.dumps(compile(self.visit(self._source_ast), filename, 'exec'))
+        body = marshal.dumps(
+            compile(self.visit(self._source_ast), filename, 'exec')
+        )
+
         if obfuscate:
             body_len = len(body)
             offset = 0 if raw else 8
 
             output = bytearray(body_len + 8)
-            for i,x in enumerate(body):
+            for i, x in enumerate(body):
                 output[i+offset] = (ord(x)^((2**((65535-i)%65535))%251))
 
             if raw:
@@ -115,14 +129,64 @@ class Compiler(ast.NodeTransformer):
             return node
 
         if (type(node.value) == ast.Str) and all(
-                type(target) == ast.Name and target.id in ('__copyright__', '__doc__')
+                type(target) == ast.Name and target.id in (
+                    '__copyright__', '__doc__')
                 for target in node.targets):
             node.value.s = ''
 
         return node
 
 
-def pupycompile(data, filename='', path=False, obfuscate=False, raw=False, debug=False, main=False):
+def py2compile(data, filename, obfuscate=False, raw=False, debug=False):
+    body = py2c.compile(data, filename, 0 if debug else 2)
+
+    if obfuscate:
+        body_len = len(body)
+        offset = 0 if raw else 8
+
+        output = bytearray(body_len + 8)
+        for i, x in enumerate(body):
+            output[i+offset] = (x ^ ((2 ** ((65535-i) % 65535)) % 251))
+
+        if raw:
+            for i in xrange(8):
+                output[i] = 0
+
+        return output
+
+    elif raw:
+        return body
+
+    else:
+        magic = b'\x00'*8
+        return magic + body
+
+
+def pupycompile(
+    data, filename='', path=False, obfuscate=False,
+        raw=False, debug=False, main=False, target=None):
+
+    if target is not None:
+        major, minor = target
+
+        if sys.version_info.major != major or sys.version_info.minor != minor:
+            if major == 2:
+                if py2c is None:
+                    raise NotImplementedError(
+                        'Support for bytecode cross-compilation is not '
+                        'supported without py2c'
+                    )
+
+                if path is True:
+                    data = open(data).read()
+
+                return py2compile(data, filename, obfuscate, raw, debug)
+
+            elif major == 3 and minor < 6:
+                raise NotImplementedError(
+                    'Support for this target is not implemented (yet?)'
+                )
+
     if not debug:
         logger.info(data if path else filename)
         data = Compiler(data, path, main).compile(filename, obfuscate, raw)
@@ -196,7 +260,11 @@ if __name__ == '__main__':
                     else:
                         fname = ff
 
-                    pcompile(fname, ff, not args.delete_main, not args.delete_docstrings)
+                    pcompile(
+                        fname, ff,
+                        not args.delete_main,
+                        not args.delete_docstrings
+                    )
 
         else:
             if args.fake_file_path:
@@ -205,4 +273,8 @@ if __name__ == '__main__':
                 fname = f
                 fid += 1
 
-            pcompile(fname, f, not args.delete_main, not args.delete_docstrings)
+            pcompile(
+                fname, f,
+                not args.delete_main,
+                not args.delete_docstrings
+            )

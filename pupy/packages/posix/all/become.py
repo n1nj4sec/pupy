@@ -63,7 +63,7 @@ def become(user):
     elif 'DBUS_SESSION_BUS_ADDRESS' in os.environ:
         del os.environ['DBUS_SESSION_BUS_ADDRESS']
 
-    for var in os.environ.keys():
+    for var in list(os.environ):
         if var.startswith(('XDG_', 'GDM', 'DESKTOP_')):
             del os.environ[var]
 

@@ -18,16 +18,19 @@ from threading import Thread, Lock
 from socket import inet_ntop
 from socket import AF_INET, AF_INET6
 
+from collections import namedtuple
+
 if sys.version_info.major > 2:
     from queue import Queue, Empty
     xrange = range
     basestring = str
-    long = int
+    ints = int
 
     def bval(x):
         return x
 else:
     from Queue import Queue, Empty
+    ints = (int, long)
 
     def bval(x):
         return ord(x)
@@ -40,6 +43,23 @@ from network.lib.pupyrpc import nowait
 from network.lib import getLogger
 
 logger = getLogger('pyuvproxy')
+
+
+class Context(object):
+    __slots__ = (
+        'buffer', 'stage', 'header'
+    )
+
+    def __init__(self, buffer=None, stage=0, header=b''):
+        self.buffer = buffer or list()
+        self.stage = stage
+        self.header = header
+
+    def __repr__(self):
+        return 'Context({}, {}, {})'.format(
+            repr(self.buffer), repr(self.stage), repr(self.header)
+        )
+
 
 CODE_SUCCEEDED, CODE_GENERAL_SRV_FAILURE, CODE_CONN_NOT_ALLOWED, \
     CODE_NET_NOT_REACHABLE, CODE_HOST_UNREACHABLE, CODE_CONN_REFUSED, \
@@ -160,13 +180,18 @@ class Connection(object):
         else:
             try:
                 if self.socks5:
-                    addr, port = IPAddress(local_address[0]), local_address[1]
+                    ipaddr, port = local_address
+                    if not isinstance(ipaddr, str) and \
+                            isinstance(ipaddr, bytes):
+                        ipaddr = ipaddr.decode('ascii')
+
+                    ipaddr = IPAddress(ipaddr)
                     self.socket.write(
                         struct.pack(
                             'BBBB', 0x5,
                             0, 0,
-                            ADDR_IPV4 if addr.version == 4 else ADDR_IPV6
-                        ) + addr.packed + struct.pack('>H', port))
+                            ADDR_IPV4 if ipaddr.version == 4 else ADDR_IPV6
+                        ) + ipaddr.packed + struct.pack('>H', port))
 
                 if self.buffer:
                     self._on_read_data(self.socket, self.buffer, None)
@@ -178,8 +203,10 @@ class Connection(object):
 
     def on_data(self, data):
         if not self.socket:
-            logger.debug('Connections(%s) - socket=%s - Not ready',
-                self, self.socket)
+            logger.debug(
+                'Connections(%s) - socket=%s - Not ready',
+                self, self.socket
+            )
             raise ChannelIsNotReady(self)
 
         self.socket.write(data, self._on_send_complete)
@@ -230,7 +257,10 @@ class Connection(object):
             )
             if error:
                 try:
-                    logger.debug('Connection(%s) - _on_connected - error: %s', self, error)
+                    logger.debug(
+                        'Connection(%s) - _on_connected - error: %s',
+                        self, error
+                    )
                     self.socket.close()
                 except:
                     pass
@@ -244,19 +274,39 @@ class Connection(object):
 
     def _virtual_connect(self, port):
         try:
-            logger.debug('Connection(%s) - _virtual_connect(%s)', self, port)
+            logger.debug(
+                'Connection(%s) - _virtual_connect(%s)', self, port
+            )
+
             self.socket = self.virtual_ports.connect(port, self.peername)
-            logger.debug('Connection(%s) - _virtual_connect(%s) - socket:%s', self, port, self.socket)
+
+            logger.debug(
+                'Connection(%s) - _virtual_connect(%s) - socket:%s',
+                self, port, self.socket
+            )
             self._on_connected(self.socket, None)
-            logger.debug('Connection(%s) - _virtual_connect(%s) - completed', self, port)
+
+            logger.debug(
+                'Connection(%s) - _virtual_connect(%s) - completed',
+                self, port
+            )
         except Exception as e:
-            logger.exception('Connection(%s) - _virtual_connect(%s) - exception', self, port)
+            logger.exception(
+                'Connection(%s) - _virtual_connect(%s) - exception', self, port
+            )
             self._on_connected(None, e)
 
     def connect(self, address, dns, bind):
-        if type(address) == tuple and address[0] == '254.254.254.254':
-            self._virtual_connect(address[1])
-            return
+        if address and isinstance(address, tuple):
+            if not isinstance(address[0], str) and \
+                    isinstance(address[0], bytes):
+                address = (
+                    address[0].decode('utf-8'), address[1]
+                )
+
+            if address[0] == '254.254.254.254':
+                self._virtual_connect(address[1])
+                return
 
         try:
             self.timer.start(self._connection_timeout, self.timeout, 0)
@@ -269,7 +319,7 @@ class Connection(object):
                     self.socket.connect(address, self._on_connected)
                 else:
                     if address[0] == '@':
-                        address = b'\x00' + address[1:]
+                        address = '\0' + address[1:]
                     fd = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM, 0)
                     try:
                         fd.setblocking(0)
@@ -282,9 +332,15 @@ class Connection(object):
             else:
                 self.socket = pyuv.TCP(self.loop)
                 if bind:
-                    if type(bind) in (int, long):
+                    if isinstance(bind, ints):
                         bind = ('0.0.0.0', bind)
-
+                    elif isinstance(bind, tuple):
+                        if not isinstance(bind[0], str) and \
+                                isinstance(bind[0], bytes):
+                            bind = (
+                                bind[0].decode('utf-8'),
+                                bind[1]
+                            )
                     try:
                         self.socket.bind(bind)
                     except:
@@ -343,7 +399,10 @@ class Connection(object):
 
 
 class Acceptor(object):
-    def __init__(self, neighbor, local_address, forward_address=None, bind_address=None):
+    def __init__(
+        self, neighbor, local_address,
+            forward_address=None, bind_address=None):
+
         self.neighbor = neighbor
         self.loop = self.neighbor.manager.loop
         self.local_address = local_address
@@ -360,7 +419,7 @@ class Acceptor(object):
             try:
                 fd = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM, 0)
                 if self.local_address[0] == '@':
-                    self.local_address = b'\x00' + self.local_address[1:]
+                    self.local_address = '\0' + self.local_address[1:]
                 fd.bind(self.local_address)
                 fd.setblocking(0)
                 self.socket.open(os.dup(fd.fileno()))
@@ -386,12 +445,7 @@ class Acceptor(object):
         if self.forward_address:
             self.on_connection(client)
         else:
-            context = {
-                'buffer': [],
-                'stage': 0,
-                'header': b'',
-            }
-
+            context = Context()
             client.start_read(
                 lambda handle, data, error: self._socks5_read(
                     handle, data, error, context
@@ -399,10 +453,10 @@ class Acceptor(object):
 
     def _socks5_read(self, handle, data, error, context):
         if data:
-            context['buffer'].append(data)
-            packet = b''.join(context['buffer'])
+            context.buffer.append(data)
+            packet = b''.join(context.buffer)
 
-            if context['stage'] == 0:
+            if context.stage == 0:
                 if len(packet) < 2:
                     return
 
@@ -421,7 +475,6 @@ class Acceptor(object):
 
                 try:
                     methods = struct.unpack_from('B'*nmethods, packet[2:])
-
                 except:
                     handle.close()
                     return
@@ -436,10 +489,10 @@ class Acceptor(object):
                     handle.write(
                         struct.pack('BB', 0x5, METHOD_NO_AUTH)
                     )
-                    context['stage'] += 1
-                    context['buffer'] = []
+                    context.stage += 1
+                    context.buffer = []
 
-            elif context['stage'] == 1:
+            elif context.stage == 1:
                 if len(packet) < 4 + 2:
                     return
 
@@ -475,7 +528,7 @@ class Acceptor(object):
                 if len(packet) < 4 + 2 + addr_len + addr_offt:
                     return
 
-                context['header'] = packet
+                context.header = packet
 
                 dst_addr = packet[4+addr_offt:4+addr_offt+addr_len]
                 dst_port = packet[4+addr_offt+addr_len:4+addr_offt+addr_len+2]
@@ -495,13 +548,15 @@ class Acceptor(object):
 
                 self.on_connection(
                     handle, (dst_addr,
-                             dst_port), socks5=context['header'], dns=dns
+                             dst_port), socks5=context.header, dns=dns
                 )
-
         else:
             handle.close()
 
-    def on_connection(self, client, address=None, buffer=None, socks5=None, dns=False):
+    def on_connection(
+        self, client, address=None, buffer=None,
+            socks5=None, dns=False):
+
         address = address or self.forward_address
         bind = self.bind_address
 
@@ -532,9 +587,14 @@ class Acceptor(object):
             return
 
         self.neighbor.manager.defer(
-            self._deferred_on_connection, connection, address, dns, bind, remote_id_promise)
+            self._deferred_on_connection,
+            connection, address, dns, bind, remote_id_promise
+        )
 
-    def _deferred_on_connection(self, connection, address, dns, bind, remote_id_promise):
+    def _deferred_on_connection(
+        self, connection, address, dns,
+            bind, remote_id_promise):
+
         if remote_id_promise.expired:
             logger.debug('on_connection promise expiration')
             self.neighbor.stop(dead=True)
@@ -547,7 +607,9 @@ class Acceptor(object):
 
         elif not remote_id_promise.ready:
             self.neighbor.manager.defer(
-                self._deferred_on_connection, connection, address, dns, bind, remote_id_promise)
+                self._deferred_on_connection,
+                connection, address, dns, bind, remote_id_promise
+            )
             return
 
         remote_id = remote_id_promise.value
@@ -598,11 +660,13 @@ class Neighbor(object):
         self.virtual_ports = virtual_ports
 
     def stop(self, dead=False):
-        for path_or_port in self.acceptors.keys():
+        acceptors = list(self.acceptors)
+        for path_or_port in acceptors:
             acceptor = self.acceptors[path_or_port]
             acceptor.close()
 
-        for connection in self.connections.keys():
+        connections = list(self.connections)
+        for connection in connections:
             self.connections[
                 connection
             ].close(-1, mutual=not dead)
@@ -644,11 +708,10 @@ class Neighbor(object):
             try:
                 self.acceptors[acceptor_or_path_or_port].close()
                 return True
-
             except:
                 return False
         else:
-            for k in self.acceptors.keys():
+            for k in list(self.acceptors):
                 if self.acceptors[k] == acceptor_or_path_or_port:
                     del self.acceptors[k]
                     return True
@@ -747,7 +810,7 @@ class VirtualPortsManager(object):
         del self.ports[port]
 
     def destroy(self):
-        for port in self.ports.keys():
+        for port in list(self.ports):
             self.unregister(port)
 
 
@@ -791,9 +854,11 @@ class Manager(Thread):
             pass
 
     def _stop(self, dead):
-        for neighbor_id in self.neighbors.keys():
+        for neighbor_id in list(self.neighbors):
             self.neighbors[neighbor_id].stop(dead=dead)
+
         self.wake.close()
+
         for handle in self.loop.handles:
             if not handle.closed:
                 handle.close()
@@ -835,18 +900,24 @@ class Manager(Thread):
 
         acceptor.start()
 
-    def bind(self, neighbor_id, local_address=('127.0.0.1', 8080), forward=None, bind=None):
-        logger.debug('Manager: bind(%s, %s, %s, %s)',
-            neighbor_id, local_address, forward, bind)
+    def bind(
+        self, neighbor_id, local_address=('127.0.0.1', 8080),
+            forward=None, bind=None):
+
+        logger.debug(
+            'Manager: bind(%s, %s, %s, %s)',
+            neighbor_id, local_address, forward, bind
+        )
+
         self.defer(self._bind, neighbor_id, local_address, forward, bind)
 
     def unbind(self, path_or_port):
-        logger.debug('Manager: unbind(%s)',
-            path_or_port)
+        logger.debug('Manager: unbind(%s)', path_or_port)
 
         for neighbor in self.neighbors.values():
             if neighbor.unregister_acceptor(path_or_port):
                 return True
+
         return False
 
     def get_connection(self, neighbor_id, connection_id):
@@ -854,8 +925,10 @@ class Manager(Thread):
         return neighbor.get_connection(connection_id)
 
     def create_connection(self, neighbor_id, remote_id=None, peername=None):
-        logger.debug('Manager: create_connection(%s, %s, %s)',
-            neighbor_id, remote_id, peername)
+        logger.debug(
+            'Manager: create_connection(%s, %s, %s)',
+            neighbor_id, remote_id, peername
+        )
 
         return self.get_neighbor(
             neighbor_id
@@ -865,8 +938,10 @@ class Manager(Thread):
         )
 
     def connect(self, neighbor_id, connection_id, address, dns, bind=None):
-        logger.debug('Manager: connect(%s, %s, %s, %s, %s)',
-            neighbor_id, connection_id, address, dns, bind)
+        logger.debug(
+            'Manager: connect(%s, %s, %s, %s, %s)',
+            neighbor_id, connection_id, address, dns, bind
+        )
 
         self.defer(
             self.get_neighbor(
@@ -880,8 +955,10 @@ class Manager(Thread):
         )
 
     def forward(self, neighbor_id, connection_id):
-        logger.debug('Manager: forward(%s, %s)',
-            neighbor_id, connection_id)
+        logger.debug(
+            'Manager: forward(%s, %s)',
+            neighbor_id, connection_id
+        )
 
         self.defer(
             self.get_neighbor(
@@ -892,8 +969,10 @@ class Manager(Thread):
         )
 
     def on_connected(self, neighbor_id, connection_id, local_address, error=None):
-        logger.debug('Manager: on_connected(%s, %s, %s, %s)',
-            neighbor_id, connection_id, local_address, error)
+        logger.debug(
+            'Manager: on_connected(%s, %s, %s, %s)',
+            neighbor_id, connection_id, local_address, error
+        )
 
         self.defer(
             self.get_neighbor(
@@ -905,8 +984,10 @@ class Manager(Thread):
         )
 
     def on_data(self, neighbor_id, connection_id, data):
-        logger.debug('Manager: on_data(%s, %s, %s)',
-            neighbor_id, connection_id, len(data))
+        logger.debug(
+            'Manager: on_data(%s, %s, %s)',
+            neighbor_id, connection_id, len(data)
+        )
 
         self.defer(
             self.get_neighbor(
@@ -918,8 +999,10 @@ class Manager(Thread):
         )
 
     def on_disconnect(self, neighbor_id, connection_id, reason=None):
-        logger.debug('Manager: on_disconnect(%s, %s, %s)',
-            neighbor_id, connection_id, reason)
+        logger.debug(
+            'Manager: on_disconnect(%s, %s, %s)',
+            neighbor_id, connection_id, reason
+        )
 
         neighbor = self.get_neighbor(
             neighbor_id

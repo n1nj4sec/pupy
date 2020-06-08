@@ -11,13 +11,16 @@ import sys
 import zlib
 import marshal
 
+from collections import namedtuple
 from zipfile import ZipFile
 
 from elftools.elf.elffile import ELFFile
 from io import open, BytesIO
 
 from pupylib.PupyCompile import pupycompile
+from pupylib.utils.arch import is_native
 from pupylib import ROOT, getLogger
+
 
 if sys.version_info.major > 2:
     import pickle
@@ -49,6 +52,53 @@ class NotFoundError(NameError):
 
 class IgnoreFileException(Exception):
     pass
+
+
+class Target(object):
+    __slots__ = (
+        'os', 'arch', 'pymaj', 'pymin',
+        '_native', '_so', '_platform'
+    )
+
+    def __init__(self, python, platform=None):
+        self.pymaj, self.pymin = python[:2]
+
+        if platform:
+            self.os, self.arch = platform[:2]
+            self._native = is_native(
+                self.os, self.arch, python
+            )
+            sover = '{}.{}'.format(self.pymaj, self.pymin)
+            if self.pymaj > 3:
+                sover += 'm'
+            self._so = 'libpython{}.so.1.0'.format(sover)
+        else:
+            self.os = None
+            self.arch = None
+            self._native = False
+
+    @property
+    def native(self):
+        return self._native
+
+    @property
+    def so(self):
+        return self._so
+
+    @property
+    def pyver(self):
+        return (self.pymaj, self.pymin)
+
+    def __repr__(self):
+        if self.os and self.arch:
+            platform = (self.os, self.arch)
+        else:
+            platform = None
+
+        return 'Target(({}, {}), {})'.format(
+            repr(self.pymaj), repr(self.pymin), platform
+        )
+
 
 logger = getLogger('deps')
 
@@ -110,7 +160,7 @@ WELL_KNOWN_DEPS = {
         'all': ['xml.etree']
     },
     'wql': {
-        'windows':[
+        'windows': [
             'win32api', 'win32com', 'pythoncom',
             'winerror', 'wmi'
         ]
@@ -158,8 +208,7 @@ WELL_KNOWN_DEPS = {
     }
 }
 
-logger.debug("LIBS_AUTHORIZED_PATHS=%s"%repr(LIBS_AUTHORIZED_PATHS))
-
+logger.debug('LIBS_AUTHORIZED_PATHS=%s', LIBS_AUTHORIZED_PATHS)
 
 
 def remove_dt_needed(data, libname):
@@ -172,7 +221,7 @@ def remove_dt_needed(data, libname):
 
     tag_idx = None
 
-    for idx in xrange(sect_size/ent_size):
+    for idx in xrange(sect_size // ent_size):
         tag = dyn.get_tag(idx)
         if tag['d_tag'] == 'DT_NEEDED':
             if tag.needed == libname:
@@ -182,7 +231,7 @@ def remove_dt_needed(data, libname):
     if tag_idx is None:
         return False
 
-    null_tag = '\x00' * ent_size
+    null_tag = b'\x00' * ent_size
     dynamic_tail = None
 
     if idx == 0:
@@ -190,7 +239,7 @@ def remove_dt_needed(data, libname):
     else:
         dyndata = dyn.data()
         dynamic_tail = dyndata[:ent_size*(idx)] + \
-          dyndata[ent_size*(idx+1):] + null_tag
+            dyndata[ent_size*(idx+1):] + null_tag
 
     data.seek(sect_offt)
     data.write(dynamic_tail)
@@ -239,62 +288,76 @@ def bootstrap(stdlib, config, autostart=True):
 
 
 def importer(
-    dependencies, os='all', arch=None, path=None,
-        posix=None, native=False, ignore_native=False,
+    target, dependencies, path=None,
         as_bundle=False, as_dict=False):
+
     if path:
         modules = {}
         if not type(dependencies) in (list, tuple, set, frozenset):
             dependencies = [dependencies]
 
         for dependency in dependencies:
-            modules.update(from_path(os, arch, path, dependency))
+            modules.update(from_path(target, path, dependency))
 
         if not as_dict:
-            blob = pickle.dumps(modules)
+            blob = pickle.dumps(modules, 2)
             blob = zlib.compress(blob, 9)
         else:
             blob = modules
     else:
         blob, modules, _ = package(
-            dependencies, os, arch, posix=posix,
-            native=native, ignore_native=ignore_native,
-            as_dict=as_dict
+            dependencies, target, as_dict=as_dict
         )
 
     if as_bundle or as_dict:
         return blob
     else:
-        return 'pupyimporter.pupy_add_package({}, compressed=True)'.format(repr(blob))
+        return 'pupyimporter.pupy_add_package({}, compressed=True)'.format(
+            reprb(blob))
 
 
-def modify_native_content(filename, content):
+def modify_native_content(target, filename, content):
+    if not isinstance(content, bytes):
+        return content
+
     if content.startswith(b'\x7fELF'):
-        logger.info('ELF file - %s, check for libpython DT_NEED record', filename)
+        logger.info(
+            'ELF file - %s, check for libpython DT_NEED record', filename
+        )
+
         image = BytesIO(content)
-        if remove_dt_needed(image, 'libpython2.7.so.1.0'):
-            logger.info('Modified: DT_NEEDED libpython2.7.so.1.0 removed')
+        if remove_dt_needed(image, target.so):
+            logger.info('Modified: DT_NEEDED %s removed', target.so)
 
         content = image.getvalue()
 
     return content
 
 
-def get_content(platform, arch, prefix, filepath, archive=None, honor_ignore=True, native=False):
+def open_module(filepath):
+    if filepath.endswith('.py'):
+        return open(filepath, 'r')
+    else:
+        return open(filepath, 'rb')
+
+
+def get_content(target, prefix, filepath, archive=None, honor_ignore=True):
     if filepath.startswith(prefix) and honor_ignore:
         basepath = filepath[len(prefix)+1:]
         basepath, ext = os.path.splitext(basepath)
+
         if ext in ('.pyo', 'py', '.pyc'):
             ext = '.py'
-        basepath = basepath+ext
+
+        basepath = basepath + ext
 
         arch_prefixes = ['all']
-        if platform:
-            arch_prefixes.append(platform)
-            arch_prefixes.append(os.path.join(platform, 'all'))
+        if target.os:
+            arch_prefixes.append(target.os)
+            arch_prefixes.append(os.path.join(target.os, 'all'))
 
-            if arch:
-                arch_prefixes.append(os.path.join(platform, arch))
+            if target.arch:
+                arch_prefixes.append(os.path.join(target.os, target.arch))
 
         for patch_prefix in PATCHES_PATHS:
             if not os.path.isdir(patch_prefix):
@@ -307,42 +370,57 @@ def get_content(platform, arch, prefix, filepath, archive=None, honor_ignore=Tru
                     continue
 
                 maybe_patch = os.path.join(patch_dir, basepath)
+
                 if os.path.exists(maybe_patch):
                     logger.info('Patch: %s -> %s', filepath, maybe_patch)
-                    with open(maybe_patch, 'rb') as filedata:
+                    with open_module(maybe_patch) as filedata:
                         return filedata.read()
+
                 elif os.path.exists(maybe_patch+'.ignore'):
                     logger.info('Patch: Ignore %s', filepath)
                     raise IgnoreFileException()
+
                 elif os.path.exists(maybe_patch+'.include'):
                     break
+
                 else:
                     subpaths = basepath.split(os.path.sep)
+
                     for i in xrange(len(subpaths)):
                         ignore = [patch_dir] + subpaths[:i]
                         ignore.append('.ignore')
                         ignore = os.path.sep.join(ignore)
                         if os.path.exists(ignore):
-                            logger.info('Patch: Ignore %s (%s)', filepath, ignore)
+                            logger.info(
+                                'Patch: Ignore %s (%s)', filepath, ignore
+                            )
                             raise IgnoreFileException()
 
     content = None
 
     if archive:
         content = archive.read(filepath)
+        if filepath.endswith('.py'):
+            content = content.decode('utf-8')
     else:
-        with open(filepath, 'rb') as filedata:
+        with open_module(filepath) as filedata:
             content = filedata.read()
 
-    if not native:
-        logger.debug('Modify natve content for %s (native=%s)', filepath, bool(native))
-        content = modify_native_content(filepath, content)
+    if not target.native:
+        logger.debug(
+            'Modify natve content for %s (native=%s)',
+            filepath, target.native
+        )
+
+        content = modify_native_content(target, filepath, content)
 
     return content
 
 
-def from_path(platform, arch, search_path, start_path, pure_python_only=False,
-              remote=False, honor_ignore=True, native=False, ignore_native=False):
+def from_path(
+    target, search_path, start_path,
+        remote=False, pure_python_only=False,
+        honor_ignore=True, ignore_native=False):
 
     query = start_path
 
@@ -354,9 +432,14 @@ def from_path(platform, arch, search_path, start_path, pure_python_only=False,
     module_path = os.path.join(search_path, start_path)
 
     if remote:
-        if '..' in module_path or not module_path.startswith(tuple(LIBS_AUTHORIZED_PATHS)):
-            raise UnsafePathError('Attempt to retrieve lib from unsafe path: {} (query={})'.format(
-                module_path, query))
+        if '..' in module_path or not module_path.startswith(
+                tuple(LIBS_AUTHORIZED_PATHS)):
+            raise UnsafePathError(
+                'Attempt to retrieve lib from unsafe '
+                'path: {} (query={})'.format(
+                    module_path, query
+                )
+            )
 
     # loading a real package with multiple files
     if os.path.isdir(module_path) and safe_file_exists(module_path):
@@ -373,31 +456,35 @@ def from_path(platform, arch, search_path, start_path, pure_python_only=False,
                         # avoid loosing shells when looking for packages in
                         # sys.path and unfortunatelly pushing a .so ELF on a
                         # remote windows
-                        raise BinaryObjectError('Path contains binary objects: {} (query={})'.format(
-                            f, query))
+                        raise BinaryObjectError(
+                            'Path contains binary objects: {} '
+                            '(query={})'.format(f, query)
+                        )
 
-                if not f.endswith(('.so', '.pyd', '.dll', '.pyo', '.pyc', '.py')):
+                if not f.endswith((
+                        '.so', '.pyd', '.dll', '.pyo', '.pyc', '.py')):
                     continue
 
                 try:
                     module_code = get_content(
-                        platform,
-                        arch,
+                        target,
                         search_path,
                         os.path.join(root, f),
-                        honor_ignore=honor_ignore,
-                        native=native)
+                        honor_ignore=honor_ignore
+                    )
                 except IgnoreFileException:
                     continue
 
                 modprefix = root[len(search_path.rstrip(os.sep))+1:]
-                modpath = os.path.join(modprefix,f).replace("\\","/")
+                modpath = os.path.join(modprefix, f).replace('\\', '/')
 
                 base, ext = modpath.rsplit('.', 1)
 
                 # Garbage removing
                 if ext == 'py':
-                    module_code = pupycompile(module_code, modpath)
+                    module_code = pupycompile(
+                        module_code, modpath, target=target.pyver
+                    )
                     modpath = base+'.pyo'
                     if base+'.pyc' in modules_dic:
                         del modules_dic[base+'.pyc']
@@ -423,34 +510,37 @@ def from_path(platform, arch, search_path, start_path, pure_python_only=False,
 
                 modules_dic[modpath] = module_code
 
-    else: # loading a simple file
+    else:
         extlist = ['.py', '.pyo', '.pyc']
         if not pure_python_only:
-            #quick and dirty ;) => pythoncom27.dll, pywintypes27.dll
-            extlist += ['.so', '.pyd', '27.dll']
+            extlist.extend(('.so', '.pyd'))
+
+            if target.pymaj == 2:
+                extlist.append('27.dll')
 
         for ext in extlist:
             filepath = os.path.join(module_path+ext)
             if os.path.isfile(filepath) and safe_file_exists(filepath):
                 try:
                     module_code = get_content(
-                        platform,
-                        arch,
+                        target,
                         search_path,
                         filepath,
                         honor_ignore=honor_ignore,
-                        native=native)
+                    )
                 except IgnoreFileException:
                     break
 
                 cur = ''
                 for rep in start_path.split('/')[:-1]:
-                    if cur+rep+'/__init__.py' not in modules_dic:
-                        modules_dic[rep+'/__init__.py']=''
-                    cur+=rep+'/'
+                    if cur + rep + ' /__init__.py' not in modules_dic:
+                        modules_dic[rep+'/__init__.py'] = ''
+                    cur += rep + '/'
 
                 if ext == '.py':
-                    module_code = pupycompile(module_code, start_path+ext)
+                    module_code = pupycompile(
+                        module_code, start_path+ext, target=target.pyver
+                    )
                     ext = '.pyo'
 
                 modules_dic[start_path+ext] = module_code
@@ -460,20 +550,22 @@ def from_path(platform, arch, search_path, start_path, pure_python_only=False,
     return modules_dic
 
 
-def paths(platform='all', arch=None, posix=None):
-    """ return the list of path to search packages for depending on client OS and architecture """
+def paths(target):
+    """
+    return the list of path to search packages for depending
+    on client OS and architecture
+    """
 
-    if posix is None:
-        posix = platform.lower() != 'windows'
+    posix = target.os != 'windows'
 
     path = [
-        os.path.join('packages', platform),
+        os.path.join('packages', target.os),
         os.path.abspath(os.path.join(ROOT, 'library_patches'))
     ]
 
-    if arch:
+    if target.arch:
         path = path + [
-            os.path.join(p, arch) for p in path
+            os.path.join(p, target.arch) for p in path
         ]
 
     if posix:
@@ -496,7 +588,7 @@ def paths(platform='all', arch=None, posix=None):
     ]
 
 
-def _dependencies(module_name, os, dependencies):
+def _dependencies(target, module_name, dependencies):
     if module_name in dependencies:
         return
 
@@ -504,40 +596,46 @@ def _dependencies(module_name, os, dependencies):
 
     mod_deps = WELL_KNOWN_DEPS.get(module_name, {})
 
-    for dependency in mod_deps.get('all', []) + mod_deps.get(os, []):
-        _dependencies(dependency, os, dependencies)
+    for dependency in mod_deps.get('all', []) + mod_deps.get(target.os, []):
+        _dependencies(target, dependency, dependencies)
+
 
 def _package(
-        modules, module_name, platform, arch, remote=False,
-        posix=None, honor_ignore=True, native=False, ignore_native=False):
+    target, modules, module_name, remote=False,
+        honor_ignore=True, ignore_native=False):
 
     initial_module_name = module_name
 
     start_path = module_name.replace('.', os.path.sep)
 
-    for search_path in paths(platform, arch, posix):
+    for search_path in paths(target):
         modules_dic = from_path(
-            platform, arch, search_path, start_path,
-            remote=remote, honor_ignore=honor_ignore,
-            native=native)
+            target, search_path, start_path,
+            remote=remote, honor_ignore=honor_ignore
+        )
+
         if modules_dic:
             break
 
-    if not modules_dic and arch:
-        archive = bundle(platform, arch)
+    if not modules_dic:
+        archive = bundle(target)
         if archive:
             modules_dic = {}
 
             endings = COMMON_MODULE_ENDINGS
 
             # Horrible pywin32..
-            if module_name in ('pythoncom', 'pythoncomloader', 'pywintypes'):
-                endings = tuple(['27.dll'])
+            if target.pymaj == '2':
+                if module_name in (
+                        'pythoncom', 'pythoncomloader', 'pywintypes'):
+                    endings = tuple(['27.dll'])
 
             start_paths = tuple([
-                ('/'.join([x, start_path])).strip('/')+y \
-                    for x in COMMON_SEARCH_PREFIXES \
-                    for y in endings
+                (
+                    '/'.join([x, start_path])
+                ).strip('/') + y
+                for x in COMMON_SEARCH_PREFIXES
+                for y in endings
             ])
 
             for info in archive.infolist():
@@ -546,7 +644,7 @@ def _package(
                     module_name = info.filename
 
                     for prefix in COMMON_SEARCH_PREFIXES:
-                        if module_name.startswith(prefix+'/'):
+                        if module_name.startswith(prefix + '/'):
                             module_name = module_name[len(prefix)+1:]
                             break
 
@@ -556,19 +654,28 @@ def _package(
                         continue
 
                     # Garbage removing
-                    if ext == 'py' and base+'.pyo' not in modules_dic:
+                    if ext == 'py':
                         try:
                             content = pupycompile(
                                 get_content(
-                                    platform, arch, prefix,
+                                    target, prefix,
                                     info.filename, archive,
-                                    honor_ignore=honor_ignore,
-                                    native=native),
-                                info.filename)
+                                    honor_ignore=honor_ignore
+                                ),
+                                info.filename,
+                                target=target.pyver
+                            )
+
+                            ext = 'pyo'
+
+                            if base+'.py' in modules_dic:
+                                del modules_dic[base+'.py']
+
+                            if base+'.pyc' in modules_dic:
+                                del modules_dic[base+'.pyc']
+
                         except IgnoreFileException:
                             continue
-
-                        ext = 'pyo'
 
                     elif ext == 'pyc':
                         if base+'.py' in modules_dic:
@@ -599,10 +706,10 @@ def _package(
                     if not content:
                         try:
                             content = get_content(
-                                platform, arch, prefix,
+                                target, prefix,
                                 info.filename, archive,
-                                honor_ignore=honor_ignore,
-                                native=native)
+                                honor_ignore=honor_ignore
+                            )
                         except IgnoreFileException:
                             continue
 
@@ -611,19 +718,24 @@ def _package(
 
             archive.close()
 
-    # in last resort, attempt to load the package from the server's sys.path if it exists
+    # in last resort, attempt to load the package from the
+    # server's sys.path if it exists
+
     if not modules_dic:
         for search_path in sys.path:
             try:
                 modules_dic = from_path(
-                    platform, arch,
-                    search_path, start_path, pure_python_only=True,
-                    ignore_native=ignore_native, remote=remote
+                    target, search_path, start_path,
+                    pure_python_only=True, ignore_native=ignore_native,
+                    remote=remote
                 )
 
                 if modules_dic:
-                    logger.info('package %s not found in packages/, but found in local sys.path'
-                                     ', attempting to push it remotely...' % initial_module_name)
+                    logger.info(
+                        'package %s not found in packages/, but found in'
+                        'local sys.path attempting to push it remotely',
+                        initial_module_name
+                    )
                     break
 
             except BinaryObjectError as e:
@@ -638,15 +750,17 @@ def _package(
     modules.update(modules_dic)
 
 
-def package(requirements, platform, arch, remote=False, posix=False,
-            filter_needed_cb=None, honor_ignore=True, native=False, ignore_native=False, as_dict=False):
+def package(
+    target, requirements, remote=False, filter_needed_cb=None,
+        honor_ignore=True, ignore_native=False, as_dict=False):
+
     dependencies = set()
 
     if not type(requirements) in (list, tuple, set, frozenset):
         requirements = [requirements]
 
     for requirement in requirements:
-        _dependencies(requirement, platform, dependencies)
+        _dependencies(target, requirement, dependencies)
 
     package_deps = set()
     dll_deps = set()
@@ -673,15 +787,14 @@ def package(requirements, platform, arch, remote=False, posix=False,
 
         for dependency in package_deps:
             _package(
-                modules, dependency, platform, arch,
-                remote=remote, posix=posix,
-                honor_ignore=honor_ignore,
-                native=native, ignore_native=ignore_native
+                target, modules, dependency,
+                remote=remote, honor_ignore=honor_ignore,
+                ignore_native=ignore_native
             )
 
         if not as_dict:
             payload = zlib.compress(
-                pickle.dumps(modules), 9
+                pickle.dumps(modules, 2), 9
             )
         else:
             payload = modules
@@ -690,19 +803,26 @@ def package(requirements, platform, arch, remote=False, posix=False,
 
     if dll_deps:
         for dependency in dll_deps:
-            dlls.append((dependency, dll(dependency, platform, arch)))
+            dlls.append((dependency, dll(target, dependency)))
 
     return payload, contents, dlls
 
 
-def bundle(platform, arch):
+def bundle(target):
+    if not target.os or not target.arch:
+        return None
+
+    bundle_name = '{}-{}-{}{}.zip'.format(
+        target.os, target.arch, target.pymaj, target.pymin
+    )
+
     arch_bundle = os.path.join(
-        'payload_templates', platform+'-'+arch+'.zip'
+        'payload_templates', bundle_name
     )
 
     if not os.path.isfile(arch_bundle):
         arch_bundle = os.path.join(
-            ROOT, 'payload_templates', platform+'-'+arch+'.zip'
+            ROOT, 'payload_templates', bundle_name
         )
 
     if not os.path.exists(arch_bundle):
@@ -711,33 +831,33 @@ def bundle(platform, arch):
     return ZipFile(arch_bundle, 'r')
 
 
-def dll(name, platform, arch, honor_ignore=True, native=False):
+def dll(target, name, honor_ignore=True):
     buf = b''
 
-    for packages_path in paths(platform, arch):
+    for packages_path in paths(target):
         dll_path = os.path.join(packages_path, name)
         if os.path.exists(dll_path):
             try:
                 buf = get_content(
-                    platform, arch, name, dll_path,
-                    honor_ignore=honor_ignore, native=native)
+                    target, name, dll_path,
+                    honor_ignore=honor_ignore
+                )
             except IgnoreFileException:
                 pass
 
             break
 
-    if not buf and arch:
-        archive = bundle(platform, arch)
+    if not buf:
+        archive = bundle(target)
         if archive:
             for info in archive.infolist():
                 if info.filename.endswith('/'+name) or info.filename == name:
                     try:
                         buf = get_content(
-                            platform, arch, os.path.dirname(info.filename),
+                            target, os.path.dirname(info.filename),
                             info.filename,
                             archive,
-                            honor_ignore=honor_ignore,
-                            native=native
+                            honor_ignore=honor_ignore
                         )
                     except IgnoreFileException:
                         pass

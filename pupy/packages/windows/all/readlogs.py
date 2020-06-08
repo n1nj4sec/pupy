@@ -366,7 +366,7 @@ class EventLog(object):
             pass
 
         finally:
-            for source in self._formatters_cache.keys():
+            for source in tuple(self._formatters_cache):
                 if self._formatters_cache[source]:
                     FreeLibrary(self._formatters_cache[source])
                 del self._formatters_cache[source]
@@ -552,7 +552,7 @@ def lastlog():
         if not session_id:
             continue
 
-    for session_id in sessions.keys():
+    for session_id in tuple(sessions):
         if sessions[session_id].get('start') and sessions[session_id].get('end'):
             sessions[session_id]['duration'] = \
               sessions[session_id]['end'] - sessions[session_id]['start']

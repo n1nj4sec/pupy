@@ -564,7 +564,7 @@ class Credentials(object):
                     }
                 else:
                     exec(content, self._credentials)
-                    for key in self._credentials.keys():
+                    for key in tuple(self._credentials):
                         if key.startswith('_'):
                             del self._credentials[key]
 

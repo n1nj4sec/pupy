@@ -152,7 +152,7 @@ def udp(host, timeout=10, amount=10, abort=None):
             except (OSError, IOError):
                 del datas[s]
 
-        r, _, _ = select(datas.keys(), [], [], timeout)
+        r, _, _ = select(list(datas), [], [], timeout)
         for sock in r:
             port, inital_payload, _ = datas[sock]
             try:

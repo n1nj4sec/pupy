@@ -778,7 +778,7 @@ if __name__ == '__main__':
             to_leave = []
 
             if len(self.terms) > 32768*16:
-                for term in list(self.terms.keys()):
+                for term in list(self.terms):
                     if self.terms[term] > 1:
                         to_leave.append(term)
 
@@ -789,10 +789,8 @@ if __name__ == '__main__':
                     )[:32768]
 
                 self.terms = {
-                    k:self.terms[k] for k in to_leave
+                    k: self.terms[k] for k in to_leave
                 }
-
-                print(("OPTIMIZED:", len(self.terms)))
 
         def _inc_cdn(self, cdn):
             if not cdn:

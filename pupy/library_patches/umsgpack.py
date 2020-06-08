@@ -449,7 +449,7 @@ def _pack2(obj, fp, **options):
         _pack_ext(obj, fp, options)
     elif ext_handlers:
         # Linear search for superclass
-        t = next((t for t in ext_handlers.keys() if isinstance(obj, t)), None)
+        t = next((t for t in ext_handlers if isinstance(obj, t)), None)
         if t:
             _pack_ext(ext_handlers[t](obj), fp, options)
         else:
@@ -519,7 +519,7 @@ def _pack3(obj, fp, **options):
         _pack_ext(obj, fp, options)
     elif ext_handlers:
         # Linear search for superclass
-        t = next((t for t in ext_handlers.keys() if isinstance(obj, t)), None)
+        t = next((t for t in ext_handlers if isinstance(obj, t)), None)
         if t:
             _pack_ext(ext_handlers[t](obj), fp, options)
         else:

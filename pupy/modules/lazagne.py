@@ -240,7 +240,7 @@ class LaZagne(PupyModule):
                     'Category': module
                 }
 
-                for c in cred.keys():
+                for c in cred:
                     result[c] = cred[c].strip()
 
                     for t, name in self.TYPESMAP.items():

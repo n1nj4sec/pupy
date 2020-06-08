@@ -140,7 +140,7 @@ def obtain(proxy):
 
     :returns: a copy of the remote object
     """
-    return pickle.loads(pickle.dumps(proxy))
+    return pickle.loads(pickle.dumps(proxy, 2))
 
 
 def deliver(conn, localobj):
@@ -155,7 +155,8 @@ def deliver(conn, localobj):
 
     :returns: a proxy to the remote object
     """
-    return conn.modules["network.lib.compat"].pickle.loads(pickle.dumps(localobj))
+    return conn.modules["network.lib.compat"].pickle.loads(
+        pickle.dumps(localobj, 2))
 
 
 @contextmanager

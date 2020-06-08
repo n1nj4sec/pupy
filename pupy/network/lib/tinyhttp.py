@@ -640,13 +640,13 @@ class HTTP(object):
 
         if headers:
             if isinstance(headers, dict):
-                filter_headers = set(headers.keys())
+                filter_headers = set(headers)
             else:
                 filter_headers = set(x for x, _ in headers)
 
         if isinstance(self.headers, dict):
             opener.addheaders = [
-                (x, y) for x,y in self.headers.items()
+                (x, y) for x, y in self.headers.items()
                 if x not in filter_headers
             ]
         else:
@@ -655,7 +655,7 @@ class HTTP(object):
         if headers:
             if isinstance(headers, dict):
                 opener.addheaders.extend([
-                    (x, y) for x,y in self.headers.items()
+                    (x, y) for x, y in self.headers.items()
                 ])
             else:
                 opener.addheaders.extend(headers)

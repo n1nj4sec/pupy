@@ -53,9 +53,19 @@ class PupyService(Service):
         self.infos = None
         self.get_infos = None
 
+        self.remote_version = (2, 7)
+        self.remote_arch = None
+
         self.events_receiver = None
 
     def exposed_on_connect(self):
+        if sys.version_info.major == 3:
+            # Deprecated API
+            self._conn.activate_3to2()
+            # raise NotImplementedError(
+            #   'Too old RPC version - python3 to python2 is not supported'
+            # )
+
         self._conn._config.update(dict(
             allow_safe_attrs = False,
             allow_public_attrs = False,
@@ -83,6 +93,14 @@ class PupyService(Service):
             pupyimporter,
             infos, *args
        ):
+
+        if sys.version_info.major == 3:
+            # Deprecated API
+            self._conn.activate_3to2()
+            # raise NotImplementedError(
+            #   'Too old RPC version - python3 to python2 is not supported'
+            # )
+
         self.namespace = namespace
         self.modules = modules
         self.builtin = self.builtins = builtin
@@ -134,13 +152,15 @@ class PupyService(Service):
 
             self.execute = self._conn.root.execute
             try:
-                self.register_remote_cleanup = self._conn.root.register_cleanup
+                self.register_remote_cleanup = \
+                    self._conn.root.register_cleanup
             except:
                 self.register_remote_cleanup = None
 
             if self.register_remote_cleanup:
                 try:
-                    self.unregister_remote_cleanup = self._conn.root.unregister_cleanup
+                    self.unregister_remote_cleanup = \
+                        self._conn.root.unregister_cleanup
                 except:
                     self.unregister_remote_cleanup = None
 

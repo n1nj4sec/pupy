@@ -153,7 +153,7 @@ def nowait(proxy):
     if not hasattr(proxy, "____conn__") or not hasattr(proxy, "____oid__"):
         raise TypeError("'proxy' must be a Netref: %r", (proxy,))
     if not callable(proxy):
-        raise TypeError("'proxy' must be callable: %r" % (proxy,))
+        raise TypeError("'proxy' must be callable: %r (%s)" % (proxy, type(proxy)))
     caller = _Async(proxy)
     _async_proxies_cache[id(caller)] = _async_proxies_cache[pid] = caller
     return caller

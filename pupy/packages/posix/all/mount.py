@@ -8,6 +8,9 @@ from __future__ import unicode_literals
 import os
 from io import open
 
+from network.lib.convcompat import unicodify
+
+
 class MountInfo(object):
     def __init__(self, line):
         src, dst, fsname, options, _, _ = (
@@ -134,4 +137,4 @@ def mounts():
         except:
             pass
 
-    return mountinfo
+    return unicodify(mountinfo)

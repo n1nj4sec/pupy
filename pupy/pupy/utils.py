@@ -4,6 +4,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 __all__ = (
     'pupy_add_package', 'has_module', 'has_dll', 'new_modules',
     'new_dlls', 'invalidate_module',
@@ -44,7 +45,7 @@ def pupy_add_package(pkdic, compressed=False, name=None):
     module = pickle.loads(pkdic)
 
     if __debug__:
-        logger.debug('Add files: %s', module.keys())
+        logger.debug('Add files: %s', tuple(module))
 
     pupy.modules.update(module)
 

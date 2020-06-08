@@ -165,7 +165,7 @@ class RFSManager(object):
         }
 
     def umountall(self):
-        for lpath in self._mounts.keys():
+        for lpath in list(self._mounts):
             self.umount(lpath)
 
 class RemoteOperations(object):

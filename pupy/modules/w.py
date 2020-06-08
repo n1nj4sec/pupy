@@ -4,13 +4,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyOutput import Color, Table
 from datetime import datetime, timedelta
 
 import logging
 
-__class_name__="WModule"
+__class_name__ = 'WModule'
 
 ADMINS = (r'NT AUTHORITY\SYSTEM', 'root')
 
@@ -24,11 +25,13 @@ class WModule(PupyModule):
         'windows': ['pupwinutils.security']
     }
 
-    is_module=False
+    is_module = False
 
     @classmethod
     def init_argparse(cls):
-        cls.arg_parser = PupyArgumentParser(prog="w", description=cls.__doc__)
+        cls.arg_parser = PupyArgumentParser(
+            prog='w', description=cls.__doc__
+        )
 
     def run(self, args):
         if self.client.is_windows():
@@ -40,8 +43,6 @@ class WModule(PupyModule):
 
                 cols = ['#']
 
-                sessions = wts_sessions.keys()
-
                 records = []
 
                 session_colors = {}
@@ -51,13 +52,13 @@ class WModule(PupyModule):
                 client_info = {'#': 'Client'}
                 client_res = {'#': 'Res'}
                 time_info = {
-                    k:{} for k in (
+                    k: {} for k in (
                         'LastInputTime', 'ConnectTime',
                         'DisconnectTime', 'LogonTime'
                     )
                 }
 
-                for session in sessions:
+                for session in wts_sessions:
                     current = wts_sessions[session]['current']
                     session_state = wts_sessions[session]['state']
                     session_info = wts_sessions[session]['info']

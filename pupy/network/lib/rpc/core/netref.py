@@ -1,3 +1,4 @@
+
 """
 **NetRef**: a transparent *network reference*. This module contains quite a lot
 of *magic*, so beware.
@@ -6,10 +7,15 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 import sys
 import inspect
 import types
-from network.lib.compat import pickle, is_py3k, maxint
+
+from network.lib.compat import (
+    pickle, is_py3k, maxint, as_attr_type
+)
+
 from . import consts
 
 
@@ -165,35 +171,59 @@ class BaseNetref(object):
             return syncreq(self, consts.HANDLE_GETATTR, name)
 
     def __getattr__(self, name):
-        return syncreq(self, consts.HANDLE_GETATTR, name)
+        return syncreq(
+            self, consts.HANDLE_GETATTR,
+            as_attr_type(name)
+        )
 
     def __delattr__(self, name):
         if name in _local_netref_attrs:
-            object.__delattr__(self, name)
+            object.__delattr__(
+                self, as_attr_type(name)
+            )
         else:
-            syncreq(self, consts.HANDLE_DELATTR, name)
+            syncreq(
+                self, consts.HANDLE_DELATTR,
+                as_attr_type(name)
+            )
 
     def __setattr__(self, name, value):
         if name in _local_netref_attrs:
-            object.__setattr__(self, name, value)
+            object.__setattr__(
+                self, as_attr_type(name), value
+            )
         else:
-            syncreq(self, consts.HANDLE_SETATTR, name, value)
+            syncreq(
+                self, consts.HANDLE_SETATTR,
+                as_attr_type(name), value
+            )
 
     def __dir__(self):
-        return list(syncreq(self, consts.HANDLE_DIR))
+        return list(
+            as_attr_type(key) for key in syncreq(
+                self, consts.HANDLE_DIR
+            )
+        )
 
     # support for metaclasses
     def __hash__(self):
         return syncreq(self, consts.HANDLE_HASH)
 
+    def __iter__(self):
+        return syncreq(
+            self, consts.HANDLE_CALLATTR, '__iter__'
+        )
+
     def __cmp__(self, other):
         return syncreq(self, consts.HANDLE_CMP, other)
 
     def __repr__(self):
-        return syncreq(self, consts.HANDLE_REPR)
+        # __repr__ MUST return string
+        return as_attr_type(syncreq(self, consts.HANDLE_REPR))
 
     def __str__(self):
-        return syncreq(self, consts.HANDLE_STR)
+        # __str__ MUST return string
+        return as_attr_type(syncreq(self, consts.HANDLE_STR))
 
     # support for pickling netrefs
     def __reduce_ex__(self, proto):
@@ -218,7 +248,7 @@ def _make_method(name, doc):
         "__setslice__": "__setitem__"
     }
 
-    name = str(name)                                      # IronPython issue #10
+    name = as_attr_type(name)  # IronPython issue #10
     if name == "__call__":
         def __call__(_self, *args, **kwargs):
             kwargs = tuple(kwargs.items())
@@ -231,7 +261,11 @@ def _make_method(name, doc):
         def method(self, start, stop, *args):
             if stop == maxint:
                 stop = None
-            return syncreq(self, consts.HANDLE_OLDSLICING, slicers[name], name, start, stop, args)
+
+            return syncreq(
+                self, consts.HANDLE_OLDSLICING, slicers[name],
+                name, start, stop, args
+            )
 
         method.__name__ = name
         method.__doc__ = doc
@@ -240,7 +274,9 @@ def _make_method(name, doc):
     else:
         def method(_self, *args, **kwargs):
             kwargs = tuple(kwargs.items())
-            return syncreq(_self, consts.HANDLE_CALLATTR, name, args, kwargs)
+            return syncreq(
+                _self, consts.HANDLE_CALLATTR, name, args, kwargs
+            )
 
         method.__name__ = name
         method.__doc__ = doc
@@ -281,12 +317,18 @@ def class_factory(clsname, modname, methods):
 
     :returns: a netref class
     """
-    clsname = str(clsname)                                # IronPython issue #10
-    modname = str(modname)                                # IronPython issue #10
+    clsname = as_attr_type(clsname)
+    modname = as_attr_type(modname)
+
     ns = {"__slots__": ()}
 
     for name, doc in methods:
-        name = str(name)                                  # IronPython issue #10
+        name = as_attr_type(name)
+        doc = as_attr_type(doc) if doc else ''
+
+        if name == 'next':
+            ns['__next__'] = _make_method(name, doc)
+
         if name not in _local_netref_attrs:
             ns[name] = _make_method(name, doc)
 

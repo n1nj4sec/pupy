@@ -24,8 +24,7 @@ print("ROOT: ", ROOT)
 PATCHES = os.path.join(ROOT, 'pupy', 'library_patches')
 
 sys.path.insert(0, PATCHES)
-sys.path.append(os.path.join(ROOT, 'pupy'))
-sys.path.append(os.path.join(ROOT, 'pupy', 'pupylib'))
+sys.path.append(os.path.join(ROOT, 'pupy'))sys.path.append(os.path.join(ROOT, 'pupy', 'pupylib'))
 
 pupycompile = __import__('PupyCompile').pupycompile
 

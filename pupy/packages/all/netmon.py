@@ -80,7 +80,7 @@ class NetMon(pupy.Task):
             else:
                 self.pending_udp_listeners[new_listener_udp] += 1
 
-        for old_listener_udp in self.pending_udp_listeners.keys():
+        for old_listener_udp in list(self.pending_udp_listeners):
             if old_listener_udp not in new_listener_udp:
                 del self.pending_udp_listeners[old_listener_udp]
 

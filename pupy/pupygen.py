@@ -429,9 +429,9 @@ def generate_binary_from_template(display, config, osname, arch=None, shared=Fal
 
     osname = osname.lower()
 
-    if osname not in CLIENTS.keys():
+    if osname not in CLIENTS:
         raise ValueError('Unknown OS ({}), known = '.format(
-            osname, ', '.join(CLIENTS.keys())))
+            osname, ', '.join(CLIENTS)))
 
     generator, template, makex = CLIENTS[osname]
 
@@ -855,11 +855,11 @@ def pupygen(args, config, pupsrv, display):
     return os.path.abspath(outpath)
 
 def main():
-    from pupylib.utils.term import hint_to_text
+    from pupylib.utils.term import as_term_bytes
     from traceback import print_exc
 
     def display(data):
-        print(hint_to_text(data))
+        print(as_term_bytes(data))
 
     Credentials.DEFAULT_ROLE = 'CLIENT'
 

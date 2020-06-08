@@ -38,9 +38,10 @@ if sys.version_info.major > 2:
     import _io
 
     class AnyIOWrapper(object):
-        __slots__ = ('fileobj')
+        __slots__ = ('fileobj', 'softspace')
 
         def __init__(self, pyfile):
+            self.softspace = getattr(pyfile, 'softspace', 0)
             self.fileobj = os.fdopen(
                 pyfile.fileno(), 'ab', 0
             )

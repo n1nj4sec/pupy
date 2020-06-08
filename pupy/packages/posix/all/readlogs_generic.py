@@ -106,7 +106,7 @@ class GenericLogReader(object):
 
         events = {}
 
-        for source in sorted(self.files.keys(), key=try_get_mtime, reverse=True):
+        for source in sorted(self.files, key=try_get_mtime, reverse=True):
             parser = self.files[source]
 
             for item in parser(source):

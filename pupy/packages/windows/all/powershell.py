@@ -422,7 +422,7 @@ class PowerHost(object):
         if name:
             return name in self._powershells
         else:
-            return self._powershells.keys()
+            return tuple(self._powershells)
 
     def unregister(self, name):
         if name not in self._powershells:
@@ -446,7 +446,7 @@ class PowerHost(object):
         return self._powershells[name].execute(expression, nowait, timeout)
 
     def stop(self):
-        for name in self._powershells.keys():
+        for name in tuple(self._powershells):
             self._powershells[name].stop()
             del self._powershells[name]
 
@@ -547,7 +547,8 @@ def get_results():
         raise PowerHostUninitialized()
 
     return {
-        ctx:results.keys() for ctx, results in powershell.results.items()
+        ctx: tuple(results)
+        for ctx, results in powershell.results.items()
     }
 
 

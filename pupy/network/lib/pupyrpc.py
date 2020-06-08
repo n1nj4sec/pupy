@@ -5,6 +5,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 __all__ = ('nowait', 'brine')
 
 import sys
@@ -14,6 +15,7 @@ if 'rpyc' in sys.modules:
 
     nowait = getattr(rpyc, 'async')
     brine = rpyc.core.brine
+    netref = rpyc.core.netref
 
 else:
     from network.lib.rpc import nowait

@@ -4,12 +4,15 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyOutput import Color, Line, Table
 
+from network.lib.compat import as_attr_type
+
 import logging
 
-__class_name__="IPModule"
+__class_name__ = 'IPModule'
 
 
 @config(cat="admin")
@@ -21,27 +24,31 @@ class IPModule(PupyModule):
 
     @classmethod
     def init_argparse(cls):
-        cls.arg_parser = PupyArgumentParser(prog="ip", description=cls.__doc__)
-        cls.arg_parser.add_argument('iface', nargs='*', help='show only these interfaces')
+        cls.arg_parser = PupyArgumentParser(
+            prog='ip', description=cls.__doc__
+        )
+
+        cls.arg_parser.add_argument(
+            'iface', nargs='*', help='show only these interfaces'
+        )
 
     def run(self, args):
         try:
             interfaces = self.client.remote('pupyps', 'interfaces')
             families = {
-                int(k):v for k,v in self.client.remote_const(
+                int(k): as_attr_type(v) for k, v in self.client.remote_const(
                     'pupyps', 'families'
                 ).items()
             }
 
             data = interfaces()
             families = {
-                int(x):y for x,y in families.items()
+                int(x): as_attr_type(y) for x, y in families.items()
             }
 
             objects = []
 
             for addr, addresses in data['addrs'].items():
-
                 if args.iface and addr not in args.iface:
                     continue
 

@@ -13,7 +13,9 @@ import socket
 import time
 
 from threading import Lock, RLock, Event, Thread
-from network.lib.compat import pickle, next, is_py3k, maxint, select_error
+from network.lib.compat import (
+    pickle, next, is_py3k, maxint, select_error, as_attr_type
+)
 from ..lib.colls import WeakValueDict, RefCountingColl
 from ..lib import get_methods
 from . import consts, brine, vinegar, netref
@@ -574,6 +576,8 @@ class Connection(object):
     # attribute access
     #
     def _check_attr(self, obj, name):
+        name = as_attr_type(name)
+
         if self._config["allow_exposed_attrs"]:
             if name.startswith(self._config["exposed_prefix"]):
                 name2 = name
@@ -594,15 +598,7 @@ class Connection(object):
         return False
 
     def _access_attr(self, oid, name, args, overrider, param, default):
-        if is_py3k:
-            if type(name) is bytes:
-                name = str(name, "utf8")
-            elif type(name) is not str:
-                raise TypeError("name must be a string")
-        else:
-            if type(name) not in (str, unicode):
-                raise TypeError("name must be a string")
-            name = str(name) # IronPython issue #10 + py3k issue
+        name = as_attr_type(name)
 
         obj = self._local_objects[oid]
         accessor = getattr(type(obj), overrider, None)
@@ -642,7 +638,7 @@ class Connection(object):
 
     def _handle_cmp(self, oid, other):
         # cmp() might enter recursive resonance... yet another workaround
-        #return cmp(self._local_objects[oid], other)
+        # return cmp(self._local_objects[oid], other)
         obj = self._local_objects[oid]
         try:
             return type(obj).__cmp__(obj, other)
@@ -653,7 +649,11 @@ class Connection(object):
         return hash(self._local_objects[oid])
 
     def _handle_call(self, oid, args, kwargs=()):
-        return self._local_objects[oid](*args, **dict(kwargs))
+        kwargs = {
+            as_attr_type(key): value for (key, value) in kwargs
+        }
+
+        return self._local_objects[oid](*args, **kwargs)
 
     def _handle_dir(self, oid):
         return tuple(dir(self._local_objects[oid]))
@@ -663,19 +663,39 @@ class Connection(object):
             conn = self._local_objects[oid].____conn__
             return conn.sync_request(consts.HANDLE_INSPECT, oid)
         else:
-            return tuple(get_methods(netref._local_netref_attrs, self._local_objects[oid]))
+            return tuple(
+                get_methods(
+                    netref._local_netref_attrs, self._local_objects[oid]
+                )
+            )
 
     def _handle_getattr(self, oid, name):
-        return self._access_attr(oid, name, (), "_rpyc_getattr", "allow_getattr", getattr)
+        return self._access_attr(
+            oid,
+            as_attr_type(name), (),
+            "_rpyc_getattr", "allow_getattr", getattr
+        )
 
     def _handle_delattr(self, oid, name):
-        return self._access_attr(oid, name, (), "_rpyc_delattr", "allow_delattr", delattr)
+        return self._access_attr(
+            oid, as_attr_type(name), (),
+            "_rpyc_delattr", "allow_delattr", delattr
+        )
 
     def _handle_setattr(self, oid, name, value):
-        return self._access_attr(oid, name, (value,), "_rpyc_setattr", "allow_setattr", setattr)
+        return self._access_attr(
+            oid, as_attr_type(name), (value,),
+            "_rpyc_setattr", "allow_setattr", setattr
+        )
 
     def _handle_callattr(self, oid, name, args, kwargs):
-        return self._handle_getattr(oid, name)(*args, **dict(kwargs))
+        kwargs = {
+            as_attr_type(key): value for (key, value) in kwargs
+        }
+
+        return self._handle_getattr(
+            oid, as_attr_type(name)
+        )(*args, **kwargs)
 
     def _handle_pickle(self, oid, proto):
         if not self._config["allow_pickle"]:

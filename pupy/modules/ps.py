@@ -13,7 +13,7 @@ import sys
 import logging
 import re
 
-__class_name__="PsModule"
+__class_name__ = 'PsModule'
 
 ADMINS = (r'SYSTEM', 'root')
 
@@ -36,7 +36,7 @@ def gen_colinfo(data):
             if type(data[pid][column]) not in (basestring, int, float):
                 continue
 
-            #fix ascii encode errors
+            # fix ascii encode errors
             if isinstance(data[pid][column], str):
                 pass
 

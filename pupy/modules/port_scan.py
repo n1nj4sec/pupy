@@ -72,7 +72,7 @@ class PortScan(PupyModule):
                 list({
                     'IP': str(host),
                     'PORTS': ', '.join([str(port) for port in sorted(list(objects[host]))])
-                } for host in sorted(objects.keys())),
+                } for host in sorted(objects)),
                 ['IP', 'PORTS']))
         else:
             self.error('No connectable ports found')

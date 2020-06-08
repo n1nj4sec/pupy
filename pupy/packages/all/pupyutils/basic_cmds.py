@@ -650,6 +650,7 @@ def rm(path):
 def _cat(data, dups, fin, N, n, grep, encoding=None, filter_out=False):
     bom = fin.read(2)
     need_newline = True
+    bom = bom.encode('latin1')
     if bom == codecs.BOM_UTF16_LE:
         fin = codecs.EncodedFile(fin, 'utf-8', 'utf-16-le')
     elif bom == codecs.BOM_UTF16_BE:

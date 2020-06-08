@@ -13,6 +13,7 @@ __all__ = (
 
 import sys
 import time
+import weakref
 import traceback
 
 from threading import Thread, Lock, current_thread
@@ -31,7 +32,7 @@ syncqueuelogger = getLogger('syncqueue')
 from network.lib.ack import Ack
 from network.lib.buffer import Buffer
 
-from network.lib.rpc.core import Connection, consts, brine
+from network.lib.rpc.core import Connection, consts, brine, netref
 from network.lib.rpc.core.consts import (
     HANDLE_PING, HANDLE_CLOSE, HANDLE_GETROOT
 )
@@ -40,8 +41,16 @@ FAST_CALLS = (
     HANDLE_PING, HANDLE_CLOSE, HANDLE_GETROOT
 )
 
+PY2TO3_CALLATTRS = (
+    '__getitem__', '__delitem__', '__setitem__',
+    '__getattr__', '__delattr__', '__setattr__',
+    '__getattribute__'
+)
 
 ############# Monkeypatch brine to be buffer firendly #############
+
+
+MSG_PUPY_CONTROL = 0xF
 
 
 def stream_dump(obj):
@@ -258,6 +267,20 @@ class SyncRequestDispatchQueue(object):
                 syncqueuelogger.debug('Queue(%s) closed', self)
 
 
+class PupyClientCababilities(object):
+    __slots__ = ('_storage', 'version')
+
+    def __init__(self, version=0):
+        self._storage = 0
+        self.version = version
+
+    def set(self, cap):
+        self._storage |= cap
+
+    def get(self, cap):
+        return self._storage & cap == cap
+
+
 class PupyConnection(Connection):
     __slots__ = (
         '_close_lock', '_sync_events_lock',
@@ -265,7 +288,8 @@ class PupyConnection(Connection):
         '_sync_raw_replies', '_sync_raw_exceptions',
         '_last_recv', '_ping', '_ping_timeout',
         '_serve_timeout', '_last_ping', '_default_serve_timeout',
-        '_queue', '_config', '_timer_event', '_timer_event_last'
+        '_queue', '_config', '_timer_event', '_timer_event_last',
+        '_client_capabilities'
     )
 
     def __repr__(self):
@@ -293,6 +317,9 @@ class PupyConnection(Connection):
         self._initialized = False
         self._deinitialized = False
         self._closing = False
+
+        self._client_capabilities = PupyClientCababilities()
+        self._3to2_mode = False
 
         if 'ping' in kwargs:
             ping = kwargs.pop('ping')
@@ -331,11 +358,22 @@ class PupyConnection(Connection):
 
         self.close()
 
+    # def _netref_factory(self, oid, clsname, modname):
+    #     return super(PupyConnection, self)._netref_factory(
+    #         oid, clsname, modname
+    #     )
+
     def consume(self):
         return self._channel.consume()
 
     def wake(self):
         self._channel.wake()
+
+    def activate_3to2(self):
+        self._3to2_mode = True
+
+    def is_3to2(self):
+        return self._3to2_mode
 
     def set_pings(self, ping=None, timeout=None):
         if ping is not None:
@@ -438,7 +476,67 @@ class PupyConnection(Connection):
         else:
             return obj
 
+    def _send_control(self, *args):
+        seq = next(self._seqcounter)
+        self._send(consts.MSG_PUPY_CONTROL, seq, args)
+
+    def _py2to3_conv(self, handler, args):
+        if handler in (consts.HANDLE_GETATTR, consts.HANDLE_DELATTR):
+            oid, name = args
+            return (oid, name.encode('utf-8'))
+        elif handler == consts.HANDLE_SETATTR:
+            oid, name, value = args
+            return (oid, name.encode('utf-8'), value)
+        elif handler == consts.HANDLE_CALLATTR:
+            oid, name, args, kwargs = args
+
+            if name in PY2TO3_CALLATTRS:
+                first, rest = args[0], args[1:]
+                first = first.encode('utf-8')
+                args = [first]
+                args.extend(rest)
+                args = tuple(args)
+
+            if kwargs is not None:
+                kwargs = tuple(
+                    (key.encode('utf-8'), value)
+                    for (key, value) in kwargs
+                )
+
+            return (oid, name.encode('utf-8'), args, kwargs)
+        elif handler == consts.HANDLE_CALL:
+            oid, args, kwargs = args
+
+            if kwargs is not None:
+                kwargs = tuple(
+                    (key.encode('utf-8'), value)
+                    for (key, value) in kwargs
+                )
+
+            return (oid, args, kwargs)
+
+        return args
+
+    def _netref_factory(self, oid, clsname, modname):
+        typeinfo = (clsname, modname)
+        if typeinfo in self._netref_classes_cache:
+            # print("Use cached netref", typeinfo)
+            cls = self._netref_classes_cache[typeinfo]
+        elif not self._3to2_mode and typeinfo in netref.builtin_classes_cache:
+            # print("Use builtin netref", typeinfo)
+            cls = netref.builtin_classes_cache[typeinfo]
+        else:
+            info = self.sync_request(consts.HANDLE_INSPECT, oid)
+            cls = netref.class_factory(clsname, modname, info)
+            self._netref_classes_cache[typeinfo] = cls
+            # print("Use inspect netref", typeinfo, "as", cls, "info", info)
+        return cls(weakref.ref(self), oid)
+
     def _send_request(self, handler, args, nowait=None):
+        if self._3to2_mode:
+            args = self._py2to3_conv(handler, args)
+            # print("SEND REQUEST", handler, args)
+
         seq = next(self._seqcounter)
         if nowait:
             if __debug__:
@@ -718,8 +816,7 @@ class PupyConnection(Connection):
 
         data = None
 
-        _async_callbacks = self._async_callbacks.keys()
-        for async_event_id in _async_callbacks:
+        for async_event_id in self._async_callbacks:
             async_event = self._async_callbacks.get(async_event_id, None)
             if not async_event:
                 continue
@@ -733,8 +830,11 @@ class PupyConnection(Connection):
             etimeout = async_event._ttl - now
 
             if __debug__:
-                logger.debug('Check timeouts: (%s) etimeout = %s / mintimeout = %s / ttl = %s',
-                    self, etimeout, mintimeout, async_event._ttl)
+                logger.debug(
+                    'Check timeouts: (%s) etimeout = %s / mintimeout = %s /'
+                    ' ttl = %s',
+                    self, etimeout, mintimeout, async_event._ttl
+                )
 
             if mintimeout is None or etimeout < mintimeout:
                 mintimeout = etimeout
@@ -742,28 +842,46 @@ class PupyConnection(Connection):
         timeout = mintimeout
 
         if __debug__:
-            logger.debug('Serve(%s): start / timeout = %s / interval = %s / ping timeout = %s / %s',
-                self, timeout, interval, ping_timeout, self._last_ping)
+            logger.debug(
+                'Serve(%s): start / timeout = %s / interval = %s '
+                '/ ping timeout = %s / %s',
+                self, timeout, interval, ping_timeout, self._last_ping
+            )
 
         data = self._recv(timeout, wait_for_lock=False)
 
         if __debug__:
             logger.debug(
-                'Serve(%s): complete / data = %s', self, len(data) if data else None)
+                'Serve(%s): complete / data = %s',
+                self, len(data) if data else None
+            )
 
         if not data and interval and ping_timeout:
             if not self._last_ping or now > self._last_ping + interval:
                 if __debug__:
-                    logger.debug('Send ping, interval(%s): %d, timeout: %d',
-                        self, interval, ping_timeout)
+                    logger.debug(
+                        'Send ping, interval(%s): %d, timeout: %d',
+                        self, interval, ping_timeout
+                    )
 
                 self._last_ping = self.ping(timeout=ping_timeout, now=now)
             else:
                 if __debug__:
-                    logger.debug('Ping not required(%s): %d < %d',
-                        self, self._last_ping or now, self._last_ping + interval)
+                    logger.debug(
+                        'Ping not required(%s): %d < %d',
+                        self, self._last_ping or now,
+                        self._last_ping + interval
+                    )
 
         return data
+
+    def _dispatch_pupy_control(self, args):
+        if __debug__:
+            logger.debug(
+                'Processing pupy brine control: args: %s', args
+            )
+
+        pass
 
     def _dispatch(self, data):
         if __debug__:
@@ -776,10 +894,18 @@ class PupyConnection(Connection):
                 logger.debug('Dispatch(%s) - data (%s)', self, len(data))
 
             msg, seq, args = brine._load(data)
-            if msg == consts.MSG_REQUEST:
+
+            if msg == MSG_PUPY_CONTROL:
+                self._dispatch_pupy_control(args)
+                return
+
+            elif msg == consts.MSG_REQUEST:
                 if __debug__:
-                    logger.debug('Processing message request, type(%s): %s seq: %s - started',
-                        self, args[0], seq)
+                    logger.debug(
+                        'Processing message request, type(%s): '
+                        '%s seq: %s - started',
+                        self, args[0], seq
+                    )
 
                 handler = args[0]
 
@@ -793,7 +919,9 @@ class PupyConnection(Connection):
             else:
                 if __debug__:
                     logger.debug(
-                        'Processing message response, seq(%s): %s - started', self, seq)
+                        'Processing message response, seq(%s): '
+                        '%s - started', self, seq
+                    )
 
                 if msg == consts.MSG_REPLY:
                     self._dispatch_reply(seq, args)
@@ -804,7 +932,9 @@ class PupyConnection(Connection):
 
                 if __debug__:
                     logger.debug(
-                        'Processing message, seq(%s): %s - completed', self, seq)
+                        'Processing message, seq(%s): '
+                        '%s - completed', self, seq
+                    )
 
             self._last_ping = now
 
@@ -817,8 +947,7 @@ class PupyConnection(Connection):
             if __debug__:
                 logger.debug('Dispatch(%s) - no data', self)
 
-        _async_callbacks = self._async_callbacks.keys()
-        for async_event_id in _async_callbacks:
+        for async_event_id in self._async_callbacks:
             async_event = self._async_callbacks.get(async_event_id)
             if not async_event:
                 continue

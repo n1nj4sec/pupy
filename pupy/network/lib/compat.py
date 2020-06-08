@@ -14,15 +14,16 @@ __all__ = (
     'select_module', 'select', 'get_exc_errno',
     'select_error', 'poll', 'xrange',
     'is_str', 'is_int', 'is_bin',
-    'as_byte'
+    'as_byte', 'as_attr_type'
 )
 
 
 import sys
 import time
 
-is_py3k = (sys.version_info[0] >= 3)
+from network.lib.convcompat import as_attr_type
 
+is_py3k = (sys.version_info[0] >= 3)
 
 if is_py3k:
     exec('execute = exec')
@@ -237,3 +238,4 @@ def with_metaclass(meta, *bases):
         metaclass,
         str('temporary_class'), (), {}
     )
+

@@ -1481,4 +1481,4 @@ def info(realm, global_catalog):
 
 
 def bounded():
-    return tuple(REALM_CACHE.keys())
+    return tuple(REALM_CACHE)

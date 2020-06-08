@@ -25,9 +25,15 @@ assert(pupylib)
 from network.conf import launchers
 
 parser = argparse.ArgumentParser('pupy')
-parser.add_argument('--debug', action='store_true', default=False, help='Enable debug')
-parser.add_argument('launcher', choices=launchers.keys(), default='connect', help='Launcher')
-parser.add_argument('args', nargs=argparse.REMAINDER, help='Launcher args')
+parser.add_argument(
+    '--debug', action='store_true', default=False, help='Enable debug'
+)
+parser.add_argument(
+    'launcher', choices=tuple(launchers), default='connect', help='Launcher'
+)
+parser.add_argument(
+    'args', nargs=argparse.REMAINDER, help='Launcher args'
+)
 
 args = parser.parse_args()
 

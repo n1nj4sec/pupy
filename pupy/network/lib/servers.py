@@ -431,7 +431,7 @@ class PupyUDPServer(object):
                     for f in failed:
                         self.clients[f].close()
 
-                    for f in self.dispatcher.keys():
+                    for f in list(self.dispatcher):
                         if f not in updated:
                             self.clients[f].wake()
 
@@ -439,7 +439,7 @@ class PupyUDPServer(object):
                     logging.exception(e)
                     raise
 
-            for f in self.clients.keys():
+            for f in list(self.clients):
                 self.clients[f].close()
 
         except EOFError as e:
@@ -459,7 +459,7 @@ class PupyUDPServer(object):
     def close(self):
         self.active = False
 
-        for f in self.clients.keys():
+        for f in list(self.clients):
             self.clients[f].close()
 
         if self.sock:
