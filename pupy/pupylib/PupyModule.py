@@ -609,10 +609,10 @@ class PupyModule(with_metaclass(PupyModuleMetaclass)):
 
 
 def config(**kwargs):
-    for l in ['compat', 'compatibilities', 'compatibility', 'tags']:
-        if l in kwargs:
-            if type(kwargs[l])!=list:
-                kwargs[l]=[kwargs[l]]
+    for option in ['compat', 'compatibilities', 'compatibility', 'tags']:
+        if option in kwargs:
+            if type(kwargs[option]) != list:
+                kwargs[option] = [kwargs[option]]
 
     def class_rebuilder(klass):
         klass.tags = kwargs.get('tags', klass.tags)

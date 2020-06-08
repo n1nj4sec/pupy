@@ -138,7 +138,9 @@ class SMBSpider:
                 for string in self.search_str:
                     indexes = [m.start() for m in re.finditer(string, buffer, flags=re.IGNORECASE)]
                     for i in indexes:
-                        r = "{path} > {content}".format(share=self.share, path=path, content=buffer[i:].strip().split('\n')[0])
+                        r = "{share} {path} > {content}".format(
+                                share=self.share, path=path, content=buffer[i:].strip().split('\n')[0]
+                            )
                         yield r
 
             rfile.close()

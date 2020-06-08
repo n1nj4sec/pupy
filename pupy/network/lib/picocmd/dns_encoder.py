@@ -110,7 +110,7 @@ class Root(object):
         return self.weight < other.weight
 
     def __repr__(self):
-        return '{{R:{}}}'.format(self.weight, self.A, self.B)
+        return '{{R:({}) ({}) ({})}}'.format(self.weight, self.A, self.B)
 
 
 class Huffman(object):

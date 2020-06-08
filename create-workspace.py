@@ -11,8 +11,6 @@ import subprocess
 import os
 import sys
 import errno
-import tempfile
-import tarfile
 import hashlib
 import shutil
 import resource
@@ -317,7 +315,10 @@ def initialize_workdir(workdir, gitdir):
 def create_virtualenv(workdir, git_path, orchestrator=None, templates=[]):
     import virtualenv
 
-    virtualenv.create_environment(workdir)
+    if hasattr(virtualenv, 'create_environment'):
+        virtualenv.create_environment(workdir)
+    else:
+        virtualenv.cli_run([workdir])
 
     print("[+] Update pip version ...")
     subprocess.check_call([

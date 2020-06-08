@@ -18,12 +18,6 @@ import termios
 
 from pygments import highlight
 
-TERM = os.environ.get('TERM')
-if TERM and TERM.endswith('256color'):
-    from pygments.formatters import Terminal256Formatter as TerminalFormatter
-else:
-    from pygments.formatters import TerminalFormatter
-
 from pupylib.PupyOutput import (
     Hint, Text, NewLine, Title, MultiPart, Indent, Color,
     TruncateToTerm, Error, Log, Warn, Success, Info,

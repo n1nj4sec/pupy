@@ -111,8 +111,8 @@ def valueconv(x):
         pass
 
     try:
-        for l in x:
-            if l in string.letters:
+        for letter in x:
+            if letter in string.letters:
                 base64.b64decode(x)
                 return x
     except:

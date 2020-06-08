@@ -88,9 +88,9 @@ def commands_completer(module, args, text, context):
     ]
 
 
-def list_completer(l):
+def list_completer(lines):
     def func(module, args, text, context):
-        return [x+" " for x in l if x.startswith(text)]
+        return [line+" " for line in lines if line.startswith(text)]
     return func
 
 
