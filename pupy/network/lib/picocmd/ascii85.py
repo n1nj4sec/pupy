@@ -5,7 +5,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import string
 
 def ascii85EncodeDG(indata):
     "Encode a string according to ASCII-Base-85."
@@ -13,8 +12,11 @@ def ascii85EncodeDG(indata):
     result = ''
     fetched = 0
 
-    while 1:
-        buf = map(lambda x:ord(x)+0, indata[fetched:fetched+4])
+    while True:
+        buf = [
+            ord(x)+0 for x in indata[fetched:fetched+4]
+        ]
+
         fetched = fetched + len(buf)
 
         if not buf:
@@ -34,7 +36,7 @@ def ascii85EncodeDG(indata):
             num = num // 85
 
         res = res[:len(indata)+1]
-        result = result + string.join(map(chr, res), '')
+        result = result + ''.join(map(chr, res))
 
     return result + "~>"
 
@@ -42,19 +44,22 @@ def ascii85EncodeDG(indata):
 def ascii85DecodeDG(indata):
     "Decode a string encoded with ASCII-Base-85."
 
-    indata = string.join(string.split(indata),'')
     msg = 'Invalid terminator for Ascii Base 85 Stream'
     assert indata[-2:] == '~>', msg
     indata = indata[:-2]
 
-    #may have 'z' in it which complicates matters - expand them
-    indata = string.replace(indata, 'z', '!!!!!')
+    # may have 'z' in it which complicates matters - expand them
+    if 'z' in indata:
+        indata = indata.replace('z', '!!!!!')
 
     result = ''
     fetched = 0
 
-    while 1:
-        buf = map(lambda x:ord(x)+0-33, indata[fetched:fetched+5])
+    while True:
+        buf = [
+            ord(x)+0-33 for x in indata[fetched:fetched+5]
+        ]
+
         fetched = fetched + len(buf)
 
         if not buf:
@@ -73,7 +78,7 @@ def ascii85DecodeDG(indata):
 
         assert num == 16777216 * b1 + 65536 * b2 + 256 * b3 + b4, 'dodgy code!'
         # This modulo operation (256) is maybe a hack! DCG
-        res = b1%256, b2, b3, b4
-        result = result + string.join(map(chr, res), '')
+        res = b1 % 256, b2, b3, b4
+        result = result + ''.join(map(chr, res))
 
     return result
