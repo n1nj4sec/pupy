@@ -210,17 +210,19 @@ try:
                                     [PATCHES] + ziproot.split('/'))
                                 ext = '.py'
 
-                            print('adding file : {}'.format(zipname))
-                            content.add(zipname)
-
                             if ext == '.py' and need_compile:
-                                zf.writestr(
-                                    zipname+'o',
-                                    compile_py(os.path.join(file_root, f+ext)))
+                                bytecode = compile_py(os.path.join(file_root, f+ext))
+                                if not bytecode:
+                                    print('[!] Failed to compile: ', f+ext)
+                                    continue
+
+                                zf.writestr(zipname+'o', bytecode)
                             else:
                                 zf.write(os.path.join(
                                     file_root, f+ext), zipname)
 
+                            print('adding file : {}'.format(zipname))
+                            content.add(zipname)
                             break
         else:
             if '<memimport>' in mpath:
