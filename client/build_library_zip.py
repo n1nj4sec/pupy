@@ -40,7 +40,7 @@ else:
 
 import additional_imports
 
-__import__('pupy').prepare()
+__import__('pupy').prepare(debug=True)
 
 sys_modules = [
     (x, sys.modules[x]) for x in sys.modules.keys()
