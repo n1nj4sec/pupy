@@ -22,18 +22,9 @@
 [submodule "pupy/external/Inveigh"]
 	path = pupy/external/Inveigh
 	url = https://github.com/Kevin-Robertson/Inveigh.git
-[submodule "pupy/external/pykcp"]
-	path = pupy/external/pykcp
-	url = https://github.com/alxchk/pykcp
 [submodule "pupy/pupy/external/BeRoot"]
 	path = pupy/external/BeRoot
 	url = https://github.com/AlessandroZ/BeRoot
-[submodule "client/toolchain/docker-old-tc-bootstrap"]
-	path = client/toolchain/docker-old-tc-bootstrap
-	url = https://github.com/alxchk/docker-old-tc-bootstrap
-[submodule "client/toolchain/docker-old-tc"]
-	path = client/toolchain/docker-old-tc
-	url = https://github.com/alxchk/docker-old-tc
 [submodule "pupy/external/pyopus"]
 	path = pupy/external/pyopus
 	url = https://github.com/alxchk/pyopus

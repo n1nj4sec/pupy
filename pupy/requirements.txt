@@ -43,7 +43,7 @@ dukpy
 pyaes
 chardet
 https://github.com/alxchk/urllib-auth/archive/master.zip
+https://github.com/alxchk/pykcp/archive/master.zip
 http_request
--e external/pykcp
 flake8
 flake8-per-file-ignores

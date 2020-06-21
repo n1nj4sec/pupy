@@ -10,6 +10,7 @@ PACKAGES="$PACKAGES https://github.com/warner/python-ed25519/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/alxchk/tinyec/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/alxchk/urllib-auth/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/alxchk/winkerberos/archive/master.zip"
+PACKAGES="$PACKAGES https://github.com/alxchk/pykcp/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/alxchk/pyuv/archive/v1.x.zip"
 PACKAGES="$PACKAGES adodbapi idna http_parser pyodbc wmi==1.4.9"
 
@@ -23,7 +24,6 @@ cd $SRC
 EXTERNAL=$(readlink -f ../../pupy/external)
 TEMPLATES=$(readlink -f ../../pupy/payload_templates)
 WINPTY=$EXTERNAL/winpty
-PYKCP=$EXTERNAL/pykcp
 PYOPUS=$EXTERNAL/pyopus/src
 
 echo "[+] Install python packages"
@@ -51,8 +51,6 @@ for PYTHON in $PYTHON32 $PYTHON64; do
         exit 1
     fi
 
-    rm -rf $PYKCP/{kcp.so,kcp.pyd,kcp.dll,build,KCP.egg-info}
-    $PYTHON -m pip install --upgrade --force $PYKCP
     $PYTHON -c 'import kcp' || exit 1
 done
 

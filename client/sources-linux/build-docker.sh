@@ -10,7 +10,6 @@ PUPY=$(readlink -f ../../pupy/)
 TEMPLATES=$PUPY/payload_templates
 
 EXTERNAL=../../pupy/external
-PYKCP=$EXTERNAL/pykcp
 PYOPUS=$EXTERNAL/pyopus/src
 PIP_INSTALL="python -m pip install --upgrade"
 
@@ -46,6 +45,7 @@ $PIP_INSTALL \
     https://github.com/alxchk/tinyec/archive/master.zip \
     https://github.com/warner/python-ed25519/archive/master.zip \
     https://github.com/alxchk/urllib-auth/archive/master.zip \
+    https://github.com/alxchk/pykcp/archive/master.zip \
     zeroconf==0.19.1 pyodbc \
     watchdog pulsectl pycryptodomex==3.7.0 --no-binary :all:
 
@@ -73,9 +73,6 @@ LDFLAGS="$LDFLAGS -lasound -lm -lrt" $PIP_INSTALL pyaudio
 
 $PIP_INSTALL --force-reinstall pycparser==2.17
 
-echo "[+] Compile pykcp"
-rm -rf $PYKCP/{kcp.so,kcp.pyd,kcp.dll,build,KCP.egg-info}
-$PIP_INSTALL --force $PYKCP
 python -c 'import kcp' || exit 1
 
 echo "[+] Compile opus"
