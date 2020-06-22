@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import print_function
+from __future__ import unicode_literals
+
 import sys
 import binascii
 import pylzma
@@ -15,11 +17,11 @@ MAX_CHAR_PER_LINE = 50
 ReflectiveLoaderSymName = 'ReflectiveLoader'
 
 ZERO_STRINGS = [
-    'Software\\Python\\PythonCore'
+    b'Software\\Python\\PythonCore'
 ]
 
 ZERO_STRINGS.extend([
-    z.encode('utf-16le') for z in ZERO_STRINGS
+    z.decode('ascii').encode('utf-16le') for z in ZERO_STRINGS
 ])
 
 
@@ -34,7 +36,7 @@ if __name__ == "__main__":
         file_bytes = f.read()
         for z in ZERO_STRINGS:
             if z in file_bytes:
-                file_bytes = file_bytes.replace(z, '\00' * len(z))
+                file_bytes = file_bytes.replace(z, b'\00' * len(z))
 
     try:
         image_base = 0
@@ -94,15 +96,15 @@ if __name__ == "__main__":
     h_file += "\nstatic const char %s_start[] = {\n" % (output)
     current_size = 0
 
-    for c in payload:
-        h_file += "'\\x%s'," % binascii.hexlify(c)
-        current_size += 1
-        if current_size > MAX_CHAR_PER_LINE:
-            current_size = 0
-            h_file += "\n"
-
-    h_file += "'\\x00' };\n"
-    h_file += pragma
-
     with open(sys.argv[2], 'w') as w:
         w.write(h_file)
+
+        for c in payload:
+            w.write("'\\x%s'," % binascii.hexlify(c))
+            current_size += 1
+            if current_size > MAX_CHAR_PER_LINE:
+                current_size = 0
+                w.write("\n")
+
+        w.write("'\\x00' };\n")
+        w.write(pragma)

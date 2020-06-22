@@ -190,7 +190,9 @@ class ECPV(object):
     def generate_key(self):
         self._private_key = self._gen_random()
         self._public_key = self._curve.g * self._private_key
-        self._public_key_digest = self._mgf2(ec2osp(self._public_key), AES_BLOCK_SIZE)
+        self._public_key_digest = self._mgf2(
+            ec2osp(self._public_key), AES_BLOCK_SIZE
+        )
 
         return (
             base64.b64encode(to_bytes(self._private_key)),

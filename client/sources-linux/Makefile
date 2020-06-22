@@ -1,18 +1,21 @@
 CC ?= gcc
+PYMAJ ?= 2
+PYMIN ?= 7
 
 OS ?= $(shell uname -s)
 MACH ?= $(shell uname -m)
-SUFFIX ?= $(shell echo $(OS) | cut -c -3 | tr '[:upper:]' '[:lower:]')
+SUFFIX ?= $(PYMAJ)$(PYMIN).$(shell echo $(OS) | cut -c -3 | tr '[:upper:]' '[:lower:]')
 
 STATIC_LIBZ := -Wl,-Bstatic -lz -Wl,-Bdynamic
 # STATIC_LIBZ := -lz
 
-CFLAGS := $(shell pkg-config --cflags python-2.7) -I. -I../common -fPIC $(CFLAGS_EXTRA) -pipe -Wall
+CFLAGS := $(shell pkg-config --cflags python-$(PYMAJ).$(PYMIN)) -I. -I../common -fPIC $(CFLAGS_EXTRA) -pipe -Wall
 LDFLAGS := $(LDFLAGS) $(STATIC_LIBZ) -lpthread -ldl -fPIC $(LDFLAGS_EXTRA)
 PFLAGS := -OO
 PIE ?= -pie
 
 CFLAGS += -D$(OS) -std=gnu99
+CFLAGS += -DPYMAJ=$(PYMAJ) -DPYMIN=$(PYMIN)
 
 ifeq ($(OPENSSL_LIB_VERSION),)
 OPENSSL_LIB_VERSION := 1.0.0
@@ -21,7 +24,7 @@ endif
 CFLAGS += "-DOPENSSL_LIB_VERSION=\"$(OPENSSL_LIB_VERSION)\""
 
 ifeq ($(LIBPYTHON),)
-LIBPYTHON := $(shell /sbin/ldconfig -p  | awk '/libpython2.7.so/{print $$4}' | head -n 1)
+LIBPYTHON := $(shell /sbin/ldconfig -p  | awk '/libpython$(PYMAJ).$(PYMIN).so/{print $$4}' | head -n 1)
 endif
 
 ifeq ($(LIBCRYPTO),)
@@ -96,7 +99,7 @@ APP_OBJS := main_exe.o pupy.o tmplibrary.o pupy_load.o
 COMMON_OBJS := daemonize.o decompress.o
 LOAD_DEPS := \
 	resources/$(MACH)/libssl.c resources/$(MACH)/libcrypto.c \
-	resources/$(MACH)/python27.c \
+	resources/$(MACH)/python$(PYMAJ)$(PYMIN).c \
 	resources/$(MACH)/library.c \
 	../common/Python-dynload.c ../common/Python-dynload.h \
 	../common/Python-dynload.c ../common/Python-dynload.h \
@@ -125,7 +128,7 @@ COMMON_OBJS += LzmaDec.o
 COMPRESSED = 1
 else
 CFLAGS += -DUNCOMPRESSED
-SUFFIX := unc.$(SUFFIX)
+SUFFIX := unc-$(SUFFIX)
 COMPRESSED = 0
 endif
 
@@ -141,7 +144,7 @@ CFLAGS += -D_FEATURE_INJECTOR -Iinjector/include
 LDFLAGS += -Wl,-wrap,realpath
 endif
 
-all: $(TEMPLATE_OUTPUT_PATH)/pupy$(NAME).$(SUFFIX) $(TEMPLATE_OUTPUT_PATH)/pupy$(NAME).$(SUFFIX).so
+all: $(TEMPLATE_OUTPUT_PATH)/pupy$(NAME)-$(SUFFIX) $(TEMPLATE_OUTPUT_PATH)/pupy$(NAME)-$(SUFFIX).so
 
 revision.h:
 	if [ x"$$COMMIT" = x"" ]; then rev=`cat ../../.git/\`cat ../../.git/HEAD | cut -f 2 -d \ \` | cut -c 1-8`; \
@@ -192,7 +195,7 @@ ld_hooks_$(NAME).c: ../gen_resource_header.py ld_hooks_$(NAME).so
 injector/%.o: injector/%.c
 	$(CC) -c $(LINUX_INJECT_CFLAGS) $(CFLAGS) -o $@ $<
 
-resources/$(MACH)/python27.so: $(LIBPYTHON)
+resources/$(MACH)/python$(PYMAJ)$(PYMIN).so: $(LIBPYTHON)
 	@mkdir -p resources/$(MACH)
 	cp -f $< $@.tmp
 	-chmod 600 $@.tmp
@@ -219,7 +222,7 @@ resources/$(MACH)/libssl.so: $(LIBSSL)
 resources/$(MACH)/library.zip: ../build_library_zip.py ../additional_imports.py
 	$(PYTHON) -OO $(PFLAGS) $< $@
 
-resources/$(MACH)/python27.c: ../gen_resource_header.py resources/$(MACH)/python27.so
+resources/$(MACH)/python$(PYMAJ)$(PYMIN).c: ../gen_resource_header.py resources/$(MACH)/python$(PYMAJ)$(PYMIN).so
 	$(PYTHON) $(PFLAGS) $+ $@ $(COMPRESSED) $(XZARGS)
 
 resources/$(MACH)/libssl.c: ../gen_resource_header.py resources/$(MACH)/libssl.so
@@ -228,13 +231,13 @@ resources/$(MACH)/libssl.c: ../gen_resource_header.py resources/$(MACH)/libssl.s
 resources/$(MACH)/libcrypto.c: ../gen_resource_header.py resources/$(MACH)/libcrypto.so
 	$(PYTHON) $(PFLAGS) $+ $@ $(COMPRESSED) $(XZARGS)
 
-$(TEMPLATE_OUTPUT_PATH)/pupy$(NAME).$(SUFFIX): $(APP_OBJS) $(COMMON_OBJS)
+$(TEMPLATE_OUTPUT_PATH)/pupy$(NAME)-$(SUFFIX): $(APP_OBJS) $(COMMON_OBJS)
 	$(CC) $(PIE) $+ -o $@ $(LDFLAGS) \
 		-Wl,--version-script=pupy.ldscript \
 		-Wl,--export-dynamic
 
-$(TEMPLATE_OUTPUT_PATH)/pupy$(NAME).$(SUFFIX).so: $(SHARED_OBJS) $(COMMON_OBJS)
-	$(CC) -shared $+ -o $@ $(LDFLAGS) -Wl,-soname,pupy$(NAME).$(SUFFIX).so \
+$(TEMPLATE_OUTPUT_PATH)/pupy$(NAME)-$(SUFFIX).so: $(SHARED_OBJS) $(COMMON_OBJS)
+	$(CC) -shared $+ -o $@ $(LDFLAGS) -Wl,-soname,pupy$(NAME)-$(SUFFIX).so \
 		-Wl,--version-script=pupy.so.ldscript
 
 .PHONY: clean all

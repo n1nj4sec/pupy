@@ -23,8 +23,8 @@ def _defered_close_exit(connection):
     pupy.client.terminate()
 
     logger.info('Closing connection')
-    if pupy.connection:
-        pupy.connection.close()
+    if pupy.client.connection:
+        pupy.client.connection.close()
 
     logger.info('Done')
 
@@ -53,11 +53,11 @@ def _handle_sigterm(*args):
     except Exception as e:
         logger.exception(e)
 
-    if pupy.connection:
-        pupy.connection.defer(
+    if pupy.client.connection:
+        pupy.client.connection.defer(
             logger.exception,
             _defered_close_exit,
-            pupy.connection
+            pupy.client.connection
         )
     else:
         _defered_close_exit(None)

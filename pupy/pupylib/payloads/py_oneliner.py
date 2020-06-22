@@ -26,7 +26,7 @@ def getLinuxImportedModules():
     return lines
 
 
-def pack_py_payload(target, display, conf, debug=False, autostart=True):
+def pack_py_payload(target, display, conf, autostart=True):
     display(Success('Generating PY payload ...'))
 
     stdlib = dependencies.importer(
@@ -52,7 +52,7 @@ def pack_py_payload(target, display, conf, debug=False, autostart=True):
         stdlib, conf, autostart
     ) + '\n'
 
-    if debug:
+    if target.debug:
         return payload
 
     return compress_encode_obfs(payload, main=True)

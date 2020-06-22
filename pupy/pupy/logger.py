@@ -3,7 +3,11 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-from __future__ import unicode_literals
+
+# This part executed from bootstrapped weak environment
+# Can't use unicode here, because encodings are not loaded yet
+# from __future__ import unicode_literals
+
 __all__ = ('create_root_logger', 'enable_debug_logger')
 
 from os import path, getpid

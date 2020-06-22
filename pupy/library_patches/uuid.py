@@ -43,6 +43,7 @@ Typical usage:
     >>> uuid.UUID(bytes=x.bytes)
     UUID('00010203-0405-0607-0809-0a0b0c0d0e0f')
 """
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -53,6 +54,7 @@ from sys import version_info
 
 if version_info.major > 2:
     long = int
+
 
 __author__ = 'Ka-Ping Yee <ping@zesty.ca>'
 

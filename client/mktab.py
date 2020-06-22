@@ -1,4 +1,6 @@
 from __future__ import print_function
+from __future__ import unicode_literals
+
 # A script to generate helper files for dynamic linking to the Python dll
 #
 
@@ -66,10 +68,12 @@ PyGILState_STATE, PyGILState_Ensure, (void)
 void, PyGILState_Release, (PyGILState_STATE)
 
 void, PySys_SetObject, (const char *, PyObject *)
+PyObject *, PySys_GetObject, (char *)
 PyObject *, PyString_FromString, (const char *)
 PyObject *, PyImport_AddModule, (const char *)
 PyObject*, PyImport_ExecCodeModuleEx, (char *name, PyObject *co, char *pathname)
 PyObject *, PyModule_GetDict, (PyObject *)
+int, PyDict_Next, (PyObject *, Py_ssize_t *, PyObject **, PyObject **)
 Py_ssize_t, PySequence_Length, (PyObject *)
 PyObject *, PySequence_GetItem, (PyObject *, Py_ssize_t)
 PyObject *, PyEval_EvalCode, (PyCodeObject *, PyObject *, PyObject *)

@@ -2,7 +2,7 @@ pycryptodome==3.7.0
 pyaes
 psutil
 rsa
-netaddr
+netaddr==0.7.19
 tinyec
 poster
 win_inet_pton

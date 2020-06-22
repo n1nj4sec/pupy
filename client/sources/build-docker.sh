@@ -3,7 +3,7 @@
 PACKAGES_BUILD="netifaces msgpack-python u-msgpack-python construct bcrypt watchdog dukpy impacket zeroconf==0.19.1"
 PACKAGES_BUILD="$PACKAGES_BUILD pycryptodomex pycryptodome cryptography pyOpenSSL paramiko"
 
-PACKAGES="rsa pefile rsa netaddr win_inet_pton netaddr pypiwin32 poster win_inet_pton dnslib"
+PACKAGES="rsa pefile win_inet_pton netaddr==0.7.19 pypiwin32 win_inet_pton dnslib"
 PACKAGES="$PACKAGES pyaudio https://github.com/secdev/scapy/archive/master.zip colorama pyaudio"
 PACKAGES="$PACKAGES https://github.com/alxchk/pypykatz/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/warner/python-ed25519/archive/master.zip"
@@ -11,7 +11,7 @@ PACKAGES="$PACKAGES https://github.com/alxchk/tinyec/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/alxchk/urllib-auth/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/alxchk/winkerberos/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/alxchk/pyuv/archive/v1.x.zip"
-PACKAGES="$PACKAGES adodbapi idna http_parser pyodbc wmi==1.4.9"
+PACKAGES="$PACKAGES adodbapi idna http-parser pyodbc wmi==1.4.9"
 
 SELF=$(readlink -f "$0")
 SELFPWD=$(dirname "$SELF")
@@ -107,7 +107,7 @@ for dir in Lib DLLs; do
         -x "*test/*" -x "*tests/*" -x "*examples/*" -x "pythonwin/*" \
         -x "idlelib/*" -x "lib-tk/*" -x "tk*" -x "tcl*" \
         -x "*.egg-info/*" -x "*.dist-info/*" -x "*.exe" \
-        -r9 ${TEMPLATES}/windows-x86.zip .
+        -r9 ${TEMPLATES}/windows-x86-27.zip .
     cd -
 done
 
@@ -122,14 +122,14 @@ for dir in Lib DLLs; do
         -x "*test/*" -x "*tests/*" -x "*examples/*" -x "pythonwin/*" \
         -x "idlelib/*" -x "lib-tk/*" -x "tk*" -x "tcl*" \
         -x "*.egg-info/*" -x "*.dist-info/*" -x "*.exe" \
-        -r9 ${TEMPLATES}/windows-amd64.zip .
+        -r9 ${TEMPLATES}/windows-amd64-27.zip .
     cd -
 done
 
 echo "[+] Build pupy"
 
-TARGETS="pupyx64d.dll pupyx64d.exe pupyx64.dll pupyx64.exe"
-TARGETS="$TARGETS pupyx86d.dll pupyx86d.exe pupyx86.dll pupyx86.exe"
+TARGETS="pupyx64d-27.dll pupyx64d-27.exe pupyx64-27.dll pupyx64-27.exe"
+TARGETS="$TARGETS pupyx86d-27.dll pupyx86d-27.exe pupyx86-27.dll pupyx86-27.exe"
 TARGETS="$TARGETS "
 
 cd ${SRC}

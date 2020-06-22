@@ -5,7 +5,6 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from __future__ import print_function
 import argparse
 import subprocess
 import os
@@ -14,11 +13,6 @@ import errno
 import hashlib
 import shutil
 import resource
-
-if sys.version_info.major > 2:
-    from urllib.request import urlopen
-else:
-    from urllib2 import urlopen
 
 ENV_IMAGE = 'pupy-python2-env'
 ENV_CONTAINER = 'pupy-'
@@ -175,20 +169,23 @@ def check_modules(modules):
     return messages
 
 
-    print("[+] Pupy at {}".format(pupy))
+def get_repo_origin(git_folder):
+    return subprocess.check_output([
+        'git', 'remote', 'get-url', 'origin'
+    ], cwd=git_folder)
 
-    if not args.do_not_compile_templates:
-        print("[+] Compile common templates")
-        env = os.environ.copy()
-        if args.docker_repo:
-            env['REPO'] = args.docker_repo
+
+def update_repo(git_folder):
+    return subprocess.check_output([
+        'git', 'submodule', 'update', '--init', '--recursive'
+    ], cwd=git_folder)
+
 
 def get_rev(git_folder):
     return subprocess.check_output([
         'git', 'rev-parse', 'HEAD'
     ], cwd=git_folder)
 
-    print("[+] Create VirtualEnv environment")
 
 def get_changed_files(git_folder, prev_ref, current_ref='HEAD'):
     return subprocess.check_output([
@@ -290,7 +287,7 @@ def make_pupysh_wrapper(workdir, git_folder, orchestrator):
 
 def makedirs_p(dirpath):
     try:
-        os.makedirs(args.workdir)
+        os.makedirs(dirpath)
     except OSError as e:
         if e.errno == errno.EEXIST:
             pass
@@ -362,56 +359,245 @@ def create_virtualenv(workdir, git_path, orchestrator=None, templates=[]):
             'echo "[-] You must update templates manually"'
         ])
 
-    subprocess.check_call([
-        os.path.abspath(os.path.join(workdir, 'bin', 'pip')),
-        'install', '--upgrade', '--force-reinstall',
-        'pycryptodome'
-    ], cwd=os.path.join(pupy, 'pupy'))
+    update_commands.extend([
+        'fi'
+    ])
 
-    if args.download_templates_from_github_releases:
-        download_link="https://github.com/n1nj4sec/pupy/releases/download/latest/payload_templates.txz"
-        print("downloading payload_templates from {}".format(download_link))
-        subprocess.check_call(["wget", "-O", "payload_templates.txz", download_link], cwd=os.path.join(pupy))
-        print("extracting payloads ...")
-        subprocess.check_call(["tar", "xf", "payload_templates.txz", "-C", "pupy/"], cwd=os.path.join(pupy))
-        
+    return shell_commands, update_commands
 
-    wrappers=["pupysh", "pupygen"]
+
+def create_container_env(
+        workdir, git_path, orchestrator, network, templates=[], squash=False):
+
+    print("[+] Build {} image ({})".format(orchestrator, ENV_IMAGE))
+
+    build_command = [
+        orchestrator, 'build'
+    ]
+
+    if squash:
+        build_command.append('--squash')
+
+    build_command.extend([
+        '-t', ENV_IMAGE,
+        '-f', os.path.join(git_path, 'pupy', 'conf', 'Dockerfile.env'),
+        os.path.join(git_path, 'pupy')
+    ])
+
+    try:
+        with open(os.devnull, 'w') as devnull:
+            subprocess.check_call([
+                orchestrator, 'inspect', ENV_IMAGE
+            ], stdout=devnull, stderr=devnull)
+    except subprocess.CalledProcessError:
+        print("[+] Create pupysh environment image {}".format(
+            ENV_IMAGE
+        ))
+
+        subprocess.check_call(build_command, stderr=subprocess.STDOUT)
+
+    container_name = ENV_CONTAINER + get_place_digest(
+        workdir, git_path
+    )
+
+    print("[+] Create podman container ({})".format(container_name))
+
+    create_command = [
+        orchestrator, 'create',
+        '--security-opt', 'label=disable',
+        '--hostname=pupy', '--network=' + network,
+        '--name='+container_name,
+        '--interactive', '--tty',
+        '--mount', 'type=bind,src=' + os.path.join(
+                git_path, 'pupy') + ',target=/pupy',
+        '--mount', 'type=bind,src=' + workdir + ',target=/project',
+        ENV_IMAGE
+    ]
+
+    subprocess.check_call(create_command, stderr=subprocess.STDOUT)
+
+    shell_commands = [
+        'exec {} start -ai {}'.format(orchestrator, container_name)
+    ]
+
+    update_commands = [
+        'cd {}'.format(git_path),
+        'prev_ref=`git rev-parse HEAD`',
+        'git pull --recurse-submodules=yes --autostash --rebase',
+        'echo "[+] Update {} environment"'.format(orchestrator),
+        shjoin(build_command),
+        orchestrator + ' kill ' + container_name + ' || true',
+        orchestrator + ' rm ' + container_name,
+        shjoin(create_command),
+        'if (git diff --name-only $prev_ref HEAD | grep client/ >/dev/null)',
+        'then',
+    ]
+
+    if templates:
+        for target in templates:
+            update_commands.extend([
+                'echo "[+] Rebuilding templates for {}"'.format(target),
+                '{} start -a build-pupy-{}-{}'.format(
+                    orchestrator, target, get_place_digest(git_path)
+                )
+            ])
+    else:
+        update_commands.extend([
+            'echo "[-] You must update templates manually"'
+        ])
+
+    update_commands.extend([
+        'fi'
+    ])
+
+    return shell_commands, update_commands
+
+
+def main():
+    args = parser.parse_args()
+
+    default_orchestrator = 'docker'
+
+    # Check some programs in advance
+    if args.environment == 'virtualenv':
+        available = check_programs([
+            'podman', 'docker'
+        ], available=True)
+
+        for orchestrator in ('podman', 'docker'):
+            if orchestrator in available:
+                default_orchestrator = orchestrator
+                break
+    else:
+        default_orchestrator = args.environment
+
+    required_programs = {'git'}
+    required_modules = set()
+    required_abis = set()
+
+    if not args.do_not_compile_templates and default_orchestrator == 'podman' \
+            and args.persistent:
+        print(
+            'Warning! You have chosen persistent images. '
+            'This known to have problems with podman + fuse-overlayfs'
+        )
+
+    if args.environment == 'virtualenv':
+        required_modules.add('virtualenv')
+        required_programs.add(default_orchestrator)
+    else:
+        required_programs.add(args.environment)
+
+    if not args.do_not_compile_templates:
+        required_abis.add('vsyscall32')
+        required_programs.add(default_orchestrator)
+
+    workdir = os.path.abspath(args.workdir)
+
+    if not os.path.isfile(
+            os.path.join(args.pupy_git_folder, 'create-workspace.py')):
+        sys.exit('{} is not pupy project folder'.format(
+            args.pupy_git_folder))
+
+    if os.path.isdir(workdir) and os.listdir(workdir):
+        sys.exit('{} is not empty'.format(workdir))
+
+    git_folder = os.path.abspath(args.pupy_git_folder)
+
+    print("[+] Git repo at {}".format(git_folder))
+
+    messages = []
+
+    messages.extend(
+        check_programs(required_programs)
+    )
+
+    messages.extend(
+        check_modules(required_modules)
+    )
+
+    if not args.do_not_compile_templates and default_orchestrator == 'podman':
+        _, nofile_limit = resource.getrlimit(resource.RLIMIT_NOFILE)
+        if nofile_limit < 65535:
+            messages.append(
+                'To build templates using podman RLIMIT_NOFILE (ulimit -n) '
+                'must be >= 65535.\n'
+                'Read documentation for your linux distribution to find '
+                'how to change them.'
+            )
+
+    if messages:
+        sys.exit('\n'.join(messages))
+
+    update_repo(git_folder)
+
+    templates = []
+
+    update_commands = [
+        'set -xe'
+    ]
+
+    if not args.do_not_compile_templates:
+        templates.extend(
+            set(
+                template.lower().strip() for template in
+                args.compile_templates.split(',')
+            )
+        )
+
+        update_commands.extend(
+            build_templates(
+                git_folder, args.images_repo,
+                default_orchestrator,
+                templates, args.image_tag, args.persistent
+            )
+        )
+
+    print("[+] Create workdir")
+    makedirs_p(workdir)
+
+    shell_cmds = []
+
+    if args.environment in ('podman', 'docker'):
+        shell_cmds, update_cmds = create_container_env(
+            workdir, git_folder, default_orchestrator,
+            args.network, templates, args.squash
+        )
+
+        update_commands.extend(update_cmds)
+
+    else:
+        shell_cmds, update_cmds = create_virtualenv(
+            workdir, git_folder, 'docker', templates
+        )
+
+        update_commands.extend(update_cmds)
+
+    print("[+] Initialize workdir")
+    initialize_workdir(workdir, git_folder)
+
+    wrappers = ("pupysh", "pupygen")
+
     print("[+] Create {} wrappers".format(','.join(wrappers)))
 
     pupysh_update_path = os.path.join(workdir, 'bin', 'pupysh-update')
-    pupysh_paths=[]
-    for script in wrappers:
-        pupysh_path = os.path.join(workdir, 'bin', script)
-        pupysh_paths.append(pupysh_path)
+    pupysh_path = os.path.join(workdir, 'bin', 'pupysh')
 
-        with open(pupysh_path, 'w') as pupysh:
-            wa = os.path.abspath(workdir)
-            print('#!/bin/sh', file=pupysh)
-            print('cd {}'.format(wa), file=pupysh)
-            print('exec bin/python -B {} "$@"'.format(
-                os.path.join(pupy, 'pupy', script+'.py')), file=pupysh)
+    with open(pupysh_path, 'w') as pupysh:
+        pupysh.write(
+            '\n'.join([
+                '#!/bin/sh',
+            ] + shell_cmds) + '\n'
+        )
 
         os.chmod(pupysh_path, 0o755)
 
-    with open(pupysh_update_path, 'w') as pupysh_update:
-        wa = os.path.abspath(workdir)
-        print('#!/bin/sh', file=pupysh_update)
-        print('set -e', file=pupysh_update)
-        print('echo "[+] Update pupy repo"', file=pupysh_update)
-        print('cd {}; git pull --recurse-submodules'.format(pupy), file=pupysh_update)
-        print('echo "[+] Update python dependencies"', file=pupysh_update)
-        print('source {}/bin/activate; cd pupy; pip install --upgrade -r requirements.txt'.format(
-            workdir), file=pupysh_update)
-        if not args.do_not_compile_templates:
-            print('echo "[+] Recompile templates"', file=pupysh_update)
-            for target in ('windows', 'linux32', 'linux64'):
-                print('echo "[+] Build {}"'.format(target), file=pupysh_update)
-                print('docker start -a build-pupy-{}'.format(target), file=pupysh_update)
-        print('echo "[+] Update completed"', file=pupysh_update)
-
-    os.chmod(pupysh_update_path, 0o755)
-
+    with open(pupysh_update_path, 'w') as pupysh:
+        pupysh.write(
+            '\n'.join([
+                '#!/bin/sh',
+            ] + update_commands) + '\n'
+        )
 
         os.chmod(pupysh_update_path, 0o755)
 
@@ -451,7 +637,7 @@ def create_virtualenv(workdir, git_path, orchestrator=None, templates=[]):
 
     else:
         print("[I] To execute pupysh:")
-        print("~ > {}".format(pupysh_paths[0]))
+        print("~ > {}".format(pupysh_path))
         print("[I] To update:")
         print("~ > {}".format(pupysh_update_path))
 

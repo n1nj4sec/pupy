@@ -11,7 +11,6 @@ import sys
 import zlib
 import marshal
 
-from collections import namedtuple
 from zipfile import ZipFile
 
 from elftools.elf.elffile import ELFFile
@@ -56,18 +55,27 @@ class IgnoreFileException(Exception):
 
 class Target(object):
     __slots__ = (
-        'os', 'arch', 'pymaj', 'pymin',
+        'os', 'arch', 'pymaj', 'pymin', 'debug',
         '_native', '_so', '_platform'
     )
 
-    def __init__(self, python, platform=None):
+    def __init__(self, python, platform=None, debug=False):
         self.pymaj, self.pymin = python[:2]
+        self.debug = debug
+
+        self.pymaj = int(self.pymaj)
+        self.pymin = int(self.pymin)
 
         if platform:
             self.os, self.arch = platform[:2]
+
+            self.os = self.os.strip().lower()
+            self.arch = self.arch.strip().lower()
+
             self._native = is_native(
                 self.os, self.arch, python
             )
+
             sover = '{}.{}'.format(self.pymaj, self.pymin)
             if self.pymaj > 3:
                 sover += 'm'
@@ -89,14 +97,19 @@ class Target(object):
     def pyver(self):
         return (self.pymaj, self.pymin)
 
+    @property
+    def pyver_str(self):
+        return '{}{}'.format(self.pymaj, self.pymin)
+
     def __repr__(self):
         if self.os and self.arch:
             platform = (self.os, self.arch)
         else:
             platform = None
 
-        return 'Target(({}, {}), {})'.format(
-            repr(self.pymaj), repr(self.pymin), platform
+        return 'Target(({}, {}), {}, {})'.format(
+            repr(self.pymaj), repr(self.pymin),
+            repr(platform), repr(self.debug)
         )
 
 
@@ -131,7 +144,7 @@ COMMON_MODULE_ENDINGS = (
 )
 
 IGNORED_ENDINGS = (
-    'tests', 'test', 'SelfTest', 'examples', 'demos'
+    'tests', 'test', 'SelfTest', 'examples', 'demos', '__pycache__'
 )
 
 # dependencies to load for each modules
@@ -282,8 +295,8 @@ def bootstrap(stdlib, config, autostart=True):
     loader = '\n'.join(actions)
 
     return loader.format(
-        stdlib=reprb(marshal.dumps(stdlib)),
-        config=reprb(marshal.dumps(config))
+        stdlib=reprb(marshal.dumps(stdlib, 2)),
+        config=reprb(marshal.dumps(config, 2))
     )
 
 

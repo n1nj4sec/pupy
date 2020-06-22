@@ -10,8 +10,6 @@ import ast
 import marshal
 import logging
 
-from io import open
-
 try:
     from .PupyLogger import getLogger
     logger = getLogger('compiler')
@@ -35,7 +33,7 @@ class Compiler(ast.NodeTransformer):
     def __init__(self, data, path=False, main=False, docstrings=False):
         source = data
         if path:
-            with open(data) as src:
+            with open(data, 'rb') as src:
                 source = src.read()
 
         self._main = main
@@ -45,13 +43,30 @@ class Compiler(ast.NodeTransformer):
 
         self._source_ast = None
 
-        if isinstance(source, unicode):
-            first, rest = source.split('\n', 1)
-            if first.strip().startswith('#') and 'coding:' in first:
-                source = rest
+        if not isinstance(source, bytes):
+            lines = source.split('\n', 3)
+            filtered_lines = []
+            filtered = False
+
+            for line in lines:
+                if line.strip().startswith('#') and \
+                        'coding:' in line:
+                    filtered = True
+                    filtered_lines.append('')
+                    continue
+
+                filtered_lines.append(line)
+
+            if filtered:
+                source = '\n'.join(filtered_lines)
 
         try:
             self._source_ast = ast.parse(source)
+
+        except TypeError as e:
+            logger.error('Invalid input: %s (%s)', data, e)
+            raise
+
         except SyntaxError as e:
             if path:
                 logger.error(
@@ -138,6 +153,9 @@ class Compiler(ast.NodeTransformer):
 
 
 def py2compile(data, filename, obfuscate=False, raw=False, debug=False):
+    if isinstance(data, bytes):
+        data = data.decode('utf-8')
+
     body = py2c.compile(data, filename, 0 if debug else 2)
 
     if obfuscate:
@@ -178,7 +196,7 @@ def pupycompile(
                     )
 
                 if path is True:
-                    data = open(data).read()
+                    data = open(data, 'rb').read()
 
                 return py2compile(data, filename, obfuscate, raw, debug)
 
@@ -193,7 +211,7 @@ def pupycompile(
     else:
         source = data
         if path:
-            with open(data) as sfile:
+            with open(data, 'rb') as sfile:
                 source = sfile.read()
 
         logger.info('debug: %s', data if path else filename)

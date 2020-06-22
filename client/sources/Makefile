@@ -1,5 +1,10 @@
 BUILDENV ?= $(PWD)/buildenv
-PYTHONPATH ?= C:\\Python27
+
+PYMAJ ?= 2
+PYMIN ?= 7
+SUFFIX ?= $(PYMAJ)$(PYMIN).
+
+PYTHONPATH ?= C:\\Python$(PYMAJ)$(PYMIN)
 
 TEMPLATE_OUTPUT_PATH=../../pupy/payload_templates
 
@@ -75,8 +80,8 @@ ifneq ($(FEATURE_DYNLOAD),)
 CFLAGS += /D_PUPY_DYNLOAD /D_PUPY_PRIVATE_NT
 SHARED_OBJS += ReflectiveLoader.obj
 
-LIBPYTHON_DIR ?= C:\\Python27
-LIBPYTHON_LIBS := $(PYTHONPATH)\\libs\\python27.lib advapi32.lib
+LIBPYTHON_DIR ?= C:\\Python$(PYMAJ)$(PYMIN)
+LIBPYTHON_LIBS := $(PYTHONPATH)\\libs\\python$(PYMAJ)$(PYMIN).lib advapi32.lib
 LIBPYTHON_INC := /I$(PYTHONPATH)/Include
 else
 SHARED_OBJS += $(PUPY_MODULE)
@@ -103,7 +108,7 @@ COMMON_OBJS += LzmaDec.obj
 COMPRESSED = 1
 else
 CFLAGS += /DUNCOMPRESSED
-SUFFIX := unc.$(SUFFIX)
+SUFFIX := unc-$(SUFFIX)
 COMPRESSED = 0
 endif
 
@@ -111,19 +116,19 @@ PUPY_LOAD_DEPS := \
 	pupy_load.c \
 	resources/$(ARCH)/library.c \
 	resources/$(ARCH)/msvcr90.c \
-	resources/$(ARCH)/python27.c \
+	resources/$(ARCH)/python$(PYMAJ)$(PYMIN).c \
 	resources/$(ARCH)/libssl.c \
 	resources/$(ARCH)/libcrypto.c \
 	import-tab.c revision.h
 
 TARGETS := \
-	$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)exe \
-	$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)dll
+	$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH)-$(SUFFIX)exe \
+	$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH)-$(SUFFIX)dll
 
 REQUIRED_LIBS := user32.lib
 
 ifneq ($(FEATURE_DYNLOAD),)
-	TARGETS += $(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)pyr
+	TARGETS += $(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH)-$(SUFFIX)pyr
 	PUPY_LOAD_DEPS += resources/$(ARCH)/$(PUPY_PYD_C)
 else
 	REQUIRED_LIBS += advapi32.lib
@@ -147,19 +152,19 @@ resources/$(ARCH)/library.zip: ../build_library_zip.py
 resources/$(ARCH)/library.c: ../gen_resource_header.py resources/$(ARCH)/library.txt resources/$(ARCH)/library.zip
 	$(HOST_PYTHON) ../gen_resource_header.py resources/$(ARCH)/library.txt $@ $(COMPRESSED) $(SECARGS)
 
-resources/$(ARCH)/$(LIBCRYPTO): $(BUILDENV)/$(ARCH)/drive_c/Python27/$(LIBCRYPTO)
+resources/$(ARCH)/$(LIBCRYPTO): $(BUILDENV)/$(ARCH)/drive_c/Python$(PYMAJ)$(PYMIN)/$(LIBCRYPTO)
 	@mkdir -p resources/$(ARCH)
 	cp $< $@
 
-resources/$(ARCH)/$(LIBSSL): $(BUILDENV)/$(ARCH)/drive_c/Python27/$(LIBSSL)
+resources/$(ARCH)/$(LIBSSL): $(BUILDENV)/$(ARCH)/drive_c/Python$(PYMAJ)$(PYMIN)/$(LIBSSL)
 	@mkdir -p resources/$(ARCH)
 	cp $< $@
 
-resources/$(ARCH)/python27.dll: $(BUILDENV)/$(ARCH)/drive_c/Python27/python27.dll
+resources/$(ARCH)/python$(PYMAJ)$(PYMIN).dll: $(BUILDENV)/$(ARCH)/drive_c/Python$(PYMAJ)$(PYMIN)/python$(PYMAJ)$(PYMIN).dll
 	@mkdir -p resources/$(ARCH)
 	cp $< $@
 
-resources/$(ARCH)/msvcr90.dll: $(BUILDENV)/$(ARCH)/drive_c/Python27/msvcr90.dll
+resources/$(ARCH)/msvcr90.dll: $(BUILDENV)/$(ARCH)/drive_c/Python$(PYMAJ)$(PYMIN)/msvcr90.dll
 	@mkdir -p resources/$(ARCH)
 	cp $< $@
 
@@ -169,7 +174,7 @@ resources/$(ARCH)/libcrypto.c: resources/$(ARCH)/$(LIBCRYPTO) ../gen_resource_he
 resources/$(ARCH)/libssl.c: resources/$(ARCH)/$(LIBSSL) ../gen_resource_header.py
 	$(HOST_PYTHON) ../gen_resource_header.py $< $@ $(COMPRESSED) $(SECARGS)
 
-resources/$(ARCH)/python27.c: resources/$(ARCH)/python27.dll ../gen_resource_header.py
+resources/$(ARCH)/python$(PYMAJ)$(PYMIN).c: resources/$(ARCH)/python$(PYMAJ)$(PYMIN).dll ../gen_resource_header.py
 	$(HOST_PYTHON) ../gen_resource_header.py $< $@ $(COMPRESSED) $(SECARGS)
 
 resources/$(ARCH)/msvcr90.c: resources/$(ARCH)/msvcr90.dll ../gen_resource_header.py
@@ -199,19 +204,19 @@ pupy_load.obj: $(PUPY_LOAD_DEPS)
 $(PUPY_PYD): $(PUPY_MODULE) $(COMMON_OBJS) | revision.h
 	$(CC) $(CFLAGS) $(CFLAGS_OPT) $^ /Fe$@ /LD $(LIBPYTHON_LIBS) /link /MAP:$(PUPY_PYD).map
 
-$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)exe: $(APP_OBJS) $(COMMON_OBJS) $(LOADER_OBJS)
+$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH)-$(SUFFIX)exe: $(APP_OBJS) $(COMMON_OBJS) $(LOADER_OBJS)
 	$(CC) $(CFLAGS) $(CFLAGS_OPT) $+ \
-		/Fe$(TEMPLATE_OUTPUT_PATH)/exe_pupy$(PPARCH).$(SUFFIX)exe $(LINKER_OPTS) $(REQUIRED_LIBS)
-	mv $(TEMPLATE_OUTPUT_PATH)/exe_pupy$(PPARCH).$(SUFFIX)exe $@
+		/Fe$(TEMPLATE_OUTPUT_PATH)/exe_pupy$(PPARCH)-$(SUFFIX)exe $(LINKER_OPTS) $(REQUIRED_LIBS)
+	mv $(TEMPLATE_OUTPUT_PATH)/exe_pupy$(PPARCH)-$(SUFFIX)exe $@
 	unzip -p resources/$(ARCH)/library.zip fid.toc >$@.toc
 
-$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)dll: $(SHARED_OBJS) $(COMMON_OBJS) $(LOADER_OBJS)
+$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH)-$(SUFFIX)dll: $(SHARED_OBJS) $(COMMON_OBJS) $(LOADER_OBJS)
 	$(CC) $(CFLAGS) $(CFLAGS_OPT) $+ \
-		/Fe$(TEMPLATE_OUTPUT_PATH)/dll_pupy$(PPARCH).$(SUFFIX)dll /LD $(REQUIRED_LIBS)
-	mv $(TEMPLATE_OUTPUT_PATH)/dll_pupy$(PPARCH).$(SUFFIX)dll $@
+		/Fe$(TEMPLATE_OUTPUT_PATH)/dll_pupy$(PPARCH)-$(SUFFIX)dll /LD $(REQUIRED_LIBS)
+	mv $(TEMPLATE_OUTPUT_PATH)/dll_pupy$(PPARCH)-$(SUFFIX)dll $@
 	unzip -p resources/$(ARCH)/library.zip fid.toc >$@.toc
 
-$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH).$(SUFFIX)pyr: \
+$(TEMPLATE_OUTPUT_PATH)/pupy$(PPARCH)-$(SUFFIX)pyr: \
 		resources/$(ARCH)/$(PUPY_PYD_C) $(PUPY_PYD)
 	cat resources/$(ARCH)/$(PUPY_PYD_LOADER) $(PUPY_PYD) > $@
 

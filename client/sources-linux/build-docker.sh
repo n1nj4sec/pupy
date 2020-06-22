@@ -39,7 +39,7 @@ LDFLAGS="$LDFLAGS -Wl,-Bstatic -lcap -Wl,-Bdynamic" \
     $PIP_INSTALL python-prctl --no-binary :all:
 
 $PIP_INSTALL \
-    pyaml rsa netaddr pyyaml ecdsa idna impacket \
+    pyaml rsa netaddr==0.7.19 pyyaml ecdsa idna impacket \
     paramiko pylzma pydbus python-ptrace psutil scandir \
     scapy colorama pyOpenSSL python-xlib msgpack-python \
     u-msgpack-python poster dnslib pyxattr pylibacl http_parser \
@@ -118,7 +118,7 @@ zip -y -r -9 ${TEMPLATES}/linux-${TOOLCHAIN_ARCH}.zip . \
     -x "idlelib/*" -x "lib-tk/*" -x "tk*" -x "tcl*" >/dev/null
 
 cd /usr/lib
-zip -9 ${TEMPLATES}/linux-${TOOLCHAIN_ARCH}.zip \
+zip -9 ${TEMPLATES}/linux-${TOOLCHAIN_ARCH}-27.zip \
     libpq.so libodbc.so psqlodbcw.so libodbcinst.so libmaodbc.so
 
 ldconfig
@@ -128,14 +128,14 @@ echo "[+] Build pupy"
 case $TOOLCHAIN_ARCH in
 amd64)
     MAKEFLAGS="ARCH=64 MACH=x86_64"
-    TARGETS="pupyx64d.lin pupyx64d.lin"
-    TARGETS="$TARGETS pupyx64.lin pupyx64.lin.so"
+    TARGETS="pupyx64d-27.lin pupyx64d-27.lin"
+    TARGETS="$TARGETS pupyx64-27.lin pupyx64-27.lin.so"
     ;;
 
 x86)
     MAKEFLAGS="ARCH=32 PIE= MACH=i686"
-    TARGETS="pupyx86d.lin pupyx86d.lin.so"
-    TARGTS="$TARGETS pupyx86.lin pupyx86.lin.so"
+    TARGETS="pupyx86d-27.lin pupyx86d-27.lin.so"
+    TARGTS="$TARGETS pupyx86-27.lin pupyx86-27.lin.so"
     ;;
 
 *)
@@ -143,7 +143,7 @@ x86)
     LIBS="$LIBS LIBPYTHON=/usr/lib/libpython2.7.so"
     MAKEFLAGS="MACH=${TOOLCHAIN_ARCH} $LIBS"
     TARGETS="pupy${TOOLCHAIN_ARCH}d.lin pupy${TOOLCHAIN_ARCH}d.lin.so"
-    TARGTS="$TARGETS pupy${TOOLCHAIN_ARCH}.lin pupy${TOOLCHAIN_ARCH}.lin.so"
+    TARGTS="$TARGETS pupy${TOOLCHAIN_ARCH}-27.lin pupy${TOOLCHAIN_ARCH}-27.lin.so"
     ;;
 esac
 

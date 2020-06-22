@@ -4,8 +4,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
+
 class Hint(object):
     __slots__ = ()
+
 
 class Text(Hint):
     __slots__ = ('data')
@@ -23,15 +26,19 @@ class Text(Hint):
             '__str__ is not implemented for class {}'.format(
                 self.__class__.__name__))
 
+
 class Table(Text):
     __slots__ = ('headers', 'caption', 'legend', 'vspace')
 
-    def __init__(self, data, headers=None, caption=None, legend=True, vspace=0):
+    def __init__(
+        self, data, headers=None, caption=None,
+            legend=True, vspace=0):
         super(Table, self).__init__(data)
         self.headers = headers
         self.caption = caption
         self.legend = legend
         self.vspace = vspace
+
 
 class List(Text):
     __slots__ = ('caption', 'bullet', 'indent')
@@ -43,8 +50,10 @@ class List(Text):
         self.caption = caption
         self.indent = indent
 
+
 class Stream(Text):
     __slots__ = ()
+
 
 class Line(Text):
     __slots__ = ('dm')
@@ -53,8 +62,10 @@ class Line(Text):
         super(Line, self).__init__(data)
         self.dm = ' '
 
+
 class TruncateToTerm(Text):
     __slots__ = ()
+
 
 class Color(Text):
     __slots__ = ('color')
@@ -63,11 +74,14 @@ class Color(Text):
         super(Color, self).__init__(data)
         self.color = color
 
+
 class Title(Text):
     __slots__ = ()
 
+
 class MultiPart(Text):
     __slots__ = ()
+
 
 class NewLine(Text):
     __slots__ = ()
@@ -75,17 +89,22 @@ class NewLine(Text):
     def __init__(self, lines=1):
         super(NewLine, self).__init__(lines)
 
+
 class Log(Text):
     __slots__ = ()
+
 
 class Info(Text):
     __slots__ = ()
 
+
 class ServiceInfo(Text):
     __slots__ = ()
 
+
 class Warn(Text):
     __slots__ = ()
+
 
 class Error(Text):
     __slots__ = ('header')
@@ -94,8 +113,10 @@ class Error(Text):
         super(Error, self).__init__(error)
         self.header = header
 
+
 class Success(Text):
     __slots__ = ()
+
 
 class Section(Text):
     __slots__ = ('header')
@@ -104,12 +125,14 @@ class Section(Text):
         super(Section, self).__init__(data)
         self.header = header
 
+
 class Usage(Text):
     __slots__ = ('module')
 
     def __init__(self, module, data):
         super(Usage, self).__init__(data)
         self.module = module
+
 
 class Pygment(Text):
     __slots__ = ('lexer')
@@ -118,8 +141,10 @@ class Pygment(Text):
         super(Pygment, self).__init__(data)
         self.lexer = lexer
 
+
 class Interact(Hint):
     __slots__ = ()
+
 
 class Indent(Text):
     __slots__ = ('indent')
@@ -128,12 +153,14 @@ class Indent(Text):
         super(Indent, self).__init__(data)
         self.indent = indent
 
+
 class Prompt(Interact):
     __slots__ = ('request', 'hide')
 
     def __init__(self, request, hide=False):
         self.request = request
         self.hide = hide
+
 
 class Terminal(Hint):
     __slots__ = ()

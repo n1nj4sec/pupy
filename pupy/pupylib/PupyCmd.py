@@ -726,7 +726,7 @@ class PupyCmd(cmd.Cmd):
 
     def postcmd(self, stop, line):
         readline.write_history_file('.pupy_history')
-        readline.redisplay()
+        # readline.redisplay()
         return stop
 
     def complete(self, text, state):
