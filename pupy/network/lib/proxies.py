@@ -181,6 +181,7 @@ def parse_env_proxies(var):
 def get_env_proxies():
     for env in PROXY_ENV:
         var = os.environ.get(env)
+
         if not var:
             continue
 
@@ -357,7 +358,7 @@ def get_processes_proxies():
     for p in psutil.process_iter():
         try:
             environ = p.as_dict(['environ'])['environ']
-        except WindowsError:
+        except (WindowsError, NotImplementedError):
             continue
 
         if not environ:
