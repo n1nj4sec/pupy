@@ -38,7 +38,7 @@ LDFLAGS="$LDFLAGS -Wl,-Bstatic -lcap -Wl,-Bdynamic" \
     $PIP_INSTALL python-prctl --no-binary :all:
 
 $PIP_INSTALL \
-    pyaml rsa netaddr pyyaml ecdsa idna impacket \
+    pyaml rsa netaddr==0.7.19 pyyaml ecdsa idna impacket \
     paramiko pylzma pydbus python-ptrace psutil scandir \
     scapy colorama pyOpenSSL python-xlib msgpack-python \
     u-msgpack-python poster dnslib pyxattr pylibacl http_parser \
