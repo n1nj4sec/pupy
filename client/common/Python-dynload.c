@@ -337,9 +337,11 @@ PyObject *py_eval_package_init(
     last_dm = last_chr_offt(vpath + sizeof(VPATH_PREFIX), '/');
 
     if (last_dm) {
+        PyObject *py_vpath;
+
         last_dm += sizeof(VPATH_PREFIX);
 
-        PyObject *py_vpath = PyString_FromStringAndSize(
+        py_vpath = PyString_FromStringAndSize(
             vpath, last_dm);
 
         PyObject_SetAttrString(
