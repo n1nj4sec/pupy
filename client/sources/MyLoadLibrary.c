@@ -410,12 +410,12 @@ DWORD CALLBACK MyGetModuleFileNameA(HMODULE hModule, LPSTR lpStr, DWORD dwSize)
         DWORD dwRet = MemoryModuleFileNameA(lib->module, lpStr, dwSize);
         if (dwRet == 0xFFFFFFFF) {
             size_t reqSize = strlen(lib->fileName);
-            if (reqSize < dwSize) {
+            if (reqSize > dwSize) {
                 SetLastError(ERROR_INSUFFICIENT_BUFFER);
                 dwRet = 0;
             } else {
                 memcpy(lpStr, lib->fileName, reqSize);
-                if (dwSize+1 == reqSize) {
+                if (dwSize >= reqSize + 1) {
                     lpStr[reqSize] = '\0';
                 }
                 dwRet = reqSize;
