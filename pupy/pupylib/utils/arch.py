@@ -16,6 +16,19 @@ def make_os_arch(os_arch):
     return substitute.get(os_arch, os_arch)
 
 
+def make_template_arch(os_arch):
+    substitute = {
+        'x86_64': 'x64',
+        'amd64': 'x64',
+        'i386': 'x86',
+        'i686': 'x86',
+        'i486': 'x86',
+        'armv7l': 'armhf'
+    }
+
+    return substitute.get(os_arch, os_arch)
+
+
 def make_proc_arch(os_arch, proc_arch):
     os_arch = make_os_arch(os_arch)
 
@@ -53,7 +66,7 @@ def make_proc_arch(os_arch, proc_arch):
             os_arch_to_platform[os_arch]
         ][proc_arch]
     else:
-        return None
+        return proc_arch
 
 
 def is_native(os_arch, proc_arch, pyver):

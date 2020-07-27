@@ -1,18 +1,24 @@
+# -*- coding: utf-8 -*-
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import sys
+
+from modules.lib import size_human_readable, file_timestamp
+
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyCompleter import remote_path_completer
 from pupylib.PupyOutput import Table, Line, List, MultiPart
-from modules.lib import size_human_readable, file_timestamp
-from M2Crypto.X509 import load_cert_string, FORMAT_DER
-from argparse import REMAINDER
 
 from magic import Magic
 
-import sys
+from M2Crypto.X509 import load_cert_string, FORMAT_DER
+from argparse import REMAINDER
+
+from network.lib.convcompat import as_unicode_string
 
 if sys.version_info.major > 2:
     basestring = str
@@ -34,7 +40,9 @@ class FStat(PupyModule):
 
     @classmethod
     def init_argparse(cls):
-        cls.arg_parser = PupyArgumentParser(prog='stat', description=cls.__doc__)
+        cls.arg_parser = PupyArgumentParser(
+            prog='stat', description=cls.__doc__
+        )
         cls.arg_parser.add_argument(
             '-v', '--verbose', action='store_true', default=False,
             help='Print more information (certificates for example)'
@@ -51,6 +59,7 @@ class FStat(PupyModule):
         try:
             sec = getfilesec(path)
         except Exception as e:
+            raise
             self.error(
                 ' '.join(x for x in e.args if isinstance(x, basestring))
             )
@@ -67,14 +76,18 @@ class FStat(PupyModule):
             'Modified': file_timestamp(mtime, time=True),
             'Size': '{} ({})'.format(size_human_readable(size), size),
             'Owner': '{}{} ({})'.format(
-                owner_domain+'\\' if owner_domain else '',
-                owner_name,
-                owner_id
+                (
+                    as_unicode_string(owner_domain) + '\\'
+                ) if owner_domain else '',
+                as_unicode_string(owner_name) if owner_name else '',
+                owner_id,
             ),
             'Group': '{}{} ({})'.format(
-                group_domain+'\\' if group_domain else '',
-                group_name,
-                group_id
+                (
+                    as_unicode_string(group_domain) + '\\'
+                ) if group_domain else '',
+                as_unicode_string(group_name) if group_name else '',
+                group_id,
             ),
             'Mode': mode,
         }
@@ -95,12 +108,14 @@ class FStat(PupyModule):
         for extra, values in extra.items():
             if extra == 'Certificates':
                 certificates = [
-                    load_cert_string(cert, FORMAT_DER).as_text() for cert in values
+                    load_cert_string(
+                        cert, FORMAT_DER
+                    ).as_text() for cert in values
                 ]
             elif isinstance(values, dict):
                 records = [{
-                    'KEY': k.decode('utf-8'),
-                    'VALUE': v.decode('utf-8') if isinstance(v, str) else str(v)
+                    'KEY': as_unicode_string(k),
+                    'VALUE': as_unicode_string(v, fail='convert')
                 } for k, v in values.items()]
 
                 infos.append(
@@ -108,7 +123,8 @@ class FStat(PupyModule):
                 )
             elif isinstance(values, (list, tuple)):
                 if all(isinstance(
-                        value, (list, tuple)) and len(value) == 2 for value in values):
+                    value, (list, tuple)) and len(value) == 2
+                        for value in values):
                     infos.append(List(
                         '{}: {}'.format(key, value) for key, value in values
                     ))

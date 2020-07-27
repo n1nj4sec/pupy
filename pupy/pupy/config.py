@@ -4,12 +4,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 import argparse
 import sys
-import shlex
 
 import pupy
+
 from network import conf
+from network.lib.convcompat import shlex
 
 
 def update_config_from_argv():

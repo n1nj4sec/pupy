@@ -31,13 +31,3 @@ def file_timestamp(timestamp, time=False):
             return str(d.strftime('%d/%m/%y'))
     except:
         return '00/00/00'
-
-
-def to_utf8(value):
-    if isinstance(value, bytes):
-        try:
-            return value.decode('utf-8')
-        except:
-            return value.decode('latin1', errors='ignore')
-
-    return value

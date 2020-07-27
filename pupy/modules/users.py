@@ -4,12 +4,15 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyOutput import Color, Table
 
-__class_name__="Users"
+__class_name__ = 'Users'
 
-@config(cat="gather", compatibilities=['windows', 'linux', 'darwin', 'posix'])
+
+@config(cat="gather", compatibilities=[
+    'windows', 'linux', 'darwin', 'posix'])
 class Users(PupyModule):
     """ Get interactive users """
 
@@ -20,7 +23,9 @@ class Users(PupyModule):
 
     @classmethod
     def init_argparse(cls):
-        cls.arg_parser = PupyArgumentParser(prog='users', description=cls.__doc__)
+        cls.arg_parser = PupyArgumentParser(
+            prog='users', description=cls.__doc__
+        )
         cls.arg_parser.add_argument(
             '-g', '--groups',
             action='store_true', default=False,
@@ -35,18 +40,18 @@ class Users(PupyModule):
         for user in users_list['users']:
             if user['admin']:
                 color = 'lightred'
-            elif 'Administrators' in user['groups'] or 'sudo' in user['groups']:
+            elif 'Administrators' in user['groups'] or \
+                    'sudo' in user['groups']:
                 color = 'lightyellow'
             else:
                 color = 'white'
 
             objects.append({
-                'C': u'➤' if users_list['current'] == user['name'] else '',
+                'C': '>' if users_list['current'] == user['name'] else '',
                 'NAME': Color(user['name'], color),
                 'GROUPS': Color(','.join(user['groups']), color),
                 'HOME': Color(user['home'], color)
             })
-
 
         headers = ['C', 'NAME', 'HOME']
         if args.groups:

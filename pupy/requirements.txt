@@ -47,3 +47,4 @@ http_request
 flake8
 flake8-per-file-ignores
 https://github.com/alxchk/py2c/archive/master.zip; python_version>'3'
+ushlex; python_version<'3'

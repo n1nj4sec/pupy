@@ -8,7 +8,7 @@ from __future__ import unicode_literals
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyOutput import Color, Line, Table
 
-from network.lib.compat import as_attr_type
+from network.lib.compat import as_native_string
 
 import logging
 
@@ -36,14 +36,14 @@ class IPModule(PupyModule):
         try:
             interfaces = self.client.remote('pupyps', 'interfaces')
             families = {
-                int(k): as_attr_type(v) for k, v in self.client.remote_const(
+                int(k): as_native_string(v) for k, v in self.client.remote_const(
                     'pupyps', 'families'
                 ).items()
             }
 
             data = interfaces()
             families = {
-                int(x): as_attr_type(y) for x, y in families.items()
+                int(x): as_native_string(y) for x, y in families.items()
             }
 
             objects = []

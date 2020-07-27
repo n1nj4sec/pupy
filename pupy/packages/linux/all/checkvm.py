@@ -181,19 +181,6 @@ def check_lspci():
     return execute_command(dic)
 
 
-# Check using lscpu
-def check_lscpu():
-    dic = [
-        'lscpu',
-        {
-            'Xen': 'Xen',
-            'KVM': 'KVM',
-            'Microsoft': 'MS Hyper-V'
-        }
-    ]
-    return execute_command(dic)
-
-
 # Check dmesg Output
 def check_dmesg_output():
     dic = [
@@ -216,7 +203,6 @@ def checkvm():
         scsi_driver,
         check_ide_devices,
         check_lspci,
-        check_lscpu,
         check_dmesg_output
     ]
     if os.geteuid() == 0:

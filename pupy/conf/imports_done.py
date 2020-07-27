@@ -68,8 +68,10 @@ import urllib2
 import uuid
 import yaml
 import zlib
+
 if os.name == 'nt':
     import ctypes
     import ctypes.wintypes
+
 if os.name == 'posix':
     import pty

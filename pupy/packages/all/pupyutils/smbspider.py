@@ -2,14 +2,24 @@ from __future__ import print_function
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import unicode_literals
+
 from impacket.smbconnection import SMBConnection, SessionError
 from impacket.smb3structs import FILE_READ_DATA
 
 import re
 import os
 
-class RemoteFile:
-    def __init__(self, smbConnection, fileName, share='ADMIN$', access = FILE_READ_DATA):
+
+class RemoteFile(object):
+    __slots__ = (
+        '__smbConnection', '__access', '__fileName',
+        '__tid', '__fid', '__currentOffset'
+    )
+
+    def __init__(
+        self, smbConnection, fileName,
+            share='ADMIN$', access=FILE_READ_DATA):
+
         self.__smbConnection = smbConnection
         self.__access = access
         self.__fileName = fileName
@@ -18,13 +28,18 @@ class RemoteFile:
         self.__currentOffset = 0
 
     def open(self):
-        self.__fid = self.__smbConnection.openFile(self.__tid, self.__fileName, desiredAccess= self.__access)
+        self.__fid = self.__smbConnection.openFile(
+            self.__tid, self.__fileName, desiredAccess= self.__access
+        )
 
     def read(self, bytesToRead):
         if bytesToRead > 0:
-            data = self.__smbConnection.readFile(self.__tid, self.__fid, self.__currentOffset, bytesToRead)
+            data = self.__smbConnection.readFile(
+                self.__tid, self.__fid, self.__currentOffset, bytesToRead
+            )
             self.__currentOffset += len(data)
             return data
+
         return ''
 
     def close(self):
@@ -33,7 +48,6 @@ class RemoteFile:
             self.__fid = None
 
 class SMBSpider:
-
     def __init__(self, _host, _domain, _port, _user, _passwd, _hashes, _check_content, _share, search_str, _exts, _max_size):
 
         self.smbconnection = None

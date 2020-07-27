@@ -28,7 +28,7 @@ except ImportError:
 
 from network.lib.rpc.core import brine
 from network.lib.rpc.core import consts
-from network.lib.compat import is_py3k, as_attr_type
+from network.lib.compat import is_py3k, as_native_string
 
 
 try:
@@ -55,16 +55,23 @@ def dump(typ, val, tb, include_local_traceback):
     """
     if typ is StopIteration:
         return consts.EXC_STOP_ITERATION # optimization
+
     if type(typ) is str:
         return typ
 
     if include_local_traceback:
-        tbtext = "".join(traceback.format_exception(typ, val, tb))
+        tbtext = as_native_string('').join(
+            traceback.format_exception(typ, val, tb)
+        )
     else:
-        tbtext = "<traceback denied>"
+        tbtext = as_native_string(
+            '<traceback denied>'
+        )
+
     attrs = []
     args = []
     ignored_attrs = frozenset(["_remote_tb", "with_traceback"])
+
     for name in dir(val):
         if name == "args":
             for a in val.args:
@@ -83,6 +90,7 @@ def dump(typ, val, tb, include_local_traceback):
             if not brine.dumpable(attrval):
                 attrval = repr(attrval)
             attrs.append((name, attrval))
+
     return (typ.__module__, typ.__name__), tuple(args), tuple(attrs), tbtext
 
 
@@ -116,25 +124,25 @@ def load(
         return StopIteration  # optimization
 
     if isinstance(val, (str, bytes)):
-        return as_attr_type(val)  # deprecated string exceptions
+        return as_native_string(val)  # deprecated string exceptions
 
     (modname, clsname), args, attrs, tbtext = val
 
-    modname = as_attr_type(modname)
-    clsname = as_attr_type(clsname)
+    modname = as_native_string(modname)
+    clsname = as_native_string(clsname)
 
     attrs = tuple(
         (
-            as_attr_type(key),
-            as_attr_type(value, False)
+            as_native_string(key),
+            as_native_string(value, False)
         ) for (key, value) in attrs
     )
 
     args = tuple(
-        as_attr_type(arg, False) for arg in args
+        as_native_string(arg, False) for arg in args
     )
 
-    tbtext = as_attr_type(tbtext)
+    tbtext = as_native_string(tbtext)
 
     if import_custom_exceptions and modname not in sys.modules:
         try:

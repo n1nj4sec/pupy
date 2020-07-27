@@ -3,6 +3,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+
 from pupylib.PupyModule import PupyArgumentParser
 from pupylib.PupyOutput import Error, Pygment
 from pygments.lexers.configs import IniLexer
@@ -40,6 +41,7 @@ cmdsave.add_argument('-w', '--write-project', action='store_true',
 cmdsave.add_argument('-W', '--write-user', action='store_true',
                              default=False, help='save config to user folder')
 
+
 def do(server, handler, config, args):
     if args.command == 'list':
         result = []
@@ -53,7 +55,9 @@ def do(server, handler, config, args):
                 continue
 
             for variable in config.options(section):
-                result.append('{} = {}'.format(variable, config.get(section, variable)))
+                result.append('{} = {}'.format(
+                    variable, config.get(section, variable)
+                ))
 
             result.append('')
 

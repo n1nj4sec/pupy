@@ -41,10 +41,10 @@ Classic-style usage::
     ...
 
 """
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-from __future__ import unicode_literals
 
 __all__ = (
     'Channel', 'Connection', 'Service', 'BaseNetref', 'AsyncResult',
@@ -53,6 +53,8 @@ __all__ = (
     'classic',
     '__version__'
 )
+
+import sys
 
 from network.lib.rpc.core import (
     Channel, Connection, Service, BaseNetref, AsyncResult,
@@ -66,5 +68,6 @@ from network.lib.rpc.utils.helpers import (
 from network.lib.rpc.utils import classic
 
 from network.lib.rpc.version import version as __version__
+
 
 __author__ = "Tomer Filiba (tomerfiliba@gmail.com)"

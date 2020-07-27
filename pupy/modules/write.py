@@ -14,7 +14,7 @@ from argparse import REMAINDER
 if sys.version_info.major > 2:
     basestring = str
 
-__class_name__='Write'
+__class_name__ = 'Write'
 
 
 @config(cat='manage')
@@ -25,7 +25,9 @@ class Write(PupyModule):
 
     @classmethod
     def init_argparse(cls):
-        cls.arg_parser = PupyArgumentParser(prog='write', description=cls.__doc__)
+        cls.arg_parser = PupyArgumentParser(
+            prog='write', description=cls.__doc__
+        )
 
         modifier = cls.arg_parser.add_mutually_exclusive_group()
         modifier.add_argument(
@@ -66,11 +68,14 @@ class Write(PupyModule):
         elif args.hex:
             text = text.decode('hex')
 
-        fputcontent = self.client.remote('pupyutils.basic_cmds', 'fputcontent', False)
+        fputcontent = self.client.remote(
+            'pupyutils.basic_cmds', 'fputcontent', False
+        )
 
         try:
             fputcontent(args.remote_file, text, args.append)
         except Exception as e:
+            raise
             self.error(
                 ' '.join(x for x in e.args if isinstance(x, basestring))
             )

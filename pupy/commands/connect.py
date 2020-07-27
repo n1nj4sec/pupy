@@ -3,6 +3,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+
 import network.conf
 
 launcher = network.conf.launchers['connect'](
@@ -11,6 +12,7 @@ launcher = network.conf.launchers['connect'](
 
 usage = 'Connect to the bind payload'
 parser = launcher.arg_parser
+
 
 def do(server, handler, config, args):
     launcher.args = args

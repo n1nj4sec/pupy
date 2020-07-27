@@ -15,6 +15,7 @@ from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyOutput import Table
 from pupylib.utils.rpyc_utils import obtain
 
+
 if sys.version_info.major > 2:
     from io import BytesIO
 else:
@@ -39,19 +40,39 @@ class SMB(PupyModule):
 
     @classmethod
     def init_argparse(cls):
-        cls.arg_parser = PupyArgumentParser(prog='smb', description=cls.__doc__)
-        cls.arg_parser.add_argument('-u', '--username', default='', help='Username')
-        cls.arg_parser.add_argument('-P', '--port', default=445, type=int, help='Port')
-        cls.arg_parser.add_argument('-p', '--password', default='', help='Password')
-        cls.arg_parser.add_argument('-d', '--domain', default='', help='Domain')
-        cls.arg_parser.add_argument('-H', '--hash', default='', help='NTLM hash')
-        cls.arg_parser.add_argument('-T', '--timeout', default=30, type=int, help='Timeout')
-        cls.arg_parser.add_argument('-c', '--codepage', default=None, help='Codepage')
+        cls.arg_parser = PupyArgumentParser(
+            prog='smb', description=cls.__doc__
+        )
+        cls.arg_parser.add_argument(
+            '-u', '--username', default='', help='Username'
+        )
+        cls.arg_parser.add_argument(
+            '-P', '--port', default=445, type=int, help='Port'
+        )
+        cls.arg_parser.add_argument(
+            '-p', '--password', default='', help='Password'
+        )
+        cls.arg_parser.add_argument(
+            '-d', '--domain', default='', help='Domain'
+        )
+        cls.arg_parser.add_argument(
+            '-H', '--hash', default='', help='NTLM hash'
+        )
+        cls.arg_parser.add_argument(
+            '-T', '--timeout', default=30, type=int, help='Timeout'
+        )
+        cls.arg_parser.add_argument(
+            '-c', '--codepage', default=None, help='Codepage'
+        )
+
+        cls.arg_parser.set_defaults(func=cls.help)
 
         commands = cls.arg_parser.add_subparsers(dest="command")
 
         cache = commands.add_parser('cache')
-        cache.add_argument('command', choices=('get', 'enable', 'disable', 'clear'))
+        cache.add_argument(
+            'command', choices=('get', 'enable', 'disable', 'clear')
+        )
         cache.set_defaults(func=cls.cache)
 
         cp = commands.add_parser('cp')
@@ -90,16 +111,22 @@ class SMB(PupyModule):
         # except SMBError, e:
         #     self.error(str(e))
 
+    def help(self, args):
+        self.log(self.arg_parser.format_usage())
+
     def cache(self, args):
         if args.command in ('enable', 'disable'):
             set_use_cache = self.client.remote(
-            'pupyutils.psexec', 'set_use_cache', False)
+                'pupyutils.psexec', 'set_use_cache', False
+            )
 
             set_use_cache(args.command == 'enable')
 
         elif args.command == 'get':
             get_cache = self.client.remote(
-            'pupyutils.psexec', 'get_cache', False)
+                'pupyutils.psexec', 'get_cache', False
+            )
+
             try:
                 cache = get_cache()
                 self.log(Table([{
@@ -112,7 +139,8 @@ class SMB(PupyModule):
 
         elif args.command == 'clear':
             clear_session_caches = self.client.remote(
-            'pupyutils.psexec', 'clear_session_caches', False)
+                'pupyutils.psexec', 'clear_session_caches', False
+            )
             clear_session_caches()
 
     def get_ft(self, args, host):
@@ -156,15 +184,8 @@ class SMB(PupyModule):
         if not line.startswith('//'):
             raise ValueError('Invalid network format')
 
-        if isinstance(line, bytes):
-            line = line.decode('utf-8')
-
         if codepage:
             line = line.encode(codepage, errors='replace')
-
-        # FIXME?
-        if isinstance(line, bytes):
-            line = line.decode('utf-8')
 
         remote = line[2:].split('/')
 
@@ -198,7 +219,9 @@ class SMB(PupyModule):
 
     def ls(self, args):
         try:
-            host, share, path = self.parse_netloc(args.dst, partial=True, codepage=args.codepage)
+            host, share, path = self.parse_netloc(
+                args.dst, partial=True, codepage=args.codepage
+            )
         except Exception as e:
             self.error(e)
             return
@@ -232,7 +255,9 @@ class SMB(PupyModule):
 
     def rm(self, args):
         try:
-            host, share, path = self.parse_netloc(args.dst, codepage=args.codepage)
+            host, share, path = self.parse_netloc(
+                args.dst, codepage=args.codepage
+            )
         except Exception as e:
             self.error(str(e))
             return
@@ -248,7 +273,9 @@ class SMB(PupyModule):
 
     def mkdir(self, args):
         try:
-            host, share, path = self.parse_netloc(args.dst, codepage=args.codepage)
+            host, share, path = self.parse_netloc(
+                args.dst, codepage=args.codepage
+            )
         except Exception as e:
             self.error(str(e))
             return
@@ -264,7 +291,9 @@ class SMB(PupyModule):
 
     def rmdir(self, args):
         try:
-            host, share, path = self.parse_netloc(args.dst, codepage=args.codepage)
+            host, share, path = self.parse_netloc(
+                args.dst, codepage=args.codepage
+            )
         except Exception as e:
             self.error(str(e))
             return
@@ -290,11 +319,16 @@ class SMB(PupyModule):
             remote = src
             local = dst
         else:
-            self.error(r'Either src or dst should be network share in (\\HOST\SHARE\PATH) format')
+            self.error(
+                'Either src or dst should be network '
+                r'share in (\\HOST\SHARE\PATH) format'
+            )
             return
 
         try:
-            host, share, path = self.parse_netloc(remote, codepage=args.codepage)
+            host, share, path = self.parse_netloc(
+                remote, codepage=args.codepage
+            )
         except Exception as e:
             self.error(e)
             return
@@ -310,13 +344,16 @@ class SMB(PupyModule):
 
         if upload:
             if upload and not os.path.isfile(local):
-                self.warning('Source file {} not found, try upload remote file'.format(local))
+                self.warning(
+                    'Source file {} not found, '
+                    'try upload remote file'.format(local)
+                )
                 ft.put(local, share, path)
             else:
-                with open(local, 'r+b') as source:
+                with open(local, 'rb') as source:
                     ft.put(source.read, share, path)
         else:
-            with open(local, 'w+b') as destination:
+            with open(local, 'wb') as destination:
                 ft.get(share, path, destination.write)
 
         if not ft.ok:
@@ -324,7 +361,9 @@ class SMB(PupyModule):
 
     def cat(self, args):
         try:
-            host, share, path = self.parse_netloc(args.remote, codepage=args.codepage)
+            host, share, path = self.parse_netloc(
+                args.remote, codepage=args.codepage
+            )
         except Exception as e:
             self.error(e)
             return

@@ -2,11 +2,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 import _winreg
 import psutil
 
 HKEY_LOCAL_MACHINE = -2147483646
 KEY_READ           = 131097
+
 
 class Check_VM():
     def __init__(self):

@@ -43,7 +43,7 @@ import sys
 from threading import Lock
 from os import path
 
-from . import ROOT, HOST_SYSTEM, HOST_CPU_ARCH, HOST_OS_ARCH
+from . import ROOT
 from .PupyCompile import pupycompile
 from .PupyTriggers import event
 
@@ -52,7 +52,10 @@ from .utils.rpyc_utils import obtain
 from .utils.arch import make_os_arch, make_proc_arch
 
 from network.lib.rpc import nowait
-from network.lib.convcompat import as_attr_type, unicodify
+from network.lib.convcompat import (
+    as_native_string, as_unicode_string_deep,
+    reprb
+)
 
 from . import getLogger
 logger = getLogger('client')
@@ -60,24 +63,10 @@ logger = getLogger('client')
 if sys.version_info.major > 2:
     basestring = str
 
-    def reprb(data):
-        return repr(data)
-
-else:
-    def reprb(data):
-        return 'b' + repr(data)
-
-
-def as_str(data):
-    if isinstance(data, bytes):
-        return data.decode('utf-8')
-
-    return data
-
 
 class PupyClient(object):
     def __init__(self, desc, pupsrv):
-        self.desc = unicodify(desc)
+        self.desc = as_unicode_string_deep(desc)
 
         if __debug__:
             logger.debug(
@@ -97,7 +86,8 @@ class PupyClient(object):
             self.conn.remote_version,
             (
                 self.platform, self.arch
-            )
+            ),
+            debug='debug_logfile' in self.desc
         )
 
         self.conn.events_receiver = self._event_receiver
@@ -114,7 +104,9 @@ class PupyClient(object):
         self.remotes_lock = Lock()
         self.obtain_call = None
 
-        self.load_pupyimporter()
+        if self.conn.protocol_version is None:
+            # Legacy client
+            self._legacy_init()
 
         # To reuse impersonated handle in other modules
         self.impersonated_dupHandle = None
@@ -275,13 +267,13 @@ class PupyClient(object):
 
         return remote_variable
 
-    def load_pupyimporter(self):
+    def _legacy_init(self):
         """ load pupyimporter in case it is not """
 
         if not self.conn.pupyimporter:
             try:
                 self.pupyimporter = self.remote('pupyimporter')
-            except:
+            except Exception:
                 self.conn.execute('\n'.join([
                     'import imp, sys, marshal',
                     'mod = imp.new_module("pupyimporter")',
@@ -350,24 +342,24 @@ class PupyClient(object):
 
         if self.obtain_call:
             self.imported_modules = set(
-                as_attr_type(name) for name in self.obtain_call(
+                as_native_string(name) for name in self.obtain_call(
                     self.conn.modules.sys.modules.keys
                 )
             )
             self.cached_modules = set(
-                as_attr_type(name) for name in self.obtain_call(
+                as_native_string(name) for name in self.obtain_call(
                     self.pupyimporter.modules.keys
                 )
             )
         else:
             self.imported_modules = set(
-                as_attr_type(name) for name in obtain(
+                as_native_string(name) for name in obtain(
                     self.conn.modules.sys.modules.keys()
                 )
             )
 
             self.cached_modules = set(
-                as_attr_type(name) for name in obtain(
+                as_native_string(name) for name in obtain(
                     self.pupyimporter.modules.keys()
                 )
             )
@@ -572,7 +564,7 @@ class PupyClient(object):
             self.remote_invalidate_module(module_name)
 
     def remote_load_package(self, module_name):
-        module_name = as_attr_type(module_name)
+        module_name = as_native_string(module_name)
 
         logger.info('remote_load_package for %s started', module_name)
 

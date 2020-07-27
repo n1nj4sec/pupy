@@ -118,7 +118,8 @@ class WModule(PupyModule):
                             session_client['HRes'], session_client['VRes'])
 
                     client_line = ''
-                    if session_client['ClientName'] and session_client['ClientProductId']:
+                    if session_client['ClientName'] and \
+                            session_client['ClientProductId']:
                         username = session_client['UserName']
                         domain = session_client['Domain']
                         if domain and domain != '.':
@@ -127,9 +128,11 @@ class WModule(PupyModule):
                         client_line = '{}@{} ({}/{} {}.{})'.format(
                             username,
                             session_client['ClientAddress'],
-                            session_client['ClientName'], session_client['DeviceIdD'],
-                            session_client['ClientProductId'], session_client['ClientBuildNumber']
-                    )
+                            session_client['ClientName'],
+                            session_client['DeviceIdD'],
+                            session_client['ClientProductId'],
+                            session_client['ClientBuildNumber']
+                        )
 
                     client_info[session] = Color(client_line, color)
                     client_res[session] = Color(view_port, color)
@@ -149,8 +152,9 @@ class WModule(PupyModule):
                 for time_info_type in time_info:
                     record = {'#': time_info_type}
                     record.update({
-                        session:Color(
-                            str(time_info[time_info_type][session]).rsplit('.')[0]
+                        session: Color(
+                            str(time_info[
+                                time_info_type][session]).rsplit('.')[0]
                             if time_info[time_info_type][session] else '',
                             session_colors[session]
                         ) for session in cols[1:]
@@ -169,6 +173,7 @@ class WModule(PupyModule):
             users = self.client.remote('pupyps', 'users')
 
             data = users()
+
             tablein = []
 
             for user, hosts in reversed(sorted(data.items())):
@@ -193,25 +198,35 @@ class WModule(PupyModule):
                                     "green" if session.get('me') else color)
                             ),
                             'LOGIN': Color(
-                                str(datetime.fromtimestamp(int(session['started']))), color
+                                str(datetime.fromtimestamp(
+                                    int(session['started']))), color
                             ),
                         }
 
                         if session.get('terminal'):
                             if session.get('name'):
                                 what = '{} {}'.format(
-                                    session['exe'] if session.get('exe') else ('{'+session.get('name')+'}'),
-                                    ' '.join(session['cmdline'][1:] if session.get('cmdline') else '')
+                                    session['exe'] if session.get('exe')
+                                    else ('{'+session.get('name')+'}'),
+                                    ' '.join(
+                                        session['cmdline'][1:]
+                                        if session.get('cmdline') else ''
+                                    )
                                 )
                             else:
                                 what = ''
 
                             object.update({
                                 'IDLE': Color(
-                                    str(timedelta(seconds=session['idle'])), color
+                                    str(timedelta(
+                                        seconds=session['idle'])), color
                                 ) if session.get('idle') else '',
-                                'PID': Color(str(session.get('pid', '')), color),
-                                'WHAT': Color(what[:30]+'...' if len(what) > 30 else what, color)
+                                'PID': Color(
+                                    str(session.get('pid', '')), color),
+                                'WHAT': Color(
+                                    what[:30] + '...'
+                                    if len(what) > 30 else what, color
+                                )
                             })
 
                         tablein.append(object)

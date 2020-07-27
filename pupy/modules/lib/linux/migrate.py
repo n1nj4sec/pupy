@@ -44,9 +44,7 @@ def get_payload(module, compressed=True, debug=False, from_payload=None):
         conf = module.client.get_conf()
         dllbuff, _, _ = pupygen.generate_binary_from_template(
             module.log,
-            conf, 'linux',
-            arch=module.client.arch, shared=True,
-            debug=debug or conf['debug']
+            conf, module.client.target, shared=True
         )
 
     if not compressed:

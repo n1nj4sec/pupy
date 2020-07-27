@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-#Author: ??? and original code from https://github.com/joren485/PyWinPrivEsc/blob/master/RunAsSystem.py
-#Contributor(s): @bobsecq
+# Author: ??? and original code from
+# https://github.com/joren485/PyWinPrivEsc/blob/master/RunAsSystem.py
+# Contributor(s): @bobsecq
 
 from __future__ import absolute_import
 from __future__ import division
@@ -21,6 +22,10 @@ from ctypes.wintypes import (
     LPCSTR, LPCWSTR, USHORT, HANDLE
 )
 
+from network.lib.convcompat import (
+    as_native_string, try_as_unicode_string
+)
+
 from threading import Thread
 
 import psutil
@@ -34,168 +39,167 @@ from os import W_OK, X_OK, R_OK
 
 if sys.version_info.major > 2:
     xrange = range
-    unicode = str
 
-def to_unicode(x):
-    if isinstance(x, bytes):
-        return x.decode(sys.getfilesystemencoding())
-
-    return x
-
-ntdll    = WinDLL('ntdll',    use_last_error=True)
+ntdll = WinDLL('ntdll', use_last_error=True)
 advapi32 = WinDLL('advapi32', use_last_error=True)
-shell32  = WinDLL('shell32',  use_last_error=True)
+shell32 = WinDLL('shell32', use_last_error=True)
 kernel32 = WinDLL('kernel32', use_last_error=True)
-userenv  = WinDLL('userenv',  use_last_error=True)
-secur32  = WinDLL('secur32',  use_last_error=True)
+userenv = WinDLL('userenv', use_last_error=True)
+secur32 = WinDLL('secur32', use_last_error=True)
 
-S_OK                            = 0
-E_ABORT                         = 0x80004004
-E_ACCESSDENIED                  = 0x80070005
-E_FAIL                          = 0x80004005
-E_HANDLE                        = 0x80070006
-E_INVALIDARG                    = 0x80070057
-E_NOINTERFACE                   = 0x80004002
-E_NOTIMPL                       = 0x80004001
-E_OUTOFMEMORY                   = 0x8007000E
-E_POINTER                       = 0x80004003
-E_UNEXPECTED                    = 0x8000FFFF
+S_OK = 0
+E_ABORT = 0x80004004
+E_ACCESSDENIED = 0x80070005
+E_FAIL = 0x80004005
+E_HANDLE = 0x80070006
+E_INVALIDARG = 0x80070057
+E_NOINTERFACE = 0x80004002
+E_NOTIMPL = 0x80004001
+E_OUTOFMEMORY = 0x8007000E
+E_POINTER = 0x80004003
+E_UNEXPECTED = 0x8000FFFF
 
-LPVOID                          = c_void_p
-PVOID                           = LPVOID
-LPTSTR                          = LPSTR
-LPCTSTR                         = LPSTR
-PSID                            = PVOID
-DWORD                           = c_uint32
-INVALID_HANDLE_VALUE            = c_void_p(-1).value
-INVALID_HANDLE                  = HANDLE(INVALID_HANDLE_VALUE)
-LONG                            = c_long
-WORD                            = c_uint16
-PULONG                          = c_void_p
-LPBYTE                          = c_char_p
-SIZE_T                          = c_size_t
-ULONG                           = c_ulong
-WCHAR                           = c_wchar
-NTSTATUS                        = DWORD
-LARGE_INTEGER                   = c_longlong
-PHANDLE                         = POINTER(HANDLE)
-PDWORD                          = POINTER(DWORD)
+LPVOID = c_void_p
+PVOID = LPVOID
+LPTSTR = LPSTR
+LPCTSTR = LPSTR
+PSID = PVOID
+DWORD = c_uint32
+INVALID_HANDLE_VALUE = c_void_p(-1).value
+INVALID_HANDLE = HANDLE(INVALID_HANDLE_VALUE)
+LONG = c_long
+WORD = c_uint16
+PULONG = c_void_p
+LPBYTE = c_char_p
+SIZE_T = c_size_t
+ULONG = c_ulong
+WCHAR = c_wchar
+NTSTATUS = DWORD
+LARGE_INTEGER = c_longlong
+PHANDLE = POINTER(HANDLE)
+PDWORD = POINTER(DWORD)
 
 SECURITY_INFORMATION = DWORD
 
-PROCESS_QUERY_INFORMATION       = 0x0400
-READ_CONTROL                    = 0x00020000
-STANDARD_RIGHTS_READ            = READ_CONTROL
-STANDARD_RIGHTS_REQUIRED        = 0x000F0000
-TOKEN_ASSIGN_PRIMARY            = 0x0001
-TOKEN_DUPLICATE                 = 0x0002
-TOKEN_IMPERSONATE               = 0x0004
-TOKEN_QUERY                     = 0x0008
-TOKEN_QUERY_SOURCE              = 0x0010
-TOKEN_ADJUST_PRIVILEGES         = 0x0020
-TOKEN_ADJUST_GROUPS             = 0x0040
-TOKEN_ADJUST_DEFAULT            = 0x0080
-TOKEN_ADJUST_SESSIONID          = 0x0100
-TOKEN_READ                      = (STANDARD_RIGHTS_READ | TOKEN_QUERY)
-tokenprivs                      = (TOKEN_QUERY | TOKEN_READ | TOKEN_IMPERSONATE | TOKEN_QUERY_SOURCE | TOKEN_DUPLICATE | TOKEN_ASSIGN_PRIMARY | (131072 | 4))
-TOKEN_ALL_ACCESS                = (
-    STANDARD_RIGHTS_REQUIRED | TOKEN_ASSIGN_PRIMARY | \
-    TOKEN_DUPLICATE | TOKEN_IMPERSONATE | TOKEN_QUERY | TOKEN_QUERY_SOURCE | \
-    TOKEN_ADJUST_PRIVILEGES | TOKEN_ADJUST_GROUPS | TOKEN_ADJUST_DEFAULT | \
-    TOKEN_ADJUST_SESSIONID)
+PROCESS_QUERY_INFORMATION = 0x0400
+READ_CONTROL = 0x00020000
+STANDARD_RIGHTS_READ = READ_CONTROL
+STANDARD_RIGHTS_REQUIRED = 0x000F0000
+TOKEN_ASSIGN_PRIMARY = 0x0001
+TOKEN_DUPLICATE = 0x0002
+TOKEN_IMPERSONATE = 0x0004
+TOKEN_QUERY = 0x0008
+TOKEN_QUERY_SOURCE = 0x0010
+TOKEN_ADJUST_PRIVILEGES = 0x0020
+TOKEN_ADJUST_GROUPS = 0x0040
+TOKEN_ADJUST_DEFAULT = 0x0080
+TOKEN_ADJUST_SESSIONID = 0x0100
+TOKEN_READ = (STANDARD_RIGHTS_READ | TOKEN_QUERY)
 
-SE_OWNER_DEFAULTED        = 0x0001
-SE_GROUP_DEFAULTED        = 0x0002
-SE_DACL_PRESENT           = 0x0004
-SE_DACL_DEFAULTED         = 0x0008
-SE_SACL_PRESENT           = 0x0010
-SE_SACL_DEFAULTED         = 0x0020
-SE_DACL_AUTO_INHERIT_REQ  = 0x0100
-SE_SACL_AUTO_INHERIT_REQ  = 0x0200
-SE_DACL_AUTO_INHERITED    = 0x0400
-SE_SACL_AUTO_INHERITED    = 0x0800
-SE_DACL_PROTECTED         = 0x1000
-SE_SACL_PROTECTED         = 0x2000
-SE_SELF_RELATIVE          = 0x8000
+tokenprivs = (
+    TOKEN_QUERY | TOKEN_READ | TOKEN_IMPERSONATE |
+    TOKEN_QUERY_SOURCE | TOKEN_DUPLICATE | TOKEN_ASSIGN_PRIMARY
+    | (131072 | 4)
+)
 
-OBJECT_INHERIT_ACE         = 0x01
-CONTAINER_INHERIT_ACE      = 0x02
-NO_PROPAGATE_INHERIT_ACE   = 0x04
-INHERIT_ONLY_ACE           = 0x08
-INHERITED_ACE              = 0x10
+TOKEN_ALL_ACCESS = (
+    STANDARD_RIGHTS_REQUIRED | TOKEN_ASSIGN_PRIMARY |
+    TOKEN_DUPLICATE | TOKEN_IMPERSONATE | TOKEN_QUERY |
+    TOKEN_QUERY_SOURCE | TOKEN_ADJUST_PRIVILEGES |
+    TOKEN_ADJUST_GROUPS | TOKEN_ADJUST_DEFAULT | TOKEN_ADJUST_SESSIONID
+)
+
+SE_OWNER_DEFAULTED = 0x0001
+SE_GROUP_DEFAULTED = 0x0002
+SE_DACL_PRESENT = 0x0004
+SE_DACL_DEFAULTED = 0x0008
+SE_SACL_PRESENT = 0x0010
+SE_SACL_DEFAULTED = 0x0020
+SE_DACL_AUTO_INHERIT_REQ = 0x0100
+SE_SACL_AUTO_INHERIT_REQ = 0x0200
+SE_DACL_AUTO_INHERITED = 0x0400
+SE_SACL_AUTO_INHERITED = 0x0800
+SE_DACL_PROTECTED = 0x1000
+SE_SACL_PROTECTED = 0x2000
+SE_SELF_RELATIVE = 0x8000
+
+OBJECT_INHERIT_ACE = 0x01
+CONTAINER_INHERIT_ACE = 0x02
+NO_PROPAGATE_INHERIT_ACE = 0x04
+INHERIT_ONLY_ACE = 0x08
+INHERITED_ACE = 0x10
 SUCCESSFUL_ACCESS_ACE_FLAG = 0x40
-FAILED_ACCESS_ACE_FLAG     = 0x80
+FAILED_ACCESS_ACE_FLAG = 0x80
 
 ACCESS_ALLOWED_ACE_TYPE = 0
-ACCESS_DENIED_ACE_TYPE  = 1
-SYSTEM_AUDIT_ACE_TYPE   = 2
+ACCESS_DENIED_ACE_TYPE = 1
+SYSTEM_AUDIT_ACE_TYPE = 2
 
-DELETE                 = 0x00010000 # DE
-READ_CONTROL           = 0x00020000 # RC
-WRITE_DAC              = 0x00040000 # WDAC
-WRITE_OWNER            = 0x00080000 # WO
-SYNCHRONIZE            = 0x00100000 # S
-ACCESS_SYSTEM_SECURITY = 0x01000000 # AS
-GENERIC_READ           = 0x80000000 # GR
-GENERIC_WRITE          = 0x40000000 # GW
-GENERIC_EXECUTE        = 0x20000000 # GE
-GENERIC_ALL            = 0x10000000 # GA
+DELETE = 0x00010000  # DE
+READ_CONTROL = 0x00020000  # RC
+WRITE_DAC = 0x00040000  # WDAC
+WRITE_OWNER = 0x00080000  # WO
+SYNCHRONIZE = 0x00100000  # S
+ACCESS_SYSTEM_SECURITY = 0x01000000  # AS
+GENERIC_READ = 0x80000000  # GR
+GENERIC_WRITE = 0x40000000  # GW
+GENERIC_EXECUTE = 0x20000000  # GE
+GENERIC_ALL = 0x10000000  # GA
 
-CREATE_ALWAYS          = 0x2
-CREATE_NEW             = 0x1
-OPEN_ALWAYS            = 0x4
-OPEN_EXISTING          = 0x3
-TRUNCATE_EXISTING      = 0x5
+CREATE_ALWAYS = 0x2
+CREATE_NEW = 0x1
+OPEN_ALWAYS = 0x4
+OPEN_EXISTING = 0x3
+TRUNCATE_EXISTING = 0x5
 
-FILE_READ_DATA         = 0x00000001 # RD
-FILE_LIST_DIRECTORY    = 0x00000001
-FILE_WRITE_DATA        = 0x00000002 # WD
-FILE_ADD_FILE          = 0x00000002
-FILE_APPEND_DATA       = 0x00000004 # AD
-FILE_ADD_SUBDIRECTORY  = 0x00000004
-FILE_READ_EA           = 0x00000008 # REA
-FILE_WRITE_EA          = 0x00000010 # WEA
-FILE_EXECUTE           = 0x00000020 # X
-FILE_TRAVERSE          = 0x00000020
-FILE_DELETE_CHILD      = 0x00000040 # DC
-FILE_READ_ATTRIBUTES   = 0x00000080 # RA
-FILE_WRITE_ATTRIBUTES  = 0x00000100 # WA
+FILE_READ_DATA = 0x00000001  # RD
+FILE_LIST_DIRECTORY = 0x00000001
+FILE_WRITE_DATA = 0x00000002  # WD
+FILE_ADD_FILE = 0x00000002
+FILE_APPEND_DATA = 0x00000004  # AD
+FILE_ADD_SUBDIRECTORY = 0x00000004
+FILE_READ_EA = 0x00000008  # REA
+FILE_WRITE_EA = 0x00000010  # WEA
+FILE_EXECUTE = 0x00000020  # X
+FILE_TRAVERSE = 0x00000020
+FILE_DELETE_CHILD = 0x00000040  # DC
+FILE_READ_ATTRIBUTES = 0x00000080  # RA
+FILE_WRITE_ATTRIBUTES = 0x00000100  # WA
 
-FILE_GENERIC_READ      = (
-    FILE_READ_DATA        | \
-    FILE_READ_EA          | \
-    FILE_READ_ATTRIBUTES  | \
-    READ_CONTROL          | \
-    SYNCHRONIZE)
+FILE_GENERIC_READ = (
+    FILE_READ_DATA | FILE_READ_EA |
+    FILE_READ_ATTRIBUTES | READ_CONTROL |
+    SYNCHRONIZE
+)
 
-FILE_GENERIC_WRITE     = (
-    FILE_WRITE_DATA       | \
-    FILE_APPEND_DATA      | \
-    FILE_WRITE_EA         | \
-    FILE_WRITE_ATTRIBUTES | \
-    READ_CONTROL          | \
-    SYNCHRONIZE)
+FILE_GENERIC_WRITE = (
+    FILE_WRITE_DATA | FILE_APPEND_DATA |
+    FILE_WRITE_EA | FILE_WRITE_ATTRIBUTES |
+    READ_CONTROL | SYNCHRONIZE
+)
 
-FILE_GENERIC_EXECUTE    = (
-    FILE_EXECUTE         | \
-    FILE_READ_ATTRIBUTES | \
-    READ_CONTROL         | \
-    SYNCHRONIZE)
+FILE_GENERIC_EXECUTE = (
+    FILE_EXECUTE | FILE_READ_ATTRIBUTES |
+    READ_CONTROL | SYNCHRONIZE
+)
 
-FILE_ALL_ACCESS         = (STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0x1FF)
-FILE_MODIIFY_ACCESS     = FILE_ALL_ACCESS & ~(FILE_DELETE_CHILD | \
-                                              WRITE_DAC         | \
-                                              WRITE_OWNER)
+FILE_ALL_ACCESS = (
+    STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0x1FF
+)
 
-FILE_READ_EXEC_ACCESS   = FILE_GENERIC_READ | FILE_GENERIC_EXECUTE
+FILE_MODIIFY_ACCESS = FILE_ALL_ACCESS & ~(
+    FILE_DELETE_CHILD | WRITE_DAC | WRITE_OWNER
+)
 
-FILE_DELETE_ACCESS      = DELETE | SYNCHRONIZE
+FILE_READ_EXEC_ACCESS = FILE_GENERIC_READ | FILE_GENERIC_EXECUTE
+
+FILE_DELETE_ACCESS = DELETE | SYNCHRONIZE
 
 
 SE_PRIVILEGE_ENABLED_BY_DEFAULT = (0x00000001)
-SE_PRIVILEGE_ENABLED            = (0x00000002)
-SE_PRIVILEGE_REMOVED            = (0x00000004)
-SE_PRIVILEGE_USED_FOR_ACCESS    = (0x80000000)
+SE_PRIVILEGE_ENABLED = (0x00000002)
+SE_PRIVILEGE_REMOVED = (0x00000004)
+SE_PRIVILEGE_USED_FOR_ACCESS = (0x80000000)
 
 OWNER_SECURITY_INFORMATION = 0x00000001
 GROUP_SECURITY_INFORMATION = 0x00000002
@@ -270,37 +274,48 @@ def _bit(flag, mask):
     return (flag & mask) == mask
 
 
-class TOKEN_INFORMATION_CLASS:
-    #see http://msdn.microsoft.com/en-us/library/aa379626%28VS.85%29.aspx
-    TokenUser       = 1
-    TokenGroups     = 2
+class TOKEN_INFORMATION_CLASS(object):
+    __slots__ = ()
+    # See http://msdn.microsoft.com/en-us/library/aa379626%28VS.85%29.aspx
+    TokenUser = 1
+    TokenGroups = 2
     TokenPrivileges = 3
+
 
 class LUID(Structure):
     _fields_ = [
-        ("LowPart",     DWORD),
-        ("HighPart",    LONG),
+        ("LowPart", DWORD),
+        ("HighPart", LONG),
     ]
 
     def __eq__(self, other):
-        return (self.HighPart == other.HighPart and self.LowPart == other.LowPart)
+        return (
+            self.HighPart == other.HighPart and
+            self.LowPart == other.LowPart
+        )
 
     def __ne__(self, other):
-        return not (self==other)
+        return not (self == other)
+
 
 PLUID = POINTER(LUID)
 
+
 class SID_AND_ATTRIBUTES(Structure):
     _fields_ = [
-        ("Sid",         PSID),
-        ("Attributes",  DWORD),
+        ("Sid", PSID),
+        ("Attributes", DWORD),
     ]
+
 
 class TOKEN_USER(Structure):
     _fields_ = [
-        ("User", SID_AND_ATTRIBUTES),]
+        ("User", SID_AND_ATTRIBUTES),
+    ]
+
 
 ACCESS_MASK = DWORD
+
 
 class GENERIC_MAPPING(Structure):
     _fields_ = [
@@ -310,14 +325,16 @@ class GENERIC_MAPPING(Structure):
         ('GenericAll', ACCESS_MASK),
     ]
 
-LookupPrivilegeName             = advapi32.LookupPrivilegeNameW
-LookupPrivilegeName.argtypes    = [LPWSTR, PLUID, LPWSTR, PDWORD]
-LookupPrivilegeName.restype     = BOOL
+
+LookupPrivilegeName = advapi32.LookupPrivilegeNameW
+LookupPrivilegeName.argtypes = [LPWSTR, PLUID, LPWSTR, PDWORD]
+LookupPrivilegeName.restype = BOOL
+
 
 class LUID_AND_ATTRIBUTES(Structure):
     _fields_ = [
-        ("Luid",        LUID),
-        ("Attributes",  DWORD),
+        ("Luid", LUID),
+        ("Attributes", DWORD),
     ]
 
     def is_enabled(self):
@@ -344,17 +361,21 @@ class LUID_AND_ATTRIBUTES(Structure):
 
         return res
 
+
 class TOKEN_PRIVILEGES(Structure):
     _fields_ = [
-        ("PrivilegeCount",  DWORD),
-        ("Privileges",      LUID_AND_ATTRIBUTES),
+        ("PrivilegeCount", DWORD),
+        ("Privileges", LUID_AND_ATTRIBUTES),
     ]
+
+
 PTOKEN_PRIVILEGES = POINTER(TOKEN_PRIVILEGES)
+
 
 class TOKEN_PRIVS(Structure):
     _fields_ = [
-        ("PrivilegeCount",  DWORD),
-        ("Privileges",      LUID_AND_ATTRIBUTES*0),
+        ("PrivilegeCount", DWORD),
+        ("Privileges", LUID_AND_ATTRIBUTES*0),
     ]
 
     def get_array(self):
@@ -365,34 +386,36 @@ class TOKEN_PRIVS(Structure):
     def __iter__(self):
         return iter(self.get_array())
 
+
 class PROCESS_INFORMATION(Structure):
     _fields_ = [
-        ('hProcess',    HANDLE),
-        ('hThread',     HANDLE),
+        ('hProcess', HANDLE),
+        ('hThread', HANDLE),
         ('dwProcessId', DWORD),
-        ('dwThreadId',  DWORD),
+        ('dwThreadId', DWORD),
     ]
+
 
 class STARTUPINFOW(Structure):
     _fields_ = [
-        ('cb',              DWORD),
-        ('lpReserved',      LPWSTR),
-        ('lpDesktop',       LPWSTR),
-        ('lpTitle',         LPWSTR),
-        ('dwX',             DWORD),
-        ('dwY',             DWORD),
-        ('dwXSize',         DWORD),
-        ('dwYSize',         DWORD),
-        ('dwXCountChars',   DWORD),
-        ('dwYCountChars',   DWORD),
-        ('dwFillAttribute', DWORD),
-        ('dwFlags',         DWORD),
-        ('wShowWindow',     WORD),
-        ('cbReserved2',     WORD),
-        ('lpReserved2',     LPVOID),    # LPBYTE
-        ('hStdInput',       HANDLE),
-        ('hStdOutput',      HANDLE),
-        ('hStdError',       HANDLE),
+        ('cb', DWORD),
+        ('lpReserved', LPWSTR),
+        ('lpDesktop', LPWSTR),
+        ('lpTitle', LPWSTR),
+        ('dwX', DWORD),
+        ('dwY', DWORD),
+        ('dwXSize', DWORD),
+        ('dwYSize', DWORD),
+        ('dwXCountChars', DWORD),
+        ('dwYCountChars', DWORD),
+        ('dwFillAttribute', WORD),
+        ('dwFlags', DWORD),
+        ('wShowWindow', WORD),
+        ('cbReserved2', WORD),
+        ('lpReserved2', LPVOID),  # LPBYTE
+        ('hStdInput', HANDLE),
+        ('hStdOutput', HANDLE),
+        ('hStdError', HANDLE),
     ]
 
     def __init__(self, *args, **kwargs):
@@ -409,6 +432,7 @@ class ACL_HEADER(Structure):
         ('Sbz2', WORD)
     ]
 
+
 class SECURITY_DESCRIPTOR(Structure):
     _fields_ = [
         ('Revision', BYTE),
@@ -419,32 +443,40 @@ class SECURITY_DESCRIPTOR(Structure):
         ('Sacl', c_void_p),
         ('Dacl', c_void_p),
     ]
+
+
 PSECURITY_DESCRIPTOR = POINTER(SECURITY_DESCRIPTOR)
+
 
 class SECURITY_ATTRIBUTES(Structure):
     _fields_ = [
-        ("nLength",                     DWORD),
-        ("lpSecurityDescriptor",        LPVOID),
-        ("bInheritHandle",              BOOL),
+        ("nLength", DWORD),
+        ("lpSecurityDescriptor", LPVOID),
+        ("bInheritHandle", BOOL),
     ]
 
+
 PSECURITY_ATTRIBUTES = POINTER(SECURITY_ATTRIBUTES)
+
 
 class OSVERSIONINFOEXW(Structure):
     _fields_ = [
         ('dwOSVersionInfoSize', DWORD),
-        ('dwMajorVersion',      DWORD),
-        ('dwMinorVersion',      DWORD),
-        ('dwBuildNumber',       DWORD),
-        ('dwPlatformId',        DWORD),
-        ('szCSDVersion',        c_wchar * 128),
-        ('wServicePackMajor',   DWORD),
-        ('wServicePackMinor',   DWORD),
-        ('wSuiteMask',          DWORD),
-        ('wProductType',        BYTE),
-        ('wReserved',           BYTE)
+        ('dwMajorVersion', DWORD),
+        ('dwMinorVersion', DWORD),
+        ('dwBuildNumber', DWORD),
+        ('dwPlatformId', DWORD),
+        ('szCSDVersion', c_wchar * 128),
+        ('wServicePackMajor', DWORD),
+        ('wServicePackMinor', DWORD),
+        ('wSuiteMask', DWORD),
+        ('wProductType', BYTE),
+        ('wReserved', BYTE)
     ]
+
+
 POSVERSIONINFOEXW = POINTER(OSVERSIONINFOEXW)
+
 
 class PRIVILEGE_SET_HEADER(Structure):
     _fields_ = [
@@ -452,15 +484,18 @@ class PRIVILEGE_SET_HEADER(Structure):
         ('Control', DWORD)
     ]
 
+
 class SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX(Structure):
-    _fields_ = [("Object", PVOID),
-                ("UniqueProcessId", PVOID),
-                ("HandleValue", PVOID),
-                ("GrantedAccess", ULONG),
-                ("CreatorBackTraceIndex", USHORT),
-                ("ObjectTypeIndex", USHORT),
-                ("HandleAttributes", ULONG),
-                ("Reserved", ULONG)]
+    _fields_ = [
+        ("Object", PVOID),
+        ("UniqueProcessId", PVOID),
+        ("HandleValue", PVOID),
+        ("GrantedAccess", ULONG),
+        ("CreatorBackTraceIndex", USHORT),
+        ("ObjectTypeIndex", USHORT),
+        ("HandleAttributes", ULONG),
+        ("Reserved", ULONG)
+    ]
 
 
 class STARTUPINFOEX(Structure):
@@ -529,7 +564,9 @@ class STARTUPINFOEX(Structure):
 
 class TOKEN_MANDATORY_LABEL(Structure):
     _fields_ = [
-            ('Label', SID_AND_ATTRIBUTES),]
+        ('Label', SID_AND_ATTRIBUTES),
+    ]
+
 
 # advapi32
 
@@ -551,91 +588,126 @@ LookupAccountSidA.argtypes = [
     LPTSTR, PSID, LPTSTR, PDWORD, LPTSTR, PDWORD, PDWORD
 ]
 
-AdjustTokenPrivileges               = advapi32.AdjustTokenPrivileges
-AdjustTokenPrivileges.restype       = BOOL
-AdjustTokenPrivileges.argtypes      = [
-    HANDLE, BOOL, PTOKEN_PRIVILEGES, DWORD, PTOKEN_PRIVILEGES, PDWORD
+AdjustTokenPrivileges = advapi32.AdjustTokenPrivileges
+AdjustTokenPrivileges.restype = BOOL
+AdjustTokenPrivileges.argtypes = [
+    HANDLE, BOOL, PTOKEN_PRIVILEGES, DWORD,
+    PTOKEN_PRIVILEGES, PDWORD
 ]
 
-CheckTokenMembership                = advapi32.CheckTokenMembership
-CheckTokenMembership.restype        = BOOL
-CheckTokenMembership.argtypes       = [HANDLE, PSID, POINTER(BOOL)]
-
-ConvertSidToStringSidA              = advapi32.ConvertSidToStringSidA
-ConvertSidToStringSidA.restype      = BOOL
-ConvertSidToStringSidA.argtypes     = [PSID, POINTER(LPTSTR)]
-
-CreateProcessAsUser                 = advapi32.CreateProcessAsUserW
-CreateProcessAsUser.restype         = BOOL
-CreateProcessAsUser.argtypes        = [
-    HANDLE, LPWSTR, LPWSTR, PSECURITY_ATTRIBUTES, PSECURITY_ATTRIBUTES,
-    BOOL, DWORD, LPVOID, LPWSTR, c_void_p,
-    POINTER(PROCESS_INFORMATION)
+CheckTokenMembership = advapi32.CheckTokenMembership
+CheckTokenMembership.restype = BOOL
+CheckTokenMembership.argtypes = [
+    HANDLE, PSID, POINTER(BOOL)
 ]
 
-CreateWellKnownSid                  = advapi32.CreateWellKnownSid
-CreateWellKnownSid.restype          = BOOL
-CreateWellKnownSid.argtypes         = [DWORD, POINTER(PSID), LPVOID, PDWORD]
+ConvertSidToStringSidA = advapi32.ConvertSidToStringSidA
+ConvertSidToStringSidA.restype = BOOL
+ConvertSidToStringSidA.argtypes = [
+    PSID, POINTER(LPTSTR)
+]
 
-DuplicateTokenEx                    = advapi32.DuplicateTokenEx
-DuplicateTokenEx.restype            = BOOL
-DuplicateTokenEx.argtypes           = [HANDLE, DWORD, PSECURITY_ATTRIBUTES, DWORD, DWORD, PHANDLE]
+CreateProcessAsUser = advapi32.CreateProcessAsUserW
+CreateProcessAsUser.restype = BOOL
+CreateProcessAsUser.argtypes = [
+    HANDLE, LPWSTR, LPWSTR, PSECURITY_ATTRIBUTES,
+    PSECURITY_ATTRIBUTES, BOOL, DWORD, LPVOID, LPWSTR,
+    c_void_p, POINTER(PROCESS_INFORMATION)
+]
 
-DuplicateToken                      = advapi32.DuplicateToken
-DuplicateToken.restype              = BOOL
-DuplicateToken.argtypes             = [HANDLE, DWORD, PHANDLE]
+CreateWellKnownSid = advapi32.CreateWellKnownSid
+CreateWellKnownSid.restype = BOOL
+CreateWellKnownSid.argtypes = [
+    DWORD, POINTER(PSID), LPVOID, PDWORD
+]
 
-GetTokenInformation                 = advapi32.GetTokenInformation
-GetTokenInformation.restype         = BOOL
-GetTokenInformation.argtypes        = [HANDLE, DWORD, LPVOID, DWORD, PDWORD]
+DuplicateTokenEx = advapi32.DuplicateTokenEx
+DuplicateTokenEx.restype = BOOL
+DuplicateTokenEx.argtypes = [
+    HANDLE, DWORD, PSECURITY_ATTRIBUTES, DWORD, DWORD, PHANDLE
+]
 
-GetUserNameW                        = advapi32.GetUserNameW
-GetUserNameW.restype                = BOOL
-GetUserNameW.argtypes               = [LPWSTR, PDWORD]
+DuplicateToken = advapi32.DuplicateToken
+DuplicateToken.restype = BOOL
+DuplicateToken.argtypes = [
+    HANDLE, DWORD, PHANDLE
+]
 
-ImpersonateLoggedOnUser             = advapi32.ImpersonateLoggedOnUser
-ImpersonateLoggedOnUser.restype     = BOOL
-ImpersonateLoggedOnUser.argtypes    = [HANDLE]
+GetTokenInformation = advapi32.GetTokenInformation
+GetTokenInformation.restype = BOOL
+GetTokenInformation.argtypes = [
+    HANDLE, DWORD, LPVOID, DWORD, PDWORD
+]
 
-LookupPrivilegeValueA               = advapi32.LookupPrivilegeValueA
-LookupPrivilegeValueA.restype       = BOOL
-LookupPrivilegeValueA.argtypes      = [LPCTSTR, LPCTSTR, PLUID]
+GetUserNameW = advapi32.GetUserNameW
+GetUserNameW.restype = BOOL
+GetUserNameW.argtypes = [
+    LPWSTR, PDWORD
+]
 
-OpenProcessToken                    = advapi32.OpenProcessToken
-OpenProcessToken.restype            = BOOL
-OpenProcessToken.argtypes           = [HANDLE, DWORD, PHANDLE]
+ImpersonateLoggedOnUser = advapi32.ImpersonateLoggedOnUser
+ImpersonateLoggedOnUser.restype = BOOL
+ImpersonateLoggedOnUser.argtypes = [
+    HANDLE
+]
 
-OpenThreadToken                     = advapi32.OpenThreadToken
-OpenThreadToken.restype             = BOOL
-OpenThreadToken.argtypes            = [HANDLE, DWORD, BOOL, PHANDLE]
+LookupPrivilegeValueA = advapi32.LookupPrivilegeValueA
+LookupPrivilegeValueA.restype = BOOL
+LookupPrivilegeValueA.argtypes = [
+    LPCTSTR, LPCTSTR, PLUID
+]
 
-RevertToSelf                        = advapi32.RevertToSelf
-RevertToSelf.restype                = BOOL
-RevertToSelf.argtypes               = []
+OpenProcessToken = advapi32.OpenProcessToken
+OpenProcessToken.restype = BOOL
+OpenProcessToken.argtypes = [
+    HANDLE, DWORD, PHANDLE
+]
 
-ImpersonateSelf                     = advapi32.ImpersonateSelf
-ImpersonateSelf.restype             = BOOL
-ImpersonateSelf.argtypes            = [DWORD]
+OpenThreadToken = advapi32.OpenThreadToken
+OpenThreadToken.restype = BOOL
+OpenThreadToken.argtypes = [
+    HANDLE, DWORD, BOOL, PHANDLE
+]
 
-MapGenericMask                      = advapi32.MapGenericMask
-MapGenericMask.argtypes             = [PDWORD, POINTER(GENERIC_MAPPING)]
+RevertToSelf = advapi32.RevertToSelf
+RevertToSelf.restype = BOOL
+RevertToSelf.argtypes = []
 
-GetFileSecurityW                    = advapi32.GetFileSecurityW
-GetFileSecurityW.argtypes           = [LPWSTR, SECURITY_INFORMATION, c_void_p,
-                                       DWORD, PDWORD]
-GetFileSecurityW.restype            = BOOL
+ImpersonateSelf = advapi32.ImpersonateSelf
+ImpersonateSelf.restype = BOOL
+ImpersonateSelf.argtypes = [
+    DWORD
+]
 
-GetSecurityDescriptorGroup          = advapi32.GetSecurityDescriptorGroup
-GetSecurityDescriptorGroup.argtypes = [c_void_p, POINTER(PSID), POINTER(BOOL)]
-GetSecurityDescriptorGroup.restype  = BOOL
+MapGenericMask = advapi32.MapGenericMask
+MapGenericMask.argtypes = [
+    PDWORD, POINTER(GENERIC_MAPPING)
+]
 
-GetSecurityDescriptorOwner          = advapi32.GetSecurityDescriptorOwner
-GetSecurityDescriptorOwner.argtypes = [c_void_p, POINTER(PSID), POINTER(BOOL)]
-GetSecurityDescriptorOwner.restype  = BOOL
+GetFileSecurityW = advapi32.GetFileSecurityW
+GetFileSecurityW.argtypes = [
+    LPWSTR, SECURITY_INFORMATION, c_void_p, DWORD, PDWORD
+]
+GetFileSecurityW.restype = BOOL
 
-GetSecurityDescriptorDacl           = advapi32.GetSecurityDescriptorDacl
-GetSecurityDescriptorDacl.argtypes  = [c_void_p, POINTER(BOOL), POINTER(c_void_p), POINTER(BOOL)]
-GetSecurityDescriptorDacl.restype   = BOOL
+GetSecurityDescriptorGroup = advapi32.GetSecurityDescriptorGroup
+GetSecurityDescriptorGroup.restype = BOOL
+GetSecurityDescriptorGroup.argtypes = [
+    c_void_p, POINTER(PSID), POINTER(BOOL)
+]
+
+GetSecurityDescriptorOwner = advapi32.GetSecurityDescriptorOwner
+GetSecurityDescriptorOwner.restype = BOOL
+GetSecurityDescriptorOwner.argtypes = [
+    c_void_p, POINTER(PSID), POINTER(BOOL)
+]
+
+GetSecurityDescriptorDacl = advapi32.GetSecurityDescriptorDacl
+GetSecurityDescriptorDacl.restype = BOOL
+GetSecurityDescriptorDacl.argtypes = [
+    c_void_p, POINTER(BOOL), POINTER(c_void_p), POINTER(BOOL)
+]
+
 
 class GUID(Structure):
     _fields_ = [
@@ -645,6 +717,7 @@ class GUID(Structure):
         ('Data4', BYTE*8)
     ]
 
+
 class OBJECTS_AND_SID(Structure):
     _fields_ = [
         ('ObjectsPresent', DWORD),
@@ -653,7 +726,9 @@ class OBJECTS_AND_SID(Structure):
         ('pSid', PSID)
     ]
 
+
 POBJECTS_AND_SID = POINTER(OBJECTS_AND_SID)
+
 
 class OBJECTS_AND_NAME_W(Structure):
     _fields_ = [
@@ -663,6 +738,7 @@ class OBJECTS_AND_NAME_W(Structure):
         ('InheritedObjectTypeName', LPWSTR),
         ('ptstrName', LPWSTR)
     ]
+
 
 POBJECTS_AND_NAME_W = POINTER(OBJECTS_AND_NAME_W)
 
@@ -716,6 +792,7 @@ INHERITANCE_TEXT = {
     INHERIT_ONLY_ACE: 'ONLY ACE'
 }
 
+
 class TRUSTEE_W_NAME(Union):
     _fields_ = [
         ('ptstrName', LPWSTR),
@@ -723,6 +800,7 @@ class TRUSTEE_W_NAME(Union):
         ('pObjectsAndSid', POBJECTS_AND_SID),
         ('pObjectsAndName', POBJECTS_AND_NAME_W),
     ]
+
 
 class TRUSTEE_W(Structure):
     _fields_ = [
@@ -735,6 +813,7 @@ class TRUSTEE_W(Structure):
         ('TrusteeName', TRUSTEE_W_NAME),
     ]
 
+
 class ACE_HEADER(Structure):
     _fields_ = [
         ('AceType', BYTE),
@@ -742,10 +821,12 @@ class ACE_HEADER(Structure):
         ('AceSize', WORD)
     ]
 
+
 ACCESS_ALLOWED_ACE_TYPE = 0
 ACCESS_DENIED_ACE_TYPE = 1
 SYSTEM_AUDIT_ACE_TYPE = 2
 SYSTEM_ALARM_ACE_TYPE = 3
+
 
 class ACCESS_ALLOWED_ACE(Structure):
     _fields_ = [
@@ -753,6 +834,7 @@ class ACCESS_ALLOWED_ACE(Structure):
         ('Mask', DWORD),
         ('SidStart', DWORD),
     ]
+
 
 PACCESS_ALLOWED_ACE = POINTER(ACCESS_ALLOWED_ACE)
 
@@ -774,19 +856,20 @@ ACCESS_MODE_TEXT = {
     SET_AUDIT_FAILURE: '(AUDIT FAILURE)'
 }
 
-ACE_ACCESS_DELETE        = (0x00010000)
-ACE_ACCESS_READ_CONTROL  = (0x00020000)
-ACE_ACCESS_WRITE_DAC     = (0x00040000)
-ACE_ACCESS_WRITE_OWNER   = (0x00080000)
-ACE_ACCESS_SYNCHRONIZE   = (0x00100000)
+ACE_ACCESS_DELETE = (0x00010000)
+ACE_ACCESS_READ_CONTROL = (0x00020000)
+ACE_ACCESS_WRITE_DAC = (0x00040000)
+ACE_ACCESS_WRITE_OWNER = (0x00080000)
+ACE_ACCESS_SYNCHRONIZE = (0x00100000)
 
 STANDARD_RIGHTS_REQUIRED = (0x000F0000)
 
-STANDARD_RIGHTS_READ     = (READ_CONTROL)
-STANDARD_RIGHTS_WRITE    = (READ_CONTROL)
-STANDARD_RIGHTS_EXECUTE  = (READ_CONTROL)
-STANDARD_RIGHTS_ALL      = (0x001F0000)
-SPECIFIC_RIGHTS_ALL      = (0x0000FFFF)
+STANDARD_RIGHTS_READ = (READ_CONTROL)
+STANDARD_RIGHTS_WRITE = (READ_CONTROL)
+STANDARD_RIGHTS_EXECUTE = (READ_CONTROL)
+STANDARD_RIGHTS_ALL = (0x001F0000)
+SPECIFIC_RIGHTS_ALL = (0x0000FFFF)
+
 
 class EXPLICIT_ACCESS_W(Structure):
     _fields_ = [
@@ -796,104 +879,155 @@ class EXPLICIT_ACCESS_W(Structure):
         ('Trustee', TRUSTEE_W)
     ]
 
+
 PEXPLICIT_ACCESS_W = POINTER(EXPLICIT_ACCESS_W)
 
 AclRevisionInformation = 0
-AclSizeInformation     = 1
+AclSizeInformation = 1
 
-GetExplicitEntriesFromAclW          = advapi32.GetExplicitEntriesFromAclW
-GetExplicitEntriesFromAclW.argtypes = [c_void_p, POINTER(c_ulong), POINTER(PEXPLICIT_ACCESS_W)]
-GetExplicitEntriesFromAclW.restype  = DWORD
+GetExplicitEntriesFromAclW = advapi32.GetExplicitEntriesFromAclW
+GetExplicitEntriesFromAclW.restype = DWORD
+GetExplicitEntriesFromAclW.argtypes = [
+    c_void_p, POINTER(c_ulong), POINTER(PEXPLICIT_ACCESS_W)
+]
 
-GetAclInformation                   = advapi32.GetAclInformation
-GetAclInformation.argtypes          = [c_void_p, c_void_p, DWORD, DWORD]
-GetAclInformation.restype           = BOOL
+GetAclInformation = advapi32.GetAclInformation
+GetAclInformation.restype = BOOL
+GetAclInformation.argtypes = [
+    c_void_p, c_void_p, DWORD, DWORD
+]
 
-GetAce                              = advapi32.GetAce
-GetAce.argtypes                     = [c_void_p, DWORD, POINTER(PACCESS_ALLOWED_ACE)]
-GetAce.restype                      = BOOL
+GetAce = advapi32.GetAce
+GetAce.restype = BOOL
+GetAce.argtypes = [
+    c_void_p, DWORD, POINTER(PACCESS_ALLOWED_ACE)
+]
 
-IsValidSecurityDescriptor           = advapi32.IsValidSecurityDescriptor
-IsValidSecurityDescriptor.argtypes  = [c_void_p]
-GetFileSecurityW.restype            = BOOL
+IsValidSecurityDescriptor = advapi32.IsValidSecurityDescriptor
+GetFileSecurityW.restype = BOOL
+IsValidSecurityDescriptor.argtypes = [
+    c_void_p
+]
 
-AccessCheck                         = advapi32.AccessCheck
-AccessCheck.restype                 = BOOL
-AccessCheck.argtypes                = [c_void_p, HANDLE, DWORD, POINTER(GENERIC_MAPPING),
-                                       c_void_p, PDWORD, PDWORD, POINTER(BOOL)]
+AccessCheck = advapi32.AccessCheck
+AccessCheck.restype = BOOL
+AccessCheck.argtypes = [
+    c_void_p, HANDLE, DWORD, POINTER(GENERIC_MAPPING),
+    c_void_p, PDWORD, PDWORD, POINTER(BOOL)
+]
 
 
-GetSidSubAuthorityCount             = advapi32.GetSidSubAuthorityCount
-GetSidSubAuthorityCount.argtypes    = [c_void_p]
-GetSidSubAuthorityCount.restype     = POINTER(c_ubyte)
+GetSidSubAuthorityCount = advapi32.GetSidSubAuthorityCount
+GetSidSubAuthorityCount.restype = POINTER(c_ubyte)
+GetSidSubAuthorityCount.argtypes = [
+    c_void_p
+]
 
-GetSidSubAuthority                  = advapi32.GetSidSubAuthority
-GetSidSubAuthority.argtypes         = [c_void_p, DWORD]
-GetSidSubAuthority.restype          = PDWORD
 
-CreateProcessW                       = kernel32.CreateProcessW #Unicode version
-CreateProcessW.restype               = BOOL
-CreateProcessW.argtypes              = [LPCWSTR, LPWSTR, PSECURITY_ATTRIBUTES, PSECURITY_ATTRIBUTES, BOOL, DWORD, LPVOID, LPCSTR, c_void_p, POINTER(PROCESS_INFORMATION)]
+GetSidSubAuthority = advapi32.GetSidSubAuthority
+GetSidSubAuthority.restype = PDWORD
+GetSidSubAuthority.argtypes = [
+    c_void_p, DWORD
+]
 
-CreateProcessA                       = kernel32.CreateProcessA
-CreateProcessA.restype               = BOOL
-CreateProcessA.argtypes              = [LPCSTR, LPSTR, PSECURITY_ATTRIBUTES, PSECURITY_ATTRIBUTES, BOOL, DWORD, LPVOID, LPCSTR, c_void_p, POINTER(PROCESS_INFORMATION)]
 
-WaitForSingleObject                  = kernel32.WaitForSingleObject
-WaitForSingleObject.restype          = DWORD
-WaitForSingleObject.argtypes         = [HANDLE, DWORD]
+CreateProcessW = kernel32.CreateProcessW  # Unicode version
+CreateProcessW.restype = BOOL
+CreateProcessW.argtypes = [
+    LPCWSTR, LPWSTR, PSECURITY_ATTRIBUTES,
+    PSECURITY_ATTRIBUTES, BOOL, DWORD, LPVOID,
+    LPCSTR, c_void_p, POINTER(PROCESS_INFORMATION)
+]
 
-CreatePipe                           = kernel32.CreatePipe
-CreatePipe.argtypes                  = [PHANDLE, PHANDLE, c_void_p, DWORD]
-CreatePipe.restype                   = BOOL
+CreateProcessA = kernel32.CreateProcessA
+CreateProcessA.restype = BOOL
+CreateProcessA.argtypes = [
+    LPCSTR, LPSTR, PSECURITY_ATTRIBUTES,
+    PSECURITY_ATTRIBUTES, BOOL, DWORD, LPVOID,
+    LPCSTR, c_void_p, POINTER(PROCESS_INFORMATION)
+]
 
-TerminateProcess                     = kernel32.TerminateProcess
-TerminateProcess.argtypes            = [HANDLE, c_int]
-TerminateProcess.restype             = BOOL
+WaitForSingleObject = kernel32.WaitForSingleObject
+WaitForSingleObject.restype = DWORD
+WaitForSingleObject.argtypes = [
+    HANDLE, DWORD
+]
 
-GetExitCodeProcess                   = kernel32.GetExitCodeProcess
-GetExitCodeProcess.argtypes          = [HANDLE, PDWORD]
-GetExitCodeProcess.restype           = BOOL
+CreatePipe = kernel32.CreatePipe
+CreatePipe.restype = BOOL
+CreatePipe.argtypes = [
+    PHANDLE, PHANDLE, c_void_p, DWORD
+]
 
-STILL_ACTIVE                         = 0x00000103
+
+TerminateProcess = kernel32.TerminateProcess
+TerminateProcess.restype = BOOL
+TerminateProcess.argtypes = [
+    HANDLE, c_int
+]
+
+
+GetExitCodeProcess = kernel32.GetExitCodeProcess
+GetExitCodeProcess.restype = BOOL
+GetExitCodeProcess.argtypes = [
+    HANDLE, PDWORD
+]
+
+
+STILL_ACTIVE = 0x00000103
 
 # kernel32
 
-GetFileAttributesW                  = kernel32.GetFileAttributesW
-GetFileAttributesW.argtypes         = [LPWSTR]
-GetFileAttributesW.restype          = DWORD
+GetFileAttributesW = kernel32.GetFileAttributesW
+GetFileAttributesW.restype = DWORD
+GetFileAttributesW.argtypes = [
+    LPWSTR
+]
 
-CreateFile                          = kernel32.CreateFileW
-CreateFile.argtypes                 = [LPCWSTR, DWORD, DWORD, c_void_p, DWORD, DWORD, HANDLE]
-CreateFile.restype                  = HANDLE
 
-WriteFile                           = kernel32.WriteFile
-WriteFile.argtypes                  = [HANDLE, LPVOID, DWORD, PDWORD, PVOID]
-WriteFile.restype                   = BOOL
+CreateFile = kernel32.CreateFileW
+CreateFile.restype = HANDLE
+CreateFile.argtypes = [
+    LPCWSTR, DWORD, DWORD, c_void_p, DWORD, DWORD, HANDLE
+]
 
-ReadFile                            = kernel32.ReadFile
-ReadFile.argtypes                   = [HANDLE, LPVOID, DWORD, PDWORD, PVOID]
-ReadFile.restype                    = BOOL
 
-CloseHandle                         = kernel32.CloseHandle
-CloseHandle.restype                 = BOOL
-CloseHandle.argtypes                = [HANDLE]
+WriteFile = kernel32.WriteFile
+WriteFile.restype = BOOL
+WriteFile.argtypes = [
+    HANDLE, LPVOID, DWORD, PDWORD, PVOID
+]
 
-GetCurrentProcess                   = kernel32.GetCurrentProcess
-GetCurrentProcess.restype           = HANDLE
-GetCurrentProcess.argtypes          = []
 
-GetCurrentThread                    = kernel32.GetCurrentThread
-GetCurrentThread.restype            = HANDLE
-GetCurrentThread.argtypes           = []
+ReadFile = kernel32.ReadFile
+ReadFile.restype = BOOL
+ReadFile.argtypes = [
+    HANDLE, LPVOID, DWORD, PDWORD, PVOID
+]
 
-GetCurrentProcessId                 = kernel32.GetCurrentProcessId
-GetCurrentProcessId.restype         = DWORD
-GetCurrentProcessId.argtypes        = []
+CloseHandle = kernel32.CloseHandle
+CloseHandle.restype = BOOL
+CloseHandle.argtypes = [
+    HANDLE
+]
 
-OpenProcess                         = kernel32.OpenProcess
-OpenProcess.restype                 = HANDLE
-OpenProcess.argtypes                = [DWORD, BOOL, DWORD]
+GetCurrentProcess = kernel32.GetCurrentProcess
+GetCurrentProcess.restype = HANDLE
+GetCurrentProcess.argtypes = []
+
+GetCurrentThread = kernel32.GetCurrentThread
+GetCurrentThread.restype = HANDLE
+GetCurrentThread.argtypes = []
+
+GetCurrentProcessId = kernel32.GetCurrentProcessId
+GetCurrentProcessId.restype = DWORD
+GetCurrentProcessId.argtypes = []
+
+OpenProcess = kernel32.OpenProcess
+OpenProcess.restype = HANDLE
+OpenProcess.argtypes = [
+    DWORD, BOOL, DWORD
+]
 
 
 class LSA_UNICODE_STRING(Structure):
@@ -903,42 +1037,46 @@ class LSA_UNICODE_STRING(Structure):
         ('Buffer', LPWSTR)
     )
 
+
 class LSA_LAST_INTER_LOGON_INFO(Structure):
     _fields_ = (
-        ('LastSuccessfulLogon',     LARGE_INTEGER),
-        ('LastFailedLogon',         LARGE_INTEGER),
+        ('LastSuccessfulLogon', LARGE_INTEGER),
+        ('LastFailedLogon', LARGE_INTEGER),
         ('FailedAttemptCountSinceLastSuccessfulLogon', ULONG)
     )
 
+
 class SECURITY_LOGON_SESSION_DATA(Structure):
     _fields_ = (
-        ('Size',                     ULONG),
-        ('LogonId',                  LUID),
-        ('UserName',                 LSA_UNICODE_STRING),
-        ('LogonDomain',              LSA_UNICODE_STRING),
-        ('AuthenticationPackage',    LSA_UNICODE_STRING),
-        ('LogonType',                ULONG),
-        ('Session',                  ULONG),
-        ('Sid',                      PSID),
-        ('LogonTime',                LARGE_INTEGER),
-        ('LogonServer',              LSA_UNICODE_STRING),
-        ('DnsDomainName',            LSA_UNICODE_STRING),
-        ('Upn',                      LSA_UNICODE_STRING),
-        ('UserFlags',                ULONG),
-        ('LastLogonInfo',            LSA_LAST_INTER_LOGON_INFO),
-        ('LogonScript',              LSA_UNICODE_STRING),
-        ('ProfilePath',              LSA_UNICODE_STRING),
-        ('HomeDirectory',            LSA_UNICODE_STRING),
-        ('HomeDirectoryDrive',       LSA_UNICODE_STRING),
-        ('LogoffTime',               LARGE_INTEGER),
-        ('KickOffTime',              LARGE_INTEGER),
-        ('PasswordLastSet',          LARGE_INTEGER),
-        ('PasswordCanChange',        LARGE_INTEGER),
-        ('PasswordMustChange',       LARGE_INTEGER),
+        ('Size', ULONG),
+        ('LogonId', LUID),
+        ('UserName', LSA_UNICODE_STRING),
+        ('LogonDomain', LSA_UNICODE_STRING),
+        ('AuthenticationPackage', LSA_UNICODE_STRING),
+        ('LogonType', ULONG),
+        ('Session', ULONG),
+        ('Sid', PSID),
+        ('LogonTime', LARGE_INTEGER),
+        ('LogonServer', LSA_UNICODE_STRING),
+        ('DnsDomainName', LSA_UNICODE_STRING),
+        ('Upn', LSA_UNICODE_STRING),
+        ('UserFlags', ULONG),
+        ('LastLogonInfo', LSA_LAST_INTER_LOGON_INFO),
+        ('LogonScript', LSA_UNICODE_STRING),
+        ('ProfilePath', LSA_UNICODE_STRING),
+        ('HomeDirectory', LSA_UNICODE_STRING),
+        ('HomeDirectoryDrive', LSA_UNICODE_STRING),
+        ('LogoffTime', LARGE_INTEGER),
+        ('KickOffTime', LARGE_INTEGER),
+        ('PasswordLastSet', LARGE_INTEGER),
+        ('PasswordCanChange', LARGE_INTEGER),
+        ('PasswordMustChange', LARGE_INTEGER),
     )
+
 
 PSECURITY_LOGON_SESSION_DATA = POINTER(SECURITY_LOGON_SESSION_DATA)
 PPSECURITY_LOGON_SESSION_DATA = POINTER(PSECURITY_LOGON_SESSION_DATA)
+
 
 LOGON_TYPE = (
     'Undefined',
@@ -956,6 +1094,7 @@ LOGON_TYPE = (
     'CachedUnlock'
 )
 
+
 def LsaSessionDataFlagsToStr(flags):
     result = []
 
@@ -970,6 +1109,7 @@ def LsaSessionDataFlagsToStr(flags):
 
     return result
 
+
 def FileTimeToUnix(filetime):
     if filetime >= (0x8000000000000000 - 1):
         filetime = filetime - 0x8000000000000000
@@ -979,21 +1119,31 @@ def FileTimeToUnix(filetime):
 
     return (filetime / 10000000) - 11644473600
 
-LsaEnumerateLogonSessions           = secur32.LsaEnumerateLogonSessions
-LsaEnumerateLogonSessions.restype   = NTSTATUS
-LsaEnumerateLogonSessions.argtypes  = [PULONG, PVOID()]
 
-LsaGetLogonSessionData              = secur32.LsaGetLogonSessionData
-LsaGetLogonSessionData.restype      = NTSTATUS
-LsaGetLogonSessionData.argtypes     = [PLUID, PPSECURITY_LOGON_SESSION_DATA]
+LsaEnumerateLogonSessions = secur32.LsaEnumerateLogonSessions
+LsaEnumerateLogonSessions.restype = NTSTATUS
+LsaEnumerateLogonSessions.argtypes = [
+    PULONG, PVOID()
+]
 
-LsaFreeReturnBuffer                 = secur32.LsaFreeReturnBuffer
-LsaFreeReturnBuffer.restype         = NTSTATUS
-LsaFreeReturnBuffer.argtypes        = [PVOID]
+LsaGetLogonSessionData = secur32.LsaGetLogonSessionData
+LsaGetLogonSessionData.restype = NTSTATUS
+LsaGetLogonSessionData.argtypes = [
+    PLUID, PPSECURITY_LOGON_SESSION_DATA
+]
 
-LsaNtStatusToWinError               = advapi32.LsaNtStatusToWinError
-LsaNtStatusToWinError.restype       = ULONG
-LsaNtStatusToWinError.argtypes      = [NTSTATUS]
+LsaFreeReturnBuffer = secur32.LsaFreeReturnBuffer
+LsaFreeReturnBuffer.restype = NTSTATUS
+LsaFreeReturnBuffer.argtypes = [
+    PVOID
+]
+
+LsaNtStatusToWinError = advapi32.LsaNtStatusToWinError
+LsaNtStatusToWinError.restype = ULONG
+LsaNtStatusToWinError.argtypes = [
+    NTSTATUS
+]
+
 
 try:
     wtsapi32 = WinDLL('wtsapi32', use_last_error=True)
@@ -1002,7 +1152,6 @@ try:
         _fields_ = (
             ('pServerName', LPWSTR),
         )
-
 
     WTS_CONNECTSTATE_CLASS = (
         'Active',
@@ -1061,41 +1210,44 @@ try:
         HANDLE, DWORD, DWORD, POINTER(PVOID), PDWORD
     )
 
-    WTSInitialProgram, WTSApplicationName, WTSWorkingDirectory, WTSOEMId, \
-      WTSSessionId, WTSUserName, WTSWinStationName, WTSDomainName, WTSConnectState, \
-      WTSClientBuildNumber, WTSClientName, WTSClientDirectory, WTSClientProductId, \
-      WTSClientHardwareId, WTSClientAddress, WTSClientDisplay, \
-      WTSClientProtocolType, WTSIdleTime, WTSLogonTime, WTSIncomingBytes, \
-      WTSOutgoingBytes, WTSIncomingFrames, WTSOutgoingFrames, WTSClientInfo, \
-      WTSSessionInfo, WTSSessionInfoEx, WTSConfigInfo, WTSValidationInfo, \
-      WTSSessionAddressV4, WTSIsRemoteSession = xrange(30)
+    (
+        WTSInitialProgram, WTSApplicationName, WTSWorkingDirectory, WTSOEMId,
+        WTSSessionId, WTSUserName, WTSWinStationName, WTSDomainName,
+        WTSConnectState, WTSClientBuildNumber, WTSClientName,
+        WTSClientDirectory, WTSClientProductId, WTSClientHardwareId,
+        WTSClientAddress, WTSClientDisplay, WTSClientProtocolType,
+        WTSIdleTime, WTSLogonTime, WTSIncomingBytes, WTSOutgoingBytes,
+        WTSIncomingFrames, WTSOutgoingFrames, WTSClientInfo, WTSSessionInfo,
+        WTSSessionInfoEx, WTSConfigInfo, WTSValidationInfo,
+        WTSSessionAddressV4, WTSIsRemoteSession
+    ) = xrange(30)
 
-    MAX_PATH                 = 260
+    MAX_PATH = 260
 
-    WDPREFIX_LENGTH          =  12
-    STACK_ADDRESS_LENGTH     = 128
-    MAX_BR_NAME              =  65
-    DIRECTORY_LENGTH         = 256
-    INITIALPROGRAM_LENGTH    = 256
-    USERNAME_LENGTH          =  20
-    DOMAIN_LENGTH            =  17
-    PASSWORD_LENGTH          =  14
-    NASISPECIFICNAME_LENGTH  =  14
-    NASIUSERNAME_LENGTH      =  47
-    NASIPASSWORD_LENGTH      =  24
-    NASISESSIONNAME_LENGTH   =  16
-    NASIFILESERVER_LENGTH    =  47
+    WDPREFIX_LENGTH = 12
+    STACK_ADDRESS_LENGTH = 128
+    MAX_BR_NAME = 65
+    DIRECTORY_LENGTH = 256
+    INITIALPROGRAM_LENGTH = 256
+    USERNAME_LENGTH = 20
+    DOMAIN_LENGTH = 17
+    PASSWORD_LENGTH = 14
+    NASISPECIFICNAME_LENGTH = 14
+    NASIUSERNAME_LENGTH = 47
+    NASIPASSWORD_LENGTH = 24
+    NASISESSIONNAME_LENGTH = 16
+    NASIFILESERVER_LENGTH = 47
 
-    CLIENTDATANAME_LENGTH    =   7
-    CLIENTNAME_LENGTH        =  20
-    CLIENTADDRESS_LENGTH     =  30
-    IMEFILENAME_LENGTH       =  32
-    DIRECTORY_LENGTH         = 256
-    CLIENTLICENSE_LENGTH     =  32
-    CLIENTMODEM_LENGTH       =  40
-    CLIENT_PRODUCT_ID_LENGTH =  32
-    MAX_COUNTER_EXTENSIONS   =   2
-    WINSTATIONNAME_LENGTH    =  32
+    CLIENTDATANAME_LENGTH = 7
+    CLIENTNAME_LENGTH = 20
+    CLIENTADDRESS_LENGTH = 30
+    IMEFILENAME_LENGTH = 32
+    DIRECTORY_LENGTH = 256
+    CLIENTLICENSE_LENGTH = 32
+    CLIENTMODEM_LENGTH = 40
+    CLIENT_PRODUCT_ID_LENGTH = 32
+    MAX_COUNTER_EXTENSIONS = 2
+    WINSTATIONNAME_LENGTH = 32
 
     class WTSCLIENTW(Structure):
         _fields_ = (
@@ -1171,7 +1323,8 @@ try:
         dwSize = DWORD()
 
         if not WTSQuerySessionInformationW(
-            None, SessionID, WTSWinStationName, byref(info), byref(dwSize)):
+            None, SessionID, WTSWinStationName,
+                byref(info), byref(dwSize)):
             return None
 
         try:
@@ -1184,7 +1337,6 @@ try:
     def EnumerateWTS():
         info = PVOID()
         count = DWORD()
-
 
         current = WTSGetActiveConsoleSessionId()
 
@@ -1221,7 +1373,8 @@ try:
             }
 
             if WTSQuerySessionInformationW(
-                    None, session_id, WTSClientInfo, byref(info), byref(dwSize)) == 0:
+                None, session_id, WTSClientInfo,
+                    byref(info), byref(dwSize)) == 0:
                 raise WinError(get_last_error())
 
             try:
@@ -1248,7 +1401,8 @@ try:
                 WTSFreeMemory(info)
 
             if WTSQuerySessionInformationW(
-                    None, session_id, WTSSessionInfo, byref(info), byref(dwSize)) == 0:
+                None, session_id, WTSSessionInfo,
+                    byref(info), byref(dwSize)) == 0:
                 raise WinError(get_last_error())
 
             try:
@@ -1277,38 +1431,48 @@ except (WindowsError, AttributeError):
         raise NotImplementedError('WTS Enumeration not implemented')
 
 try:
-    InitializeProcThreadAttributeList          = kernel32.InitializeProcThreadAttributeList
-    InitializeProcThreadAttributeList.restype  = BOOL
-    InitializeProcThreadAttributeList.argtypes = [PVOID, DWORD, DWORD, POINTER(SIZE_T)]
+    InitializeProcThreadAttributeList = \
+        kernel32.InitializeProcThreadAttributeList
+    InitializeProcThreadAttributeList.restype = BOOL
+    InitializeProcThreadAttributeList.argtypes = [
+        PVOID, DWORD, DWORD, POINTER(SIZE_T)
+    ]
 
-    UpdateProcThreadAttribute                  = kernel32.UpdateProcThreadAttribute
-    UpdateProcThreadAttribute.restype          = BOOL
-    UpdateProcThreadAttribute.argtypes         = [PVOID, DWORD, PVOID, PVOID, SIZE_T, PVOID, POINTER(SIZE_T)]
+    UpdateProcThreadAttribute = kernel32.UpdateProcThreadAttribute
+    UpdateProcThreadAttribute.restype = BOOL
+    UpdateProcThreadAttribute.argtypes = [
+        PVOID, DWORD, PVOID, PVOID, SIZE_T, PVOID, POINTER(SIZE_T)
+    ]
 
-    DeleteProcThreadAttributeList              = kernel32.DeleteProcThreadAttributeList
-    DeleteProcThreadAttributeList.restype      = BOOL
-    DeleteProcThreadAttributeList.argtypes     = [PVOID]
+    DeleteProcThreadAttributeList = kernel32.DeleteProcThreadAttributeList
+    DeleteProcThreadAttributeList.restype = BOOL
+    DeleteProcThreadAttributeList.argtypes = [
+        PVOID
+    ]
 
 except AttributeError:
     # Windows XP, ignore
     pass
 
+
 # ntdll
-RtlGetVersion                       = ntdll.RtlGetVersion
-RtlGetVersion.restype               = DWORD
-RtlGetVersion.argtypes              = [POSVERSIONINFOEXW]
+RtlGetVersion = ntdll.RtlGetVersion
+RtlGetVersion.restype = DWORD
+RtlGetVersion.argtypes = [
+    POSVERSIONINFOEXW
+]
 
 # shell32
 
-IsUserAnAdmin                       = shell32.IsUserAnAdmin
-IsUserAnAdmin.restype               = BOOL
-IsUserAnAdmin.argtypes              = []
+IsUserAnAdmin = shell32.IsUserAnAdmin
+IsUserAnAdmin.restype = BOOL
+IsUserAnAdmin.argtypes = []
 
 # userenv
 
-CREATE_NEW_CONSOLE          = 0x00000010
-CREATE_UNICODE_ENVIRONMENT  = 0x00000400
-NORMAL_PRIORITY_CLASS       = 0x00000020
+CREATE_NEW_CONSOLE = 0x00000010
+CREATE_UNICODE_ENVIRONMENT = 0x00000400
+NORMAL_PRIORITY_CLASS = 0x00000020
 
 CreateEnvironmentBlock = userenv.CreateEnvironmentBlock
 CreateEnvironmentBlock.restype = BOOL
@@ -1364,9 +1528,12 @@ def EnumerateLogonSessions():
                     'upn': content.Upn.Buffer,
                     'flags': LsaSessionDataFlagsToStr(content.UserFlags),
                     'logon-info': {
-                        'success': FileTimeToUnix(content.LastLogonInfo.LastSuccessfulLogon),
-                        'failed':  FileTimeToUnix(content.LastLogonInfo.LastFailedLogon),
-                        'attempts': content.LastLogonInfo.FailedAttemptCountSinceLastSuccessfulLogon,
+                        'success': FileTimeToUnix(
+                            content.LastLogonInfo.LastSuccessfulLogon),
+                        'failed':  FileTimeToUnix(
+                            content.LastLogonInfo.LastFailedLogon),
+                        'attempts': content.LastLogonInfo.
+                        FailedAttemptCountSinceLastSuccessfulLogon,
                     },
                     'profile': content.ProfilePath.Buffer,
                     'home': content.HomeDirectory.Buffer,
@@ -1397,12 +1564,13 @@ def GetUserName():
     if error and error != ERROR_INSUFFICIENT_BUFFER:
         raise WinError(error)
 
-    lpBuffer = create_unicode_buffer(u'', nSize.value + 1)
+    lpBuffer = create_unicode_buffer('', nSize.value + 1)
 
     if not GetUserNameW(lpBuffer, byref(nSize)):
         raise WinError(get_last_error())
 
     return lpBuffer.value
+
 
 def GetTokenSid(hToken, exc=True):
 
@@ -1412,7 +1580,8 @@ def GetTokenSid(hToken, exc=True):
     pStringSid = LPSTR()
     TokenUser = 1
 
-    if not GetTokenInformation(hToken, TokenUser, byref(TOKEN_USER()), 0, byref(dwSize)):
+    if not GetTokenInformation(
+            hToken, TokenUser, byref(TOKEN_USER()), 0, byref(dwSize)):
         error = get_last_error()
         if error != ERROR_INSUFFICIENT_BUFFER:
             if exc:
@@ -1424,7 +1593,9 @@ def GetTokenSid(hToken, exc=True):
     sid = None
     if GetTokenInformation(hToken, TokenUser, address, dwSize, byref(dwSize)):
         pToken_User = cast(address, POINTER(TOKEN_USER))
-        ConvertSidToStringSidA(pToken_User.contents.User.Sid, byref(pStringSid))
+        ConvertSidToStringSidA(
+            pToken_User.contents.User.Sid, byref(pStringSid)
+        )
         sid = pStringSid.value
     else:
         if exc:
@@ -1432,9 +1603,13 @@ def GetTokenSid(hToken, exc=True):
 
     return sid
 
+
 def EnablePrivilege(privilegeStr, hToken=None, exc=True):
 
-    """Enable Privilege on token, if no token is given the function gets the token of the current process."""
+    """
+    Enable Privilege on token, if no token is given the
+    function gets the token of the current process.
+    """
 
     close_hToken = False
 
@@ -1445,12 +1620,18 @@ def EnablePrivilege(privilegeStr, hToken=None, exc=True):
 
     if hToken is None:
         hToken = HANDLE(INVALID_HANDLE_VALUE)
-        hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, False, GetCurrentProcessId())
+        hProcess = OpenProcess(
+            PROCESS_QUERY_INFORMATION, False, GetCurrentProcessId()
+        )
+
         if not hProcess:
             raise WinError(get_last_error())
 
         dwError = None
-        if not OpenProcessToken(hProcess, (TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY), byref(hToken)):
+
+        if not OpenProcessToken(
+            hProcess, (TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY),
+                byref(hToken)):
             dwError = get_last_error()
 
         CloseHandle(hProcess)
@@ -1469,15 +1650,19 @@ def EnablePrivilege(privilegeStr, hToken=None, exc=True):
 
         SE_PRIVILEGE_ENABLED = 0x00000002
         laa = LUID_AND_ATTRIBUTES(privilege_id, SE_PRIVILEGE_ENABLED)
-        tp  = TOKEN_PRIVILEGES(1, laa)
+        tp = TOKEN_PRIVILEGES(1, laa)
 
-        if AdjustTokenPrivileges(hToken, False, byref(tp), sizeof(tp), None, None):
+        if AdjustTokenPrivileges(
+                hToken, False, byref(tp), sizeof(tp), None, None):
             error = get_last_error()
             if error == ERROR_SUCCESS:
                 bSuccess = True
             elif exc:
                 if error == ERROR_NOT_ALL_ASSIGNED:
-                    raise ValueError(error, 'Could not set {} (access denied)'.format(privilege))
+                    raise ValueError(
+                        error,
+                        'Could not set {} (access denied)'.format(privilege)
+                    )
                 else:
                     raise WinError(error)
         elif exc:
@@ -1489,8 +1674,9 @@ def EnablePrivilege(privilegeStr, hToken=None, exc=True):
 
     return bSuccess
 
+
 def ListSids(exc=False):
-    sids=[]
+    sids = []
 
     for proc in psutil.process_iter():
         try:
@@ -1509,7 +1695,8 @@ def ListSids(exc=False):
         hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, False, pid)
         if not hProcess:
             error = get_last_error()
-            if exc and error not in (ERROR_INVALID_PARAMETER, ERROR_ACCESS_DENIED):
+            if exc and error not in (
+                    ERROR_INVALID_PARAMETER, ERROR_ACCESS_DENIED):
                 # Process exited, dead, whatever
                 raise WinError(get_last_error())
 
@@ -1541,10 +1728,13 @@ def ListSids(exc=False):
 
         sids.append((
             pinfo['pid'],
-            to_unicode(pinfo['name']), sid,
-            to_unicode(pinfo['username'])))
+            try_as_unicode_string(pinfo['name'], fail=False),
+            try_as_unicode_string(sid, fail=False),
+            try_as_unicode_string(pinfo['username'], fail=False)
+        ))
 
     return list(sids)
+
 
 def getProcessToken(pid):
     hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, False, pid)
@@ -1564,6 +1754,7 @@ def getProcessToken(pid):
 
     return hToken
 
+
 def get_thread_token():
     hThread = GetCurrentThread()
     hToken = HANDLE(INVALID_HANDLE_VALUE)
@@ -1581,15 +1772,18 @@ def get_thread_token():
 
     return hToken
 
+
 def get_process_token():
     """
     Get the current process token
     """
+
     token = HANDLE()
     if not OpenProcessToken(GetCurrentProcess(), TOKEN_ALL_ACCESS, token):
         raise WinError(get_last_error())
 
     return token
+
 
 def gethTokenFromPid(pid, exc=True):
     hToken = HANDLE(INVALID_HANDLE_VALUE)
@@ -1621,7 +1815,8 @@ IMPERSONATION_TOKENS = {}
 
 def ListCachedSids():
     return tuple(
-        (sid, username) for sid, (username, value) in IMPERSONATION_TOKENS.items()
+        (sid, username) for sid, (username, value)
+        in IMPERSONATION_TOKENS.items()
     )
 
 
@@ -1648,6 +1843,7 @@ def getSidToken(token_sid):
         IMPERSONATION_TOKENS[token_sid] = username, hToken
         return hToken
 
+
 def impersonate_pid(pid, close=True):
     EnablePrivilege("SeDebugPrivilege")
 
@@ -1663,6 +1859,7 @@ def impersonate_pid(pid, close=True):
     CloseHandle(hToken)
 
     return hTokendupe
+
 
 def impersonate_sid(sid, close=True):
 
@@ -1724,11 +1921,12 @@ def impersonate_sid_long_handle(*args, **kwargs):
     try:
         if global_ref is not None:
             CloseHandle(global_ref)
-    except:
+    except Exception:
         pass
 
     global_ref = hTokendupe
     return addressof(hTokendupe)
+
 
 def impersonate_pid_long_handle(*args, **kwargs):
     global global_ref
@@ -1740,11 +1938,12 @@ def impersonate_pid_long_handle(*args, **kwargs):
     try:
         if global_ref is not None:
             CloseHandle(global_ref)
-    except:
+    except Exception:
         pass
 
     global_ref = hTokendupe
     return addressof(hTokendupe)
+
 
 def impersonate_token(hToken):
     EnablePrivilege('SeDebugPrivilege', exc=False)
@@ -1757,12 +1956,16 @@ def impersonate_token(hToken):
 
     if not DuplicateTokenEx(
         hToken, TOKEN_ALL_ACCESS, None, SecurityImpersonation,
-        TokenPrimary, byref(hTokendupe)):
+            TokenPrimary, byref(hTokendupe)):
         raise WinError(get_last_error())
 
     try:
-        EnablePrivilege('SeAssignPrimaryTokenPrivilege', hToken=hTokendupe, exc=False)
-        EnablePrivilege('SeIncreaseQuotaPrivilege', hToken=hTokendupe, exc=False)
+        EnablePrivilege(
+            'SeAssignPrimaryTokenPrivilege', hToken=hTokendupe, exc=False
+        )
+        EnablePrivilege(
+            'SeIncreaseQuotaPrivilege', hToken=hTokendupe, exc=False
+        )
 
         if not ImpersonateLoggedOnUser(hTokendupe):
             raise WinError(get_last_error())
@@ -1773,22 +1976,27 @@ def impersonate_token(hToken):
 
     return hTokendupe
 
+
 def isSystem():
     sids = ListSids()
-    for sid in sids:
-        if sid[0] == os.getpid():
-            if sid[2] == SID_SYSTEM:
-                return True
-    return False
+    current_pid = os.getpid()
+
+    for pid, _, sid in sids:
+        if pid == current_pid:
+            return sid == SID_SYSTEM
+
 
 def token_impersonated_as_system(hToken):
     return GetTokenSid(hToken) == SID_SYSTEM
+
 
 def create_proc_as_sid(sid, prog='cmd.exe', attributes=None, lpInfo=False):
     if not sid.startswith('S-1-'):
         sid = sidbyname(sid)
         if not sid:
-            raise ValueError('Unknown username {}'.format(sid.encode('utf-8')))
+            raise ValueError(
+                'Unknown username {}'.format(as_native_string(sid))
+            )
 
     hTokendupe = impersonate_sid(sid, close=False)
 
@@ -1802,6 +2010,7 @@ def create_proc_as_sid(sid, prog='cmd.exe', attributes=None, lpInfo=False):
         CloseHandle(hTokendupe)
 
     return vResult
+
 
 def getsystem(prog='cmd.exe'):
     return create_proc_as_sid(SID_SYSTEM, prog=prog)
@@ -1822,11 +2031,13 @@ def start_proc_with_token(
         application=None, attributes=None, lpInfo=False,
         flags=0, stdout=None, stdin=None, stderr=None,
         inherit_handles=False):
-    ##Start the process with the token.
+
+    # Start the process with the token
+
     lpProcessInformation = PROCESS_INFORMATION()
     lpStartupInfo = None
     dwCreationflag = flags or (
-        NORMAL_PRIORITY_CLASS | \
+        NORMAL_PRIORITY_CLASS |
         CREATE_NEW_PROCESS_GROUP
     )
 
@@ -1851,17 +2062,16 @@ def start_proc_with_token(
         lpStartupInfo.wShowWindow = SW_HIDE
 
     if args is not None:
-        if not isinstance(args, unicode):
-            if isinstance(args, str):
-                args = to_unicode(args)
-            else:
-                args = u' '.join(
-                    to_unicode(arg) for arg in args if arg is not None
-                )
+        if isinstance(args, (list, tuple)):
+            args = ' '.join(
+                try_as_unicode_string(arg, fail=False)
+                for arg in args if arg is not None
+            )
+        else:
+            args = try_as_unicode_string(args)
 
     if application is not None:
-        if not isinstance(application, unicode):
-            application = to_unicode(application)
+        application = try_as_unicode_string(application, fail=False)
 
     if hTokendupe is None and global_ref is not None:
         hTokendupe = global_ref
@@ -1877,7 +2087,7 @@ def start_proc_with_token(
             if not CreateProcessAsUser(
                 hTokendupe, application, args, None, None, inherit_handles,
                 dwCreationflag, cenv, None,
-                byref(lpStartupInfo), byref(lpProcessInformation)):
+                    byref(lpStartupInfo), byref(lpProcessInformation)):
                 raise WinError(get_last_error())
         finally:
             DestroyEnvironmentBlock(cenv)
@@ -1886,7 +2096,7 @@ def start_proc_with_token(
         if not CreateProcessW(
             application, args, None, None, inherit_handles,
             dwCreationflag, None, None,
-            byref(lpStartupInfo), byref(lpProcessInformation)):
+                byref(lpStartupInfo), byref(lpProcessInformation)):
             raise WinError(get_last_error())
 
     if lpInfo:
@@ -1895,6 +2105,7 @@ def start_proc_with_token(
         CloseHandle(lpProcessInformation.hProcess)
         CloseHandle(lpProcessInformation.hThread)
         return lpProcessInformation.dwProcessId
+
 
 def rev2self():
     global global_ref
@@ -1906,6 +2117,7 @@ def rev2self():
 
     global_ref = None
 
+
 def get_currents_privs():
     '''
     Get all privileges associated with the current process.
@@ -1915,7 +2127,8 @@ def get_currents_privs():
 
     try:
         if not GetTokenInformation(
-            hToken, TOKEN_INFORMATION_CLASS.TokenPrivileges, None, 0, byref(dwSize)):
+            hToken, TOKEN_INFORMATION_CLASS.TokenPrivileges,
+                None, 0, byref(dwSize)):
 
             error = get_last_error()
             if error != ERROR_INSUFFICIENT_BUFFER:
@@ -1924,7 +2137,7 @@ def get_currents_privs():
         cBuffer = create_string_buffer(dwSize.value)
         if not GetTokenInformation(
             hToken, TOKEN_INFORMATION_CLASS.TokenPrivileges,
-            cBuffer, dwSize.value, byref(dwSize)):
+                cBuffer, dwSize.value, byref(dwSize)):
             raise WinError(get_last_error())
 
     finally:
@@ -1937,47 +2150,62 @@ def get_currents_privs():
 
     return privs
 
+
 def can_get_admin_access():
     """
     Check if the user may be able to get administrator access.
     Returns True if the user is in the administrator's group.
     Otherwise returns False
     """
-    SECURITY_MAX_SID_SIZE       = 68
+
+    SECURITY_MAX_SID_SIZE = 68
     WinBuiltinAdministratorsSid = 26
     ERROR_NO_SUCH_LOGON_SESSION = 1312
-    ERROR_PRIVILEGE_NOT_HELD    = 1314
-    TokenLinkedToken            = 19
+    ERROR_PRIVILEGE_NOT_HELD = 1314
+    TokenLinkedToken = 19
 
     # On XP or lower this is equivalent to has_root()
     # Note: sys.getwindowsversion() does work on every system
+
     if sys.getwindowsversion()[0] < 6:
         return bool(IsUserAnAdmin())
 
     # On Vista or higher, there's the whole UAC token-splitting thing.
-    # Many thanks for Junfeng Zhang for the workflow: htttp://blogs.msdn.com/junfeng/archive/2007/01/26/how-to-tell-if-the-current-user-is-in-administrators-group-programmatically.aspx
+    # Many thanks for Junfeng Zhang for the workflow:
+    # htttp://blogs.msdn.com/junfeng/archive/2007/01/26/
+    # how-to-tell-if-the-current-user-is-in-administrators-group-programmatically.aspx
 
     # Get the token for the current process.
     proc = GetCurrentProcess()
+
     try:
         token = HANDLE()
         OpenProcessToken(proc, TOKEN_QUERY, byref(token))
+
         try:
             # Get the administrators SID.
+
             sid = create_string_buffer(SECURITY_MAX_SID_SIZE)
             sz = DWORD(SECURITY_MAX_SID_SIZE)
             target_sid = WinBuiltinAdministratorsSid
             CreateWellKnownSid(target_sid, None, byref(sid), byref(sz))
+
             # Check whether the token has that SID directly.
+
             has_admin = BOOL()
             CheckTokenMembership(None, byref(sid), byref(has_admin))
+
             if has_admin.value:
                 return True
+
             # Get the linked token.  Failure may mean no linked token.
             lToken = HANDLE()
+
             try:
                 cls = TokenLinkedToken
-                GetTokenInformation(token, cls, byref(lToken), sizeof(lToken), byref(sz))
+                GetTokenInformation(
+                    token, cls, byref(lToken), sizeof(lToken), byref(sz)
+                )
             except WindowsError as e:
                 if e.winerror == ERROR_NO_SUCH_LOGON_SESSION:
                     return False
@@ -1985,21 +2213,27 @@ def can_get_admin_access():
                     return False
                 else:
                     raise
+
             # Check if the linked token has the admin SID
             try:
                 CheckTokenMembership(lToken, byref(sid), byref(has_admin))
                 return bool(has_admin.value)
+
             finally:
                 CloseHandle(lToken)
+
         finally:
             CloseHandle(token)
+
     except Exception as e:
         return None
+
     finally:
         try:
             CloseHandle(proc)
         except Exception as e:
             pass
+
 
 # return string with major.minor version
 def get_windows_version():
@@ -2015,6 +2249,7 @@ def get_windows_version():
         'build_number': os_version.dwBuildNumber.real
     }
 
+
 def access(path, mode):
     requested_information = OWNER_SECURITY_INFORMATION | \
         GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION
@@ -2023,8 +2258,7 @@ def access(path, mode):
     hToken = HANDLE()
     access_desired = 0
 
-    if type(path) == str:
-        path = path.decode('utf-8')
+    path = try_as_unicode_string(path)
 
     attributes = GetFileAttributesW(path)
 
@@ -2035,11 +2269,12 @@ def access(path, mode):
         return True
 
     if (mode & W_OK) and (attributes & FILE_ATTRIBUTE_READONLY) and \
-      not (attributes & FILE_ATTRIBUTE_DIRECTORY):
+            not (attributes & FILE_ATTRIBUTE_DIRECTORY):
         return False
 
-    success = GetFileSecurityW(path, requested_information,
-        c_void_p(0), 0, byref(dwSize))
+    success = GetFileSecurityW(
+        path, requested_information, c_void_p(0), 0, byref(dwSize)
+    )
 
     if not success and get_last_error() != ERROR_INSUFFICIENT_BUFFER:
         return False
@@ -2059,13 +2294,15 @@ def access(path, mode):
 
     if not OpenProcessToken(
         GetCurrentProcess(),
-        TOKEN_IMPERSONATE | TOKEN_QUERY | TOKEN_DUPLICATE | STANDARD_RIGHTS_READ,
-        byref(hToken)):
+        TOKEN_IMPERSONATE | TOKEN_QUERY |
+            TOKEN_DUPLICATE | STANDARD_RIGHTS_READ, byref(hToken)):
 
         return False
 
     hImpersonatedToken = HANDLE()
-    if not DuplicateToken(hToken, SecurityImpersonation, byref(hImpersonatedToken)):
+
+    if not DuplicateToken(
+            hToken, SecurityImpersonation, byref(hImpersonatedToken)):
         CloseHandle(hToken)
         return False
 
@@ -2096,15 +2333,18 @@ def access(path, mode):
     is_access_granted_bool = BOOL(False)
 
     if not AccessCheck(
-        pSDBuf, hImpersonatedToken, access_desired, byref(mapping), pps,
-        byref(pps_size), byref(access_granted), byref(is_access_granted_bool)):
+        pSDBuf, hImpersonatedToken, access_desired, byref(mapping),
+        pps, byref(pps_size), byref(access_granted),
+            byref(is_access_granted_bool)):
 
         if get_last_error() == ERROR_INSUFFICIENT_BUFFER:
             pps = create_string_buffer(pps_size.value)
 
         AccessCheck(
-            pSDBuf, hImpersonatedToken, access_desired, byref(mapping), pps,
-            byref(pps_size), byref(access_granted), byref(is_access_granted_bool))
+            pSDBuf, hImpersonatedToken, access_desired,
+            byref(mapping), pps, byref(pps_size), byref(access_granted),
+            byref(is_access_granted_bool)
+        )
 
     is_access_granted = bool(is_access_granted_bool)
 
@@ -2112,6 +2352,7 @@ def access(path, mode):
     CloseHandle(hToken)
 
     return is_access_granted
+
 
 def strsid(sid, exc=True):
     if not sid:
@@ -2128,6 +2369,7 @@ def strsid(sid, exc=True):
 
     raise WinError(get_last_error())
 
+
 def namebysid(sid, domain=None):
     Name = LPWSTR()
     cbName = DWORD(0)
@@ -2137,17 +2379,19 @@ def namebysid(sid, domain=None):
 
     peUse = DWORD(0)
 
-    if LookupAccountSidW(domain, sid, Name, byref(cbName),
-        ReferencedDomainName, byref(cchReferencedDomainName), byref(peUse)) or \
+    if LookupAccountSidW(
+        domain, sid, Name, byref(cbName), ReferencedDomainName,
+        byref(cchReferencedDomainName), byref(peUse)) or \
         get_last_error() != ERROR_INSUFFICIENT_BUFFER or cbName.value <= 0 or \
-        cchReferencedDomainName.value <= 0:
+            cchReferencedDomainName.value <= 0:
         return '', ''
 
     Name = create_unicode_buffer(cbName.value)
     ReferencedDomainName = create_unicode_buffer(cchReferencedDomainName.value)
 
-    if not LookupAccountSidW(domain, sid, Name, byref(cbName),
-        ReferencedDomainName, byref(cchReferencedDomainName), byref(peUse)):
+    if not LookupAccountSidW(
+        domain, sid, Name, byref(cbName), ReferencedDomainName,
+            byref(cchReferencedDomainName), byref(peUse)):
         raise WinError(get_last_error())
 
     if Name.value == 'None':
@@ -2155,9 +2399,9 @@ def namebysid(sid, domain=None):
 
     return Name.value, ReferencedDomainName.value
 
+
 def sidbyname(name, domain=None):
-    if type(name) == str:
-        name = name.decode('utf-8')
+    name = try_as_unicode_string(name)
 
     Sid = PSID()
     cbSid = DWORD(0)
@@ -2167,33 +2411,36 @@ def sidbyname(name, domain=None):
 
     peUse = DWORD(0)
 
-    if LookupAccountNameW(domain, name, Sid, byref(cbSid),
-        ReferencedDomainName, byref(cchReferencedDomainName), byref(peUse)) or \
+    if LookupAccountNameW(
+        domain, name, Sid, byref(cbSid), ReferencedDomainName,
+        byref(cchReferencedDomainName), byref(peUse)) or \
         get_last_error() != ERROR_INSUFFICIENT_BUFFER or cbSid.value <= 0 or \
-        cchReferencedDomainName.value <= 0:
+            cchReferencedDomainName.value <= 0:
         return None
 
     Sid = create_string_buffer(cbSid.value)
     ReferencedDomainName = create_unicode_buffer(cchReferencedDomainName.value)
 
-    if not LookupAccountNameW(domain, name, Sid, byref(cbSid),
-        ReferencedDomainName, byref(cchReferencedDomainName), byref(peUse)):
+    if not LookupAccountNameW(
+        domain, name, Sid, byref(cbSid), ReferencedDomainName,
+            byref(cchReferencedDomainName), byref(peUse)):
         raise WinError(get_last_error())
 
     return strsid(Sid)
 
+
 def _getfileinfo(path, requested_information=0):
+    path = try_as_unicode_string(path)
 
-    if type(path) == str:
-        path = path.decode('utf-8')
-
-    requested_information |= OWNER_SECURITY_INFORMATION | \
-      GROUP_SECURITY_INFORMATION
+    requested_information |= \
+        OWNER_SECURITY_INFORMATION | \
+        GROUP_SECURITY_INFORMATION
 
     dwSize = DWORD(0)
 
-    success = GetFileSecurityW(path, requested_information,
-        c_void_p(0), 0, byref(dwSize))
+    success = GetFileSecurityW(
+        path, requested_information, c_void_p(0), 0, byref(dwSize)
+    )
 
     if not success and get_last_error() != ERROR_INSUFFICIENT_BUFFER:
         raise WinError(get_last_error())
@@ -2214,10 +2461,11 @@ def _getfileinfo(path, requested_information=0):
     bDefault = BOOL()
 
     if GetSecurityDescriptorOwner(pSDBuf, byref(USid), byref(bDefault)) and \
-      GetSecurityDescriptorGroup(pSDBuf, byref(GSid), byref(bDefault)):
+            GetSecurityDescriptorGroup(pSDBuf, byref(GSid), byref(bDefault)):
         return pSDBuf, USid, GSid
 
     raise WinError(get_last_error())
+
 
 def getfileowner(path, as_sid=True):
     pSDBuf, USid, GSid = _getfileinfo(path)
@@ -2229,7 +2477,9 @@ def getfileowner(path, as_sid=True):
 
     raise WinError(get_last_error())
 
-# https://stackoverflow.com/questions/34698927/python-get-windows-folder-acl-permissions
+
+# https://stackoverflow.com/questions/34698927/
+# python-get-windows-folder-acl-permissions
 
 class Ace(object):
     __slots__ = (
@@ -2255,40 +2505,40 @@ class Ace(object):
             mask = (mask & ~GENERIC_ALL) | FILE_ALL_ACCESS
         return mask
 
-    def inherited(self):         # I
+    def inherited(self):          # I
         return _bit(self.flags, INHERITED_ACE)
 
-    def object_inherit(self):    # OI
+    def object_inherit(self):     # OI
         return _bit(self.flags, OBJECT_INHERIT_ACE)
 
-    def container_inherit(self): # CI
+    def container_inherit(self):  # CI
         return _bit(self.flags, CONTAINER_INHERIT_ACE)
 
-    def inherit_only(self):      # IO
+    def inherit_only(self):       # IO
         return _bit(self.flags, INHERIT_ONLY_ACE)
 
-    def no_propagate(self):      # NP
+    def no_propagate(self):       # NP
         return _bit(self.flags, NO_PROPAGATE_INHERIT_ACE)
 
-    def no_access(self):         # N
+    def no_access(self):          # N
         return self.mapped_mask == 0
 
-    def full_access(self):       # F
+    def full_access(self):        # F
         return _bit(self.mapped_mask, FILE_ALL_ACCESS)
 
-    def modify_access(self):     # M
+    def modify_access(self):      # M
         return _bit(self.mapped_mask, FILE_MODIIFY_ACCESS)
 
-    def read_exec_access(self):  # RX
+    def read_exec_access(self):   # RX
         return _bit(self.mapped_mask, FILE_READ_EXEC_ACCESS)
 
-    def read_only_access(self):  # R
+    def read_only_access(self):   # R
         return _bit(self.mapped_mask, FILE_GENERIC_READ)
 
-    def write_only_access(self): # W
+    def write_only_access(self):  # W
         return _bit(self.mapped_mask, FILE_GENERIC_WRITE)
 
-    def delete_access(self):     # D
+    def delete_access(self):      # D
         return _bit(self.mapped_mask, FILE_DELETE_ACCESS)
 
     def get_file_rights(self):
@@ -2326,7 +2576,7 @@ class Ace(object):
             (FILE_WRITE_EA, 'WEA'), (FILE_EXECUTE, 'X'),
             (FILE_DELETE_CHILD, 'DC'),
             (FILE_READ_ATTRIBUTES, 'RA'),
-            (FILE_WRITE_ATTRIBUTES, 'WA')):
+                (FILE_WRITE_ATTRIBUTES, 'WA')):
 
             if _bit(self.mask, right):
                 rights.append(name)
@@ -2365,11 +2615,11 @@ class Ace(object):
 
         return '%s: %s' % (self.trustee, ''.join(access))
 
+
 def getfileowneracls(path):
     infos = []
 
-    if type(path) == str:
-        path = path.decode('utf-8')
+    path = try_as_unicode_string(path)
 
     requested_information = OWNER_SECURITY_INFORMATION | \
         GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION
@@ -2398,7 +2648,7 @@ def getfileowneracls(path):
 
     if not GetSecurityDescriptorDacl(
         pSDBuf, byref(bDaclPresent),
-        byref(pACL), byref(bDaclDefaulted)):
+            byref(pACL), byref(bDaclDefaulted)):
         raise WinError(get_last_error())
 
     if not bDaclPresent:
@@ -2422,11 +2672,11 @@ def getfileowneracls(path):
 
         if name:
             if domain:
-                trustee = u'{}\\{} ({})'.format(
+                trustee = '{}\\{} ({})'.format(
                     domain, name, sid
                 )
             else:
-                trustee = u'{} ({})'.format(
+                trustee = '{} ({})'.format(
                     name, sid
                 )
 
@@ -2438,12 +2688,16 @@ def getfileowneracls(path):
     infos.append(ACLs)
     return infos
 
+
 def create_new_process_from_ppid(ppid, cmd):
     """
-    Create new process as SYSTEM via Handle Inheritance specifying privileged parent
+    Create new process as SYSTEM via Handle Inheritance specifying
+    privileged parent
     Returns True if no problem
-    Based on : https://github.com/decoder-it/psgetsystem/blob/master/psgetsys.ps1
+    Based on : https://github.com/decoder-it/psgetsystem/
+        blob/master/psgetsys.ps1
     """
+
     lpAttributeList = None
     lpSize = c_size_t(0)
 
@@ -2454,11 +2708,14 @@ def create_new_process_from_ppid(ppid, cmd):
 
     # 2.Initialize the attribute list
     lpAttributeList = create_string_buffer(lpSize.value)
-    if not InitializeProcThreadAttributeList(lpAttributeList, 1, 0, byref(lpSize)):
+    if not InitializeProcThreadAttributeList(
+            lpAttributeList, 1, 0, byref(lpSize)):
         raise WinError(get_last_error())
 
-    # 3.Add attribute to attribute list (we now know buffer size for the specified number of attributes we allocate and initialize AttributeList)
-    #lpValue = PVOID(ppid) # Handle to specified parent
+    # 3.Add attribute to attribute list (we now know buffer size for
+    # the specified number of attributes we allocate and initialize
+    # AttributeList)
+    # lpValue = PVOID(ppid) # Handle to specified parent
 
     handle = OpenProcess(PROCESS_ALL_ACCESS, False, int(ppid))
     if not handle:
@@ -2469,60 +2726,65 @@ def create_new_process_from_ppid(ppid, cmd):
 
     if not UpdateProcThreadAttribute(
         lpAttributeList, 0, PROC_THREAD_ATTRIBUTE_PARENT_PROCESS,
-        byref(hHandle), sizeof(hHandle), 0, None):
+            byref(hHandle), sizeof(hHandle), 0, None):
         last_error = get_last_error()
         CloseHandle(handle)
         raise WinError(last_error)
 
-    #gaining a shell...
+    # gaining a shell...
     lpProcessInformation = PROCESS_INFORMATION()
 
-    lpStartupInfo              = STARTUPINFOEX()
-    lpStartupInfo.StartupInfo.lpReserved   = 0
-    lpStartupInfo.StartupInfo.lpDesktop    = 0
-    lpStartupInfo.StartupInfo.lpTitle      = 0
-    lpStartupInfo.StartupInfo.dwFlags      = 0
-    lpStartupInfo.StartupInfo.cbReserved2  = 0
-    lpStartupInfo.StartupInfo.lpReserved2  = 0
+    lpStartupInfo = STARTUPINFOEX()
+    lpStartupInfo.StartupInfo.lpReserved = 0
+    lpStartupInfo.StartupInfo.lpDesktop = 0
+    lpStartupInfo.StartupInfo.lpTitle = 0
+    lpStartupInfo.StartupInfo.dwFlags = 0
+    lpStartupInfo.StartupInfo.cbReserved2 = 0
+    lpStartupInfo.StartupInfo.lpReserved2 = 0
     lpStartupInfo.StartupInfo.cb = sizeof(lpStartupInfo)
     lpStartupInfo.lpAttributeList = addressof(lpAttributeList)
 
-    lpProcessInformation              = PROCESS_INFORMATION()
-    lpProcessInformation.hProcess     = INVALID_HANDLE_VALUE
-    lpProcessInformation.hThread      = INVALID_HANDLE_VALUE
-    lpProcessInformation.dwProcessId  = 0
-    lpProcessInformation.dwThreadId   = 0
+    lpProcessInformation = PROCESS_INFORMATION()
+    lpProcessInformation.hProcess = INVALID_HANDLE_VALUE
+    lpProcessInformation.hThread = INVALID_HANDLE_VALUE
+    lpProcessInformation.dwProcessId = 0
+    lpProcessInformation.dwThreadId = 0
 
     dwCreationFlags = (CREATE_NO_WINDOW | EXTENDED_STARTUPINFO_PRESENT)
 
     if not CreateProcessW(
         None, cmd, None, None, 0, dwCreationFlags, None,
-        None,  byref(lpStartupInfo), byref(lpProcessInformation)):
+            None,  byref(lpStartupInfo), byref(lpProcessInformation)):
         raise WinError(get_last_error())
 
     CloseHandle(handle)
     return lpProcessInformation.dwProcessId
 
+
 def get_integrity_level(pid):
     '''
     Returns the integrity level of a specific pid
-    Notice the process running this method should have less or same 'pivileges' than the pid for getting the integrity level.
-    e.g. a process running with medium integrity level can't access to integrity level information of a process running with the system or high integrity level.
+    Notice the process running this method should have less or same
+    'pivileges' than the pid for getting the integrity level.
+    e.g. a process running with medium integrity level can't access to
+    integrity level information of a process running with the system or
+    high integrity level.
     You can test with Process Explorer.
-    Returns 0, 1, 2, 3 ,4, 5 or 6 if an error. Otherwise returns string (intergrity level)
+    Returns 0, 1, 2, 3 ,4, 5 or 6 if an error. Otherwise returns string
+    (intergrity level)
     '''
 
     mapping = {
-        0x0000: u'Untrusted',
-        0x1000: u'Low',
-        0x2000: u'Medium',
-        0x2100: u'Medium high',
-        0x3000: u'High',
-        0x4000: u'System',
-        0x5000: u'Protected process',
+        0x0000: 'Untrusted',
+        0x1000: 'Low',
+        0x2000: 'Medium',
+        0x2100: 'Medium high',
+        0x3000: 'High',
+        0x4000: 'System',
+        0x5000: 'Protected process',
     }
 
-    #TOKEN_READ = DWORD(0x20008)
+    # TOKEN_READ = DWORD(0x20008)
     TokenIntegrityLevel = c_uint32(25)
     token = c_void_p()
 
@@ -2564,13 +2826,17 @@ def get_integrity_level(pid):
                 info_size,
                 byref(info_size)):
             logging.error(
-                    'GetTokenInformation(): Unknown error with buffer size %d: %d', info_size.value, GetLastError())
+                'GetTokenInformation(): Unknown error with '
+                'buffer size %d: %d', info_size.value, GetLastError()
+            )
             return 6
 
         p_sid_size = GetSidSubAuthorityCount(token_info.Label.Sid)
-        res = GetSidSubAuthority(token_info.Label.Sid, p_sid_size.contents.value - 1)
+        res = GetSidSubAuthority(
+            token_info.Label.Sid, p_sid_size.contents.value - 1
+        )
         value = res.contents.value
-        return mapping.get(value) or u'0x%04x' % value
+        return mapping.get(value) or '0x%04x' % value
 
     finally:
         CloseHandle(token)

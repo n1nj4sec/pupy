@@ -27,6 +27,14 @@ class Text(Hint):
                 self.__class__.__name__))
 
 
+class Hex(Text):
+    __slots__ = ('colorize')
+
+    def __init__(self, data, colorize=False):
+        super(Hex, self).__init__(data)
+        self.colorize = colorize
+
+
 class Table(Text):
     __slots__ = ('headers', 'caption', 'legend', 'vspace')
 
@@ -119,11 +127,12 @@ class Success(Text):
 
 
 class Section(Text):
-    __slots__ = ('header')
+    __slots__ = ('header', 'level')
 
-    def __init__(self, header, data):
+    def __init__(self, header, data=None, level=0):
         super(Section, self).__init__(data)
         self.header = header
+        self.level = level
 
 
 class Usage(Text):

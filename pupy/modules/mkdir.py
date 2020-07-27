@@ -20,7 +20,7 @@ __class_name__="mkdir"
 class mkdir(PupyModule):
     """ create an empty directory """
 
-    is_module=False
+    is_module = False
     dependencies = ['pupyutils.basic_cmds']
 
     @classmethod

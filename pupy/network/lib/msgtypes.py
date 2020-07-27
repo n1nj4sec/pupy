@@ -17,7 +17,7 @@ from network.conf import transports
 from network.lib import Proxy
 from network.lib.proxies import ProxyInfo
 from network.lib.utils import HostInfo, TransportInfo
-from network.lib.convcompat import unicodify
+from network.lib.convcompat import as_unicode_string_deep
 
 from umsgpack import Ext, packb, unpackb
 
@@ -57,4 +57,4 @@ wrapext = namedtuple('Ext', ('code', 'data'))
 def msgpack_exthook(code, data):
     if code in MSG_TYPES_UNPACK:
         obj = wrapext(code, data)
-        return unicodify(MSG_TYPES_UNPACK[code](obj))
+        return as_unicode_string_deep(MSG_TYPES_UNPACK[code](obj))

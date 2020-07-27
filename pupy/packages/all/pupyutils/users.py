@@ -5,25 +5,15 @@ from __future__ import unicode_literals
 
 import os
 import getpass
-import sys
 
 from io import open
 
-if sys.version_info.major > 3:
-    basestring = str
+from network.lib.convcompat import fs_as_unicode_string
 
 
 if os.name == 'nt':
     import win32net
     import win32api
-
-    def to_unicode(x):
-        if isinstance(x, bytes):
-            return x.decode(sys.getfilesystemencoding())
-        elif isinstance(x, basestring):
-            return x
-        else:
-            return str(x)
 
     def users():
         result = []
@@ -38,14 +28,18 @@ if os.name == 'nt':
                 continue
 
             result.append({
-                'name': to_unicode(user['name']),
+                'name': fs_as_unicode_string(user['name']),
                 'groups': [
-                    to_unicode(x) for x in win32net.NetUserGetLocalGroups(None, user['name'])
+                    fs_as_unicode_string(x)
+                    for x in win32net.NetUserGetLocalGroups(None, user['name'])
                 ],
                 'admin': user['priv'] == 2,
                 'home': (
-                    to_unicode(user['logon_server']) + u'\\' + to_unicode(user['home_dir'])
-                ) if user['home_dir'] else u'default'
+                    '\\'.join((
+                        fs_as_unicode_string(user['logon_server']),
+                        fs_as_unicode_string(user['home_dir'])
+                    ))
+                ) if user['home_dir'] else 'default'
             })
 
         return {
@@ -60,13 +54,15 @@ else:
     def users():
         try:
             shells = set(
-                y.strip() for x in open('/etc/shells').readlines()
+                fs_as_unicode_string(
+                    y.strip()
+                ) for x in open('/etc/shells').readlines()
                 if x.startswith('/') for y in x.split()
             )
         except:
             shells = ()
 
-        current = getpass.getuser()
+        current = fs_as_unicode_string(getpass.getuser())
         groups = grp.getgrall()
 
         result = []
@@ -81,12 +77,13 @@ else:
                 continue
 
             result.append({
-                'name': user.pw_name,
+                'name': fs_as_unicode_string(user.pw_name),
                 'groups': [
-                    x.gr_name for x in groups if user.pw_name in x.gr_mem
+                    fs_as_unicode_string(x.gr_name)
+                    for x in groups if user.pw_name in x.gr_mem
                 ],
                 'admin': user.pw_uid == 0,
-                'home': user.pw_dir
+                'home': fs_as_unicode_string(user.pw_dir)
             })
 
         return {

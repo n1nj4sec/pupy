@@ -3,7 +3,6 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-from __future__ import unicode_literals
 
 __all__ = ('import_module', 'load_dll')
 
@@ -25,7 +24,7 @@ logger = get_logger('pymemimporter')
 def import_module(data, initname, fullname, path):
     logger.debug('Import module %s', fullname)
     try:
-        return load_content(data, fullname, False, initname)
+        return load_content(data, path, False, initname)
     except Exception as e:
         logger.exception(e)
         raise

@@ -51,7 +51,7 @@ from network.lib.streams.PupySocketStream import PupyChannel
 from network.lib.buffer import Buffer
 from network.lib.msgtypes import MSG_TYPES_PACK
 from network.lib.rpc.core.service import Service, ModuleNamespace
-from network.lib.compat import execute, with_metaclass
+from network.lib.compat import execute, with_metaclass, as_native_string
 
 import umsgpack
 
@@ -79,10 +79,14 @@ REVERSE_SLAVE_CONF = dict(
 
 
 logger = pupy.get_logger('service')
+_all = as_native_string('*')
 
 
 def _import(name):
-    return __import__(name, None, None, '*')
+    return __import__(
+        as_native_string(name),
+        None, None, (_all,)
+    )
 
 
 class UpdatableModuleNamespace(ModuleNamespace):
@@ -107,10 +111,13 @@ class UpdatableModuleNamespace(ModuleNamespace):
         elif name.startswith('exposed_'):
             if __debug__:
                 logger.debug(
-                    'Access UpdatableModuleNamespace.%s - fix invalid exposed_', name
+                    'Access UpdatableModuleNamespace.%s - '
+                    'fix invalid exposed_', name
                 )
 
             name = name[8:]
+
+        name = as_native_string(name)
 
         try:
             result = super(UpdatableModuleNamespace, self).__getattr__(name)
@@ -123,13 +130,16 @@ class UpdatableModuleNamespace(ModuleNamespace):
             raise
 
         if __debug__:
-            logger.debug('Access UpdatableModuleNamespace.%s -> %s', name, result)
+            logger.debug(
+                'Access UpdatableModuleNamespace.%s -> %s', name, result
+            )
 
         return result
 
 
 class ReverseSlaveService(Service):
     """ Pupy reverse shell rpyc service """
+
     __slots__ = (
         'exposed_namespace', 'exposed_cleanups', 'client'
     )
@@ -580,6 +590,7 @@ class PupyClient(object):
                     time.sleep(sleep_secs)
 
                     self._attempt += 1
+
 
 def run(config):
     launcher = config.get('launcher')

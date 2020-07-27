@@ -48,13 +48,8 @@ if sys.version_info.major > 2:
 
     basestring = str
 
-    def reprb(data):
-        return repr(data)
 else:
     from itertools import ifilterfalse as filterfalse
-
-    def reprb(data):
-        return 'b' + repr(data)
 
 from netaddr import IPAddress
 from random import randint
@@ -99,20 +94,25 @@ from network.lib.base import chain_transports
 from network.lib.transports.httpwrap import PupyHTTPWrapperServer
 from network.lib.igd import IGDClient, UPNPError
 from network.lib.streams.PupySocketStream import PupyChannel
+from network.lib.convcompat import reprb
 
 from triggers import Triggers
 
 from . import getLogger
+
 logger = getLogger('server')
 blocks_logger = logger.getChild('whitelist')
 
+
 class ListenerException(Exception):
     pass
+
 
 class PupyKCPSocketStream(PupySocketStream):
     def __init__(self, *args, **kwargs):
         PupySocketStream.__init__(self, *args, **kwargs)
         self.KEEP_ALIVE_REQUIRED = 15
+
 
 class Listener(Thread):
     def __init__(self, pupsrv, name, args, httpd=False, igd=False, local=None, external=None, pproxy=None):
@@ -316,7 +316,7 @@ class Listener(Thread):
         if not (self.pproxy and method):
             return
 
-        ## Workaround..
+        # Workaround..
         self.server.listener.close()
         self.server.listener = method(self.external_port, extra=extra)
 
@@ -498,7 +498,6 @@ class PupyServer(object):
                 )
             except Exception as e:
                 logger.exception('DnsCNC failed: %s', e)
-
 
     def get_listeners(self):
         return self.listeners
@@ -1023,12 +1022,20 @@ class PupyServer(object):
 
         try:
             stream = next(iter(launcher.iterate()))
-        except socket.error as e:
-            self.handler.display_error("Couldn't connect to pupy: {}".format(e))
+        except StopIteration:
+            self.handler.display_error(
+                "All connection attempts failed"
+            )
             return
 
-        host = launcher.args.host[0] \
-          if type(launcher.args.host) in (list,tuple) else launcher.args.host
+        except (OSError, socket.error) as e:
+            self.handler.display_error(
+                "Couldn't connect to pupy: {}".format(e)
+            )
+            return
+
+        host = launcher.args.host[0] if type(
+            launcher.args.host) in (list, tuple) else launcher.args.host
 
         self.handler.display_success('Starting session ({})'.format(host))
 
@@ -1040,6 +1047,7 @@ class PupyServer(object):
             config={
                 'connid': host
             })
+
         bgsrv.start()
 
     def start(self):
@@ -1179,13 +1187,14 @@ class PupyServer(object):
         wwwroot = self.config.get_folder('wwwroot')
         secret = self.config.getboolean('httpd', 'secret')
 
-        with NamedTemporaryFile(dir=wwwroot, prefix='', delete=False) as served:
+        with NamedTemporaryFile(
+                dir=wwwroot, prefix='', delete=False) as served:
             served.write(payload)
 
         if secret:
             url = '/'.join([
                 self.config.get('randoms', 'wwwsecret', random=5),
-                    path.basename(served.name)
+                path.basename(served.name)
             ])
         else:
             url = path.basename(served.name)

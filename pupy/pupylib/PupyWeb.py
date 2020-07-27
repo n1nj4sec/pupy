@@ -1,15 +1,19 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright (c) 2017, Nicolas VERDIER (contact@n1nj4.eu)
-# Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
+# Pupy is under the BSD 3-Clause license. see the LICENSE file at the root
+# of the project for the detailed licence terms
 
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-__all__=['RequestHandler', 'WebSocketHandler']
+__all__ = [
+    'RequestHandler', 'WebSocketHandler'
+]
 
+import sys
 import threading
 import random
 import string
@@ -17,7 +21,6 @@ import tornado.ioloop
 import tornado.web
 import tornado.template
 
-from io import open
 from os import path, unlink
 from ssl import create_default_context
 
@@ -33,9 +36,14 @@ from pupylib.PupyOutput import Success
 from socket import getaddrinfo
 from socket import error as socket_error
 
+if sys.version_info.major > 2:
+    xrange = range
+
+
 LOCAL_IPS = ('127.0.0.1', '::1')
 
 SERVER_HEADER = 'nginx/1.13.8'
+
 
 def setup_local_ips(klass, kwargs):
     config = kwargs.pop('config', None)
@@ -73,6 +81,7 @@ class ErrorHandler(TornadoErrorHandler):
     def set_default_headers(self):
         self.set_header('Server', SERVER_HEADER)
 
+
 class WebSocketHandler(TornadoWebSocketHandler):
     def initialize(self, **kwargs):
         setup_local_ips(self, kwargs)
@@ -91,6 +100,7 @@ class WebSocketHandler(TornadoWebSocketHandler):
 
         super(WebSocketHandler, self).prepare(*args, **kwargs)
 
+
 class RequestHandler(TornadoRequestHandler):
     def initialize(self, **kwargs):
         setup_local_ips(self, kwargs)
@@ -108,6 +118,7 @@ class RequestHandler(TornadoRequestHandler):
 
         super(RequestHandler, self).prepare(*args, **kwargs)
 
+
 class StaticTextHandler(TornadoRequestHandler):
     def initialize(self, **kwargs):
         self.content = kwargs.pop('content')
@@ -121,6 +132,7 @@ class StaticTextHandler(TornadoRequestHandler):
     @tornado.web.asynchronous
     def get(self):
         self.finish(self.content)
+
 
 class PayloadsHandler(TornadoStaticFileHandler):
     def set_default_headers(self):
@@ -155,7 +167,10 @@ class PayloadsHandler(TornadoStaticFileHandler):
         if self.mapped:
             return absolute_path
 
-        return super(PayloadsHandler, self).get_absolute_path(root, absolute_path)
+        return super(PayloadsHandler, self).get_absolute_path(
+            root, absolute_path
+        )
+
 
 class IndexHandler(tornado.web.RequestHandler):
     def initialize(self, **kwargs):
@@ -172,6 +187,7 @@ class IndexHandler(tornado.web.RequestHandler):
         else:
             self.render("nginx_index.html")
 
+
 class PupyWebServer(object):
     def __init__(self, pupsrv, config):
         self.pupsrv = pupsrv
@@ -182,11 +198,12 @@ class PupyWebServer(object):
         self.ssl = False
 
         self.wwwroot = self.config.get(
-            'webserver', 'static_webroot_uri', None) or \
-            self.random_path()
+            'webserver', 'static_webroot_uri', None
+        ) or self.random_path()
 
         self.preserve_payloads = self.config.getboolean(
-            'webserver', 'preserve_payloads')
+            'webserver', 'preserve_payloads'
+        )
 
         self.root = self.config.get_folder('wwwroot')
 
@@ -244,7 +261,7 @@ class PupyWebServer(object):
             log_function=self.log,
             default_handler_class=ErrorHandler,
             default_handler_args={
-                'status_code':404,
+                'status_code': 404,
             }
         )
 
@@ -289,21 +306,26 @@ class PupyWebServer(object):
 
     def get_random_path_at_webroot(self):
         while True:
-            filename = ''.join(random.choice(
-                string.ascii_uppercase + \
-                string.ascii_lowercase + \
-                string.digits) for _ in range(10))
+            filename = ''.join(
+                random.choice(
+                    string.ascii_uppercase +
+                    string.ascii_lowercase +
+                    string.digits
+                ) for _ in xrange(10)
+            )
 
             filepath = path.join(self.root, filename)
             if not path.isfile(filepath):
                 return filepath, filename
 
     def random_path(self):
-        return '/'+''.join(
+        return '/' + ''.join(
             random.choice(
-                string.ascii_uppercase + \
-                string.ascii_lowercase + \
-                string.digits) for _ in range(10))
+                string.ascii_uppercase +
+                string.ascii_lowercase +
+                string.digits
+            ) for _ in xrange(10)
+        )
 
     def register_mapping(self, name):
         name = self.random_path()
@@ -323,9 +345,9 @@ class PupyWebServer(object):
                 with open(filepath, 'wb') as out:
                     out.write(content)
                 self.served_files.add(filepath)
-            except:
+            except (IOError, OSError):
                 if path.isfile(filepath):
-                    path.unlink(filepath)
+                    unlink(filepath)
 
                 raise
 
@@ -352,27 +374,32 @@ class PupyWebServer(object):
         klasses = []
 
         for tab in web_handlers:
-            if len(tab)==2:
+            if len(tab) == 2:
                 uri_path, handler = tab
                 kwargs = {}
             else:
                 uri_path, handler, kwargs = tab
 
             ends_with_slash = uri_path.endswith('/')
-            uri_path = '/'.join(x for x in [random_path] + uri_path.split('/') if x)
+            uri_path = '/'.join(
+                x for x in [random_path] + uri_path.split('/') if x
+            )
+
             if ends_with_slash:
                 uri_path += '/'
 
             klasses.append(handler)
 
             if issubclass(handler, (
-                ErrorHandler, WebSocketHandler,
-                RequestHandler, StaticTextHandler, PayloadsHandler, IndexHandler)):
+                ErrorHandler, WebSocketHandler, RequestHandler,
+                    StaticTextHandler, PayloadsHandler, IndexHandler)):
 
                 kwargs['config'] = self.config
 
             self.app.add_handlers(".*", [(uri_path, handler, kwargs)])
-            self.pupsrv.info('Register webhook for {} at {}'.format(name, uri_path))
+            self.pupsrv.info('Register webhook for {} at {}'.format(
+                name, uri_path
+            ))
 
         self._registered[name] = random_path, klasses, cleanup
 

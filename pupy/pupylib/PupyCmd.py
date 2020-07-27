@@ -3,15 +3,33 @@
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
 # All rights reserved.
 #
-# Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+# Redistribution and use in source and binary forms, with or
+# without modification, are permitted provided that the following
+# conditions are met:
 #
-# 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+# 1. Redistributions of source code must retain the above copyright
+# notice, this list of conditions and the following disclaimer.
 #
-# 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+# 2. Redistributions in binary form must reproduce the above copyright
+# notice, this list of conditions and the following disclaimer in the
+# documentation and/or other materials provided with the distribution.
 #
-# 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+# 3. Neither the name of the copyright holder nor the names of its
+# contributors may be used to endorse or promote products derived
+# from this software without specific prior written permission.
 #
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
 
 from __future__ import print_function
@@ -33,6 +51,7 @@ import select
 import fcntl
 import array
 import readline
+import logging
 
 from threading import Thread, Event, Lock
 from subprocess import Popen, PIPE, STDOUT
@@ -53,8 +72,8 @@ from .PupyOutput import (
 from .utils.term import (
     colorize, as_term_bytes, consize, fix_stdout,
     SHADOW_SCREEN_TO, SHADOW_SCREEN_FROM,
-    CUR_DOWN, CUR_LEFT, CUR_UP, CUR_RIGHT,
-    STOR_CUR, LOAD_CUR, DEL_RIGHT
+    CUR_LEFT, STOR_CUR, LOAD_CUR, DEL_RIGHT,
+    DEFAULT_MULTIBYTE_CP
 )
 
 from .PupySignalHandler import set_signal_winch
@@ -96,9 +115,10 @@ class ObjectStreamPipeConsumer(Thread):
         super(ObjectStreamPipeConsumer, self).__init__()
         self.daemon = True
 
-    def write(self, object):
-        text = as_term_bytes(object)
+    def write(self, message):
+        text = as_term_bytes(message)
         text = text.strip(' ')
+
         if not text:
             return
 
@@ -350,8 +370,10 @@ class RawTerminal(IOGroup):
                                     special_buf = b''
                                     self._special_activated = False
                                     break
-                                elif not any([x.startswith(special_buf) for x in self._specials]):
-
+                                elif not any([
+                                            x.startswith(special_buf)
+                                            for x in self._specials
+                                        ]):
                                     data_buf += special_buf
                                     special_buf = b''
                                     self._special_activated = False
@@ -411,7 +433,9 @@ class RawTerminal(IOGroup):
             sequence = sequence.encode()
 
         if not sequence or len(sequence) < 2 or not sequence.startswith(b'~'):
-            raise ValueError('Sequence should start from ~ and be at least 2 symbols')
+            raise ValueError(
+                'Sequence should start from ~ and be at least 2 symbols'
+            )
 
         self._specials[sequence] = on_sequence
 
@@ -473,12 +497,14 @@ class PupyCmd(cmd.Cmd):
             self.aliases[m] = m
 
         try:
-            for command, alias in self.config.items("aliases"):
-                logger.debug("adding alias: %s => %s"%(command, alias))
+            for command, alias in self.config.items('aliases'):
+                logger.debug("Alias: %s => %s", command, alias)
                 self.aliases[command] = alias
 
-        except:
-            logger.warning("error while parsing aliases from pupy.conf ! %s", traceback.format_exc())
+        except Exception as e:
+            logger.exception(
+                'Error while parsing aliases from pupy.conf: %s', e
+            )
 
         self.pupsrv.register_handler(self)
 
@@ -493,7 +519,9 @@ class PupyCmd(cmd.Cmd):
 
         for fail in motd.get('fail', []):
             self._intro.append(
-                Error(fail + '\n') if not issubclass(type(fail), Text) else fail
+                Error(fail + '\n') if not issubclass(
+                    type(fail), Text
+                ) else fail
             )
 
     def default(self, line):
@@ -505,6 +533,9 @@ class PupyCmd(cmd.Cmd):
         self.display_srvinfo('Action complete')
 
     def execute(self, line, clients_filter=None):
+        if isinstance(line, bytes):
+            line = line.decode(DEFAULT_MULTIBYTE_CP)
+
         if line.startswith('!'):
             os.system(line[1:])
             return
@@ -530,7 +561,8 @@ class PupyCmd(cmd.Cmd):
                 'Unknown (or unavailable) command {}. Use help -M to '
                 'list available commands and modules'.format(e)))
 
-        except (PupyModuleError, LauncherError, NotImplementedError) as e:
+        except (PupyModuleError, LauncherError,
+                NotImplementedError, ValueError) as e:
             if str(e) and str(e) != 'None':
                 self.display(Error(e))
 
@@ -551,12 +583,12 @@ class PupyCmd(cmd.Cmd):
             try:
                 cmd.Cmd.cmdloop(self, intro)
                 closed = True
+
             except KeyboardInterrupt:
                 self.stdout.write(b'\n')
 
             except Exception as e:
-                import traceback
-                traceback.print_exc()
+                logger.exception('cmd error: %s', e)
 
                 msg = as_term_bytes(Error(traceback.format_exc()))
                 self.redraw_line(msg)
@@ -610,10 +642,14 @@ class PupyCmd(cmd.Cmd):
 
         if requirements in (REQUIRE_REPL, REQUIRE_TERMINAL):
             if amount > 1:
-                raise NotImplementedError('This UI does not support more than 1 repl or terminal')
+                raise NotImplementedError(
+                    'This UI does not support more than 1 repl or terminal'
+                )
 
             if pipe:
-                raise NotImplementedError('This UI does not support pipelining of repl or terminal')
+                raise NotImplementedError(
+                    'This UI does not support pipelining of repl or terminal'
+                )
 
             if requirements == REQUIRE_TERMINAL:
                 stdout2 = os.dup(self.stdout.fileno())
@@ -622,7 +658,8 @@ class PupyCmd(cmd.Cmd):
                         self.stdin,
                         os.fdopen(stdout2, 'wb', 0),
                         self.config.getboolean('cmdline', 'shadow_screen')
-                )]
+                    )
+                ]
             else:
                 return [
                     IOGroup(self.stdin, self.stdout, pipe=pipe)
@@ -674,8 +711,8 @@ class PupyCmd(cmd.Cmd):
             try:
                 text = as_term_bytes(text)
             except Exception as e:
-                import traceback
-                traceback.print_exc()
+                if logger.getEffectiveLevel() == logging.DEBUG:
+                    logger.exception('display error: %s', e)
 
             self.stdout.write(text)
 
@@ -741,8 +778,9 @@ class PupyCmd(cmd.Cmd):
                 compfunc, module, args = self.commands.completer(context, line)
                 self.completion_matches = compfunc(module, args, text, context)
 
-            except:
-                logger.debug(traceback.format_exc())
+            except Exception as e:
+                if logger.getEffectiveLevel() == logging.DEBUG:
+                    logger.exception('Completion error: %s', e)
 
         try:
             if self.completion_matches:
@@ -757,8 +795,10 @@ class PupyCmd(cmd.Cmd):
             return os.listdir('.')
         dirname, rest = os.path.split(path)
         tmp = dirname if dirname else '.'
-        res = [os.path.join(dirname, p)
-                for p in os.listdir(tmp) if p.startswith(rest)]
+        res = [
+            os.path.join(dirname, p)
+            for p in os.listdir(tmp) if p.startswith(rest)
+        ]
         # more than one match, or single match which does not exist (typo)
         if len(res) > 1 or not os.path.exists(path):
             return res
@@ -769,8 +809,8 @@ class PupyCmd(cmd.Cmd):
         return [path + ' ']
 
     def complete_read(self, text, line, begidx, endidx):
-        tab = line.split(' ',1)
-        if len(tab)>=2:
+        tab = line.split(' ', 1)
+        if len(tab) >= 2:
             return self._complete_path(tab[1])
 
 
@@ -785,9 +825,9 @@ class PupyCmdLoop(object):
             try:
                 self.cmd.cmdloop()
                 self.stopped.set()
-            except:
+            except Exception:
 
-                time.sleep(0.1) #to avoid flood in case of exceptions in loop
+                time.sleep(0.1)  # to avoid flood in case of exceptions in loop
                 self.cmd.intro = []
 
         self.pupysrv.stop()

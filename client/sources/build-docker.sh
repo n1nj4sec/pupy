@@ -1,9 +1,9 @@
 #!/bin/sh
 
-PACKAGES_BUILD="netifaces msgpack-python u-msgpack-python construct bcrypt watchdog dukpy impacket zeroconf==0.19.1"
+PACKAGES_BUILD="netifaces msgpack-python u-msgpack-python construct bcrypt watchdog dukpy impacket zeroconf==0.19.1 ushlex"
 PACKAGES_BUILD="$PACKAGES_BUILD pycryptodomex pycryptodome cryptography pyOpenSSL paramiko"
 
-PACKAGES="rsa pefile win_inet_pton netaddr==0.7.19 pypiwin32 win_inet_pton dnslib"
+PACKAGES="rsa pefile win_inet_pton netaddr==0.7.19 pywin32 win_inet_pton dnslib"
 PACKAGES="$PACKAGES pyaudio https://github.com/secdev/scapy/archive/master.zip colorama pyaudio"
 PACKAGES="$PACKAGES https://github.com/alxchk/pypykatz/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/warner/python-ed25519/archive/master.zip"
@@ -11,7 +11,7 @@ PACKAGES="$PACKAGES https://github.com/alxchk/tinyec/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/alxchk/urllib-auth/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/alxchk/winkerberos/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/alxchk/pyuv/archive/v1.x.zip"
-PACKAGES="$PACKAGES adodbapi idna http-parser pyodbc wmi==1.4.9"
+PACKAGES="$PACKAGES idna http-parser pyodbc wmi==1.4.9"
 
 SELF=$(readlink -f "$0")
 SELFPWD=$(dirname "$SELF")

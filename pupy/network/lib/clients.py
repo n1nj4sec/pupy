@@ -4,6 +4,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 __all__ = (
     'PupyClient',
     'PupyTCPClient',
@@ -24,33 +25,39 @@ from . import getLogger
 try:
     from . import socks
 except ImportError as e:
-    logging.warning("%s: socks module disabled, auto_connect unavailable"%e)
+    logging.warning('%s: socks module disabled, auto_connect unavailable', e)
     socks = None
 
 logger = getLogger('clients')
+
 
 class PupyClient(object):
     def connect(self, host, port, timeout=4):
         """ return a socket after connection """
         raise NotImplementedError("connect not implemented")
 
+
 class PupyAsyncClient(object):
     def connect(self, host, port, timeout=10):
-        self.host=host
-        self.port=port
-        self.timeout=timeout
+        self.host = host
+        self.port = port
+        self.timeout = timeout
         return self.host, self.port, self.timeout
 
-class PupyTCPClient(PupyClient):
-    def __init__(self, family = socket.AF_UNSPEC, socktype = socket.SOCK_STREAM, timeout = 4, nodelay = False, keepalive = True):
-        super(PupyTCPClient, self).__init__()
-        self.sock=None
 
-        self.family=family
-        self.socktype=socktype
-        self.timeout=timeout
-        self.nodelay=nodelay
-        self.keepalive=keepalive
+class PupyTCPClient(PupyClient):
+    def __init__(
+        self, family=socket.AF_UNSPEC, socktype=socket.SOCK_STREAM,
+            timeout=4, nodelay=False, keepalive=True):
+
+        super(PupyTCPClient, self).__init__()
+        self.sock = None
+
+        self.family = family
+        self.socktype = socktype
+        self.timeout = timeout
+        self.nodelay = nodelay
+        self.keepalive = keepalive
 
     def connect(self, host, port):
         family, socktype, proto, _, sockaddr = socket.getaddrinfo(
@@ -68,10 +75,12 @@ class PupyTCPClient(PupyClient):
 
         if self.keepalive:
             s.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-            # Linux specific: after 1 idle minutes, start sending keepalives every 5 minutes.
+            # Linux specific: after 1 idle minutes, start sending keepalives
+            # every 5 minutes.
             # Drop connection after 10 failed keepalives
 
-        if hasattr(socket, "TCP_KEEPIDLE") and hasattr(socket, "TCP_KEEPINTVL") and hasattr(socket, "TCP_KEEPCNT"):
+        if hasattr(socket, "TCP_KEEPIDLE") and hasattr(
+                socket, "TCP_KEEPINTVL") and hasattr(socket, "TCP_KEEPCNT"):
             s.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 1 * 60)
             s.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 5 * 60)
             s.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 10)
@@ -84,6 +93,7 @@ class PupyTCPClient(PupyClient):
         logger.debug('Connected to: %s, socket=%s', sockaddr, s)
 
         return s
+
 
 class PupyProxifiedTCPClient(PupyTCPClient):
     def __init__(self, *args, **kwargs):
@@ -134,6 +144,7 @@ class PupyProxifiedTCPClient(PupyTCPClient):
 
         return s
 
+
 class PupySSLClient(PupyTCPClient):
     def __init__(self, *args, **kwargs):
         self.ssl_auth = kwargs.pop('ssl_auth', True)
@@ -150,7 +161,7 @@ class PupySSLClient(PupyTCPClient):
                 self.SSL_CA_CERT = pupy_credentials.SSL_CA_CERT
                 self.ROLE = 'CLIENT'
 
-            except:
+            except ImportError:
                 from pupylib.PupyCredentials import Credentials
 
                 credentials = Credentials()
@@ -197,7 +208,7 @@ class PupySSLClient(PupyTCPClient):
             os.write(fd_ca_path, self.SSL_CA_CERT)
             os.close(fd_ca_path)
         except Exception as e:
-            logging.error("Error writing certificates to temp file %s"%e)
+            logging.error("Error writing certificates to temp file %s", e)
             raise e
 
         try:
@@ -225,18 +236,22 @@ class PupySSLClient(PupyTCPClient):
             if item[0][0] == 'organizationalUnitName':
                 peer_role = item[0][1]
 
-        if not (self.ROLE == 'CLIENT' and peer_role == 'CONTROL' or \
-            self.ROLE == 'CONTROL' and peer_role == 'CLIENT'):
+        if not (self.ROLE == 'CLIENT' and peer_role == 'CONTROL' or
+                self.ROLE == 'CONTROL' and peer_role == 'CLIENT'):
             raise ValueError('Invalid peer role: {}'.format(peer_role))
 
         return wrapped_socket
 
+
 class PupyProxifiedSSLClient(PupySSLClient, PupyProxifiedTCPClient):
     pass
 
+
 class PupyUDPClient(PupyClient):
-    def __init__(self, family = socket.AF_UNSPEC, socktype = socket.SOCK_DGRAM, timeout=3):
-        self.sock=None
+    def __init__(
+        self, family=socket.AF_UNSPEC,
+            socktype=socket.SOCK_DGRAM, timeout=3):
+        self.sock = None
         super(PupyUDPClient, self).__init__()
         self.family = family
         self.socktype = socktype

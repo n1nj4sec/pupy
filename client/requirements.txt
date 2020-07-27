@@ -10,3 +10,4 @@ dnslib
 dukpy
 zeroconf==0.19.1
 https://github.com/alxchk/urllib-auth/archive/master.zip
+ushlex; python_version<'3'

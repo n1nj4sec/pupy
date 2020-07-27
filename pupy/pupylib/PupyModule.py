@@ -595,10 +595,14 @@ class PupyModule(with_metaclass(PupyModuleMetaclass)):
     def newline(self, lines=1):
         self._message(NewLine(lines))
 
-    def table(self, data, header=None, caption=None, truncate=False, legend=True, vspace=0):
+    def table(
+        self, data, header=None, caption=None,
+            truncate=False, legend=True, vspace=0):
+
         data = Table(data, header, caption, legend, vspace)
         if truncate:
             data = TruncateToTerm(data)
+
         self._message(data)
 
     def closeio(self):

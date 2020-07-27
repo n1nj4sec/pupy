@@ -8,10 +8,11 @@ __all__ = ('InvalidCommand', 'Commands')
 
 import os
 import imp
-import shlex
 
 from pupylib.PupyCompleter import commands_completer
 from pupylib.PupyModule import PupyArgumentParser
+
+from network.lib.convcompat import shlex
 
 
 class InvalidCommand(Exception):

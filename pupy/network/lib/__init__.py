@@ -3,7 +3,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-from __future__ import unicode_literals
+
 __all__ = (
     'Proxy', 'getLogger',
     'PupySocketStream', 'PupyUDPSocketStream',
@@ -22,24 +22,32 @@ __all__ = (
     'ScrambleSuitClient', 'ScrambleSuitServer'
 )
 
-
+import sys
 import logging
+
 from collections import namedtuple
 
-Proxy = namedtuple('Proxy', [
-       'type', 'addr', 'username', 'password'])
+Proxy = namedtuple(
+    'Proxy', [
+       'type', 'addr', 'username', 'password'
+    ]
+)
 
 logger = logging.getLogger('pupy.network')
+
 
 def getLogger(name):
     return logger.getChild(name)
 
+
 from .streams.PupySocketStream import PupySocketStream
+
 
 try:
     from .streams.PupySocketStream import PupyUDPSocketStream
 except:
     PupyUDPSocketStream = None
+
 
 from .base import chain_transports
 from .servers import PupyTCPServer, PupyUDPServer
@@ -48,6 +56,7 @@ from .clients import PupyProxifiedTCPClient, PupyProxifiedSSLClient
 from .clients import PupyUDPClient
 
 from .transports.dummy import DummyPupyTransport
+
 
 try:
     from .transports.rsa_aes import RSA_AESClient, RSA_AESServer

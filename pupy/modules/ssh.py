@@ -41,6 +41,7 @@ class SSH(PupyModule):
     @classmethod
     def init_argparse(cls):
         cls.arg_parser = PupyArgumentParser(prog='ssh', description=cls.__doc__)
+        cls.arg_parser.set_defaults(func=False)
         cls.arg_parser.add_argument('-T', '--timeout',
                                     type=int, default=30, help='Set communication timeout (default=30s)')
         cls.arg_parser.add_argument('-u', '--user', help='Use user name')
@@ -95,7 +96,11 @@ class SSH(PupyModule):
         hosts.set_defaults(func=cls.hosts)
 
     def run(self, args):
-        if args.func == SSH.hosts:
+        if args.func is False:
+            self.log(self.arg_parser.format_help())
+            return
+
+        elif args.func == SSH.hosts:
             args.func(self, args)
             return
 

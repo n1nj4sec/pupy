@@ -90,7 +90,10 @@ struct py_imports {
 
 #define PyCFunction_New(ML, SELF) PyCFunction_NewEx((ML), (SELF), NULL)
 
-#define PyInt_Check(op) PyObject_IsInstance(op, &PyInt_Type) /* ??? */
+#define PyInt_Check(op) PyObject_IsInstance(op, &PyInt_Type)
+#define PyUnicode_Check(op) PyObject_IsInstance(op, &PyUnicode_Type)
+#define PyString_Check(op) PyObject_IsInstance(op, &PyString_Type)
+
 #define Py_None (&_Py_NoneStruct)
 
 #define DL_EXPORT(x) x
@@ -111,6 +114,10 @@ void deinitialize_python(void);
 
 #define VPATH_PREFIX "pupy://"
 #define VPATH_EXT ".pyo"
+#define VPATH_INIT_EXT "/__init__" VPATH_EXT
+
+#define ENCODINGS "encodings"
+
 
 typedef struct {
     Py_ssize_t ob_refcnt;

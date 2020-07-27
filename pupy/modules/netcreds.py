@@ -19,6 +19,7 @@ class NetCreds(PupyModule):
         )
 
         commands = cls.arg_parser.add_subparsers(title='actions')
+        cls.arg_parser.set_defaults(action=cls.help)
 
         add = commands.add_parser('add', help='Add credential')
         add.add_argument('username', help='Username')
@@ -33,7 +34,10 @@ class NetCreds(PupyModule):
         add.add_argument('custom', nargs='*', help='Custom options, key=value')
         add.set_defaults(action=cls.add)
 
-        remove = commands.add_parser('del', help='Delete credential which can be found using these flags')
+        remove = commands.add_parser(
+            'del', help='Delete credential which can be '
+            'found using these flags'
+        )
         remove.add_argument('-u', '--username', help='Username')
         remove.add_argument('-s', '--schema', help='Schema')
         remove.add_argument('-d', '--domain', help='Domain')
@@ -44,7 +48,10 @@ class NetCreds(PupyModule):
         remove.add_argument('-f', '--path', help='Path')
         remove.set_defaults(action=cls.remove)
 
-        find = commands.add_parser('list', help='List credentials which can be found using these flags')
+        find = commands.add_parser(
+            'list', help='List credentials which can be '
+            'found using these flags'
+        )
         find.add_argument('-u', '--username', help='Username')
         find.add_argument('-s', '--schema', help='Schema')
         find.add_argument('-d', '--domain', help='Domain')
@@ -74,9 +81,13 @@ class NetCreds(PupyModule):
 
         self.log(Table(objects, columns))
 
+    def help(self, args):
+        self.log(self.arg_parser.format_usage())
 
     def find(self, args):
-        find_creds = self.client.remote('network.lib.netcreds', 'find_all_creds')
+        find_creds = self.client.remote(
+            'network.lib.netcreds', 'find_all_creds'
+        )
         creds = find_creds(
             args.schema, args.hostname or args.ip, args.port, args.username,
             args.realm, args.domain, args.path, True
@@ -97,7 +108,9 @@ class NetCreds(PupyModule):
         )
 
     def remove(self, args):
-        remove_creds = self.client.remote('network.lib.netcreds', 'remove_creds')
+        remove_creds = self.client.remote(
+            'network.lib.netcreds', 'remove_creds'
+        )
         remove_creds(
             args.schema, args.hostname or args.ip, args.port, args.username,
             args.realm, args.domain, args.path

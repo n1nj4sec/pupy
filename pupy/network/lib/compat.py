@@ -14,14 +14,14 @@ __all__ = (
     'select_module', 'select', 'get_exc_errno',
     'select_error', 'poll', 'xrange',
     'is_str', 'is_int', 'is_bin',
-    'as_byte', 'as_attr_type'
+    'as_byte', 'as_native_string'
 )
 
 
 import sys
 import time
 
-from network.lib.convcompat import as_attr_type
+from network.lib.convcompat import as_native_string
 
 is_py3k = (sys.version_info[0] >= 3)
 

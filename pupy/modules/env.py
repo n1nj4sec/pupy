@@ -7,7 +7,8 @@ from __future__ import unicode_literals
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyOutput import Table, TruncateToTerm
-from pupylib.utils.rpyc_utils import obtain
+
+from network.lib.convcompat import as_escaped_string
 
 
 __class_name__='Env'
@@ -15,10 +16,16 @@ __class_name__='Env'
 class Env(PupyModule):
     ''' List/Get/Set/Unset client environment variables '''
 
+    dependencies = ['pupyutils.basic_cmds']
+
     @classmethod
     def init_argparse(cls):
-        cls.arg_parser = PupyArgumentParser(prog='env', description=cls.__doc__)
+        cls.arg_parser = PupyArgumentParser(
+            prog='env', description=cls.__doc__
+        )
+
         commands = cls.arg_parser.add_subparsers(dest="command")
+        cls.arg_parser.set_defaults(func=cls.listenv)
 
         setenv = commands.add_parser('set')
         setenv.add_argument('name', help='Environment variable name')
@@ -37,26 +44,25 @@ class Env(PupyModule):
         listenv.set_defaults(func=cls.listenv)
 
     def run(self, args):
-        environ = self.client.remote('os', 'environ', False)
+        environ = self.client.remote('pupyutils.basic_cmds', 'env')
         args.func(self, args, environ)
 
     def setenv(self, args, environ):
-        environ[args.name] = args.value
+        environ(args.name, args.value)
 
     def getenv(self, args, environ):
-        value = environ.get(args.name, None)
+        value = environ(args.name)
         if value is None:
             self.error('No such variable')
         else:
             self.log(value)
 
     def unsetenv(self, args, environ):
-        del environ[args.name]
+        environ(args.name, None)
 
     def listenv(self, args, environ):
-        envvars = obtain(environ.data)
         self.log(TruncateToTerm(Table([
             {
-                'VAR':k, 'VAL':repr(v)
-            } for k,v in envvars.items()
+                'VAR': k, 'VAL': as_escaped_string(v)
+            } for (k, v) in environ()
         ], ['VAR', 'VAL'], legend=False)))

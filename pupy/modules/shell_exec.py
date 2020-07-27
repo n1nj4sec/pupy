@@ -77,12 +77,14 @@ class ShellExec(PupyModule):
 
         elif args.hide and self.client.is_windows():
             try:
-                start_hidden_process = self.client.remote('pupwinutils.processes', 'start_hidden_process', False)
-                p = start_hidden_process(args.argument)
-                self.success("Process created with pid %s" % p.pid)
+                start_hidden_process = self.client.remote(
+                    'pupwinutils.processes', 'start_hidden_process'
+                )
+                pid = start_hidden_process(args.argument)
+                self.success('Process created with pid %s' % pid)
 
             except Exception as e:
-                self.error("Error creating the process: %s" % e)
+                self.error('Error creating the process: %s' % e)
         else:
             self.error('--hide option works only for Windows hosts')
 

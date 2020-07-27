@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -9,13 +8,13 @@ from __future__ import unicode_literals
 import sys
 
 from fsutils import has_xattrs
+
 from io import open
 from os import stat, path
 from junctions import islink, readlink
 from struct import pack, unpack
 
-from pupyutils.basic_cmds import mode_to_letter, try_exc_utf8
-
+from pupyutils.basic_cmds import mode_to_letter
 from pupwinutils.security import (
     getfileowneracls, kernel32,
     get_last_error, WinError, byref, cast, sizeof, addressof,
@@ -23,6 +22,8 @@ from pupwinutils.security import (
     BOOL, WORD, DWORD, LPCWSTR, LPVOID, PDWORD,
     POINTER, HANDLE, BYTE, ULONG
 )
+
+from network.lib.convcompat import fix_exception_encoding
 
 if sys.version_info.major > 2:
     xrange = range
@@ -135,19 +136,32 @@ CERT_QUERY_CONTENT_PKCS10 = 11
 CERT_QUERY_CONTENT_PFX = 12
 CERT_QUERY_CONTENT_CERT_PAIR = 13
 
-CERT_QUERY_CONTENT_FLAG_CERT = (1 << CERT_QUERY_CONTENT_CERT)
-CERT_QUERY_CONTENT_FLAG_CTL = (1 << CERT_QUERY_CONTENT_CTL)
-CERT_QUERY_CONTENT_FLAG_CRL = (1 << CERT_QUERY_CONTENT_CRL)
-CERT_QUERY_CONTENT_FLAG_SERIALIZED_STORE = (1 << CERT_QUERY_CONTENT_SERIALIZED_STORE)
-CERT_QUERY_CONTENT_FLAG_SERIALIZED_CERT = (1 << CERT_QUERY_CONTENT_SERIALIZED_CERT)
-CERT_QUERY_CONTENT_FLAG_SERIALIZED_CTL = (1 << CERT_QUERY_CONTENT_SERIALIZED_CTL)
-CERT_QUERY_CONTENT_FLAG_SERIALIZED_CRL = (1 << CERT_QUERY_CONTENT_SERIALIZED_CRL)
-CERT_QUERY_CONTENT_FLAG_PKCS7_SIGNED = (1 << CERT_QUERY_CONTENT_PKCS7_SIGNED)
-CERT_QUERY_CONTENT_FLAG_PKCS7_UNSIGNED = (1 << CERT_QUERY_CONTENT_PKCS7_UNSIGNED)
-CERT_QUERY_CONTENT_FLAG_PKCS7_SIGNED_EMBED = (1 << CERT_QUERY_CONTENT_PKCS7_SIGNED_EMBED)
-CERT_QUERY_CONTENT_FLAG_PKCS10 = (1 << CERT_QUERY_CONTENT_PKCS10)
-CERT_QUERY_CONTENT_FLAG_PFX = (1 << CERT_QUERY_CONTENT_PFX)
-CERT_QUERY_CONTENT_FLAG_CERT_PAIR = (1 << CERT_QUERY_CONTENT_CERT_PAIR)
+CERT_QUERY_CONTENT_FLAG_CERT = (
+    1 << CERT_QUERY_CONTENT_CERT)
+CERT_QUERY_CONTENT_FLAG_CTL = (
+    1 << CERT_QUERY_CONTENT_CTL)
+CERT_QUERY_CONTENT_FLAG_CRL = (
+    1 << CERT_QUERY_CONTENT_CRL)
+CERT_QUERY_CONTENT_FLAG_SERIALIZED_STORE = (
+    1 << CERT_QUERY_CONTENT_SERIALIZED_STORE)
+CERT_QUERY_CONTENT_FLAG_SERIALIZED_CERT = (
+    1 << CERT_QUERY_CONTENT_SERIALIZED_CERT)
+CERT_QUERY_CONTENT_FLAG_SERIALIZED_CTL = (
+    1 << CERT_QUERY_CONTENT_SERIALIZED_CTL)
+CERT_QUERY_CONTENT_FLAG_SERIALIZED_CRL = (
+    1 << CERT_QUERY_CONTENT_SERIALIZED_CRL)
+CERT_QUERY_CONTENT_FLAG_PKCS7_SIGNED = (
+    1 << CERT_QUERY_CONTENT_PKCS7_SIGNED)
+CERT_QUERY_CONTENT_FLAG_PKCS7_UNSIGNED = (
+    1 << CERT_QUERY_CONTENT_PKCS7_UNSIGNED)
+CERT_QUERY_CONTENT_FLAG_PKCS7_SIGNED_EMBED = (
+    1 << CERT_QUERY_CONTENT_PKCS7_SIGNED_EMBED)
+CERT_QUERY_CONTENT_FLAG_PKCS10 = (
+    1 << CERT_QUERY_CONTENT_PKCS10)
+CERT_QUERY_CONTENT_FLAG_PFX = (
+    1 << CERT_QUERY_CONTENT_PFX)
+CERT_QUERY_CONTENT_FLAG_CERT_PAIR = (
+    1 << CERT_QUERY_CONTENT_CERT_PAIR)
 
 CERT_QUERY_CONTENT_FLAG_ALL = \
  CERT_QUERY_CONTENT_FLAG_CERT | \
@@ -170,7 +184,8 @@ CERT_QUERY_FORMAT_ASN_ASCII_HEX_ENCODED = 3
 
 CERT_QUERY_FORMAT_FLAG_BINARY = (1 << CERT_QUERY_FORMAT_BINARY)
 CERT_QUERY_FORMAT_FLAG_BASE64_ENCODED = (1 << CERT_QUERY_FORMAT_BASE64_ENCODED)
-CERT_QUERY_FORMAT_FLAG_ASN_ASCII_HEX_ENCODED = (1 << CERT_QUERY_FORMAT_ASN_ASCII_HEX_ENCODED)
+CERT_QUERY_FORMAT_FLAG_ASN_ASCII_HEX_ENCODED = (
+    1 << CERT_QUERY_FORMAT_ASN_ASCII_HEX_ENCODED)
 
 CMSG_ATTR_CERT_COUNT_PARAM = 11
 CMSG_ATTR_CERT_PARAM = 12
@@ -398,7 +413,9 @@ def getfilever(filepath, flags=FILE_VER_GET_NEUTRAL, throw=False):
     result = {}
 
     dwReserved = DWORD(0)
-    dwVersionSize = GetFileVersionInfoSizeExW(flags, filepath, byref(dwReserved))
+    dwVersionSize = GetFileVersionInfoSizeExW(
+        flags, filepath, byref(dwReserved)
+    )
     if dwVersionSize == 0:
         if throw:
             raise WinError(get_last_error())
@@ -406,7 +423,9 @@ def getfilever(filepath, flags=FILE_VER_GET_NEUTRAL, throw=False):
         return result
 
     pBuffer = create_string_buffer(dwVersionSize)
-    bResult = GetFileVersionInfoExW(flags, filepath, 0, dwVersionSize, byref(pBuffer))
+    bResult = GetFileVersionInfoExW(
+        flags, filepath, 0, dwVersionSize, byref(pBuffer)
+    )
     if not bResult:
         if throw:
             raise WinError(get_last_error())
@@ -417,7 +436,7 @@ def getfilever(filepath, flags=FILE_VER_GET_NEUTRAL, throw=False):
     dwSize = DWORD(0)
     pvData = LPVOID()
 
-    bResult = VerQueryValueW(pBuffer, u'\\', byref(pvData), byref(dwSize))
+    bResult = VerQueryValueW(pBuffer, '\\', byref(pvData), byref(dwSize))
     if bResult:
         info = cast(pvData, POINTER(FIXEDFILEINFO)).contents
 
@@ -468,10 +487,10 @@ def getfilever(filepath, flags=FILE_VER_GET_NEUTRAL, throw=False):
         result['Timestamp'] = timestamp
 
     bResult = VerQueryValueW(
-        pBuffer, u'\\VarFileInfo\\Translation', byref(pvData), byref(dwSize))
+        pBuffer, '\\VarFileInfo\\Translation', byref(pvData), byref(dwSize))
 
     if bResult:
-        nRecords = dwSize.value / sizeof(LANGANDCODEPAGE)
+        nRecords = dwSize.value // sizeof(LANGANDCODEPAGE)
 
         records = cast(pvData, POINTER(LANGANDCODEPAGE * nRecords)).contents
         translations = {}
@@ -480,17 +499,17 @@ def getfilever(filepath, flags=FILE_VER_GET_NEUTRAL, throw=False):
             strings = {}
 
             for string in LOCALIZED_STRINGS:
-                varpath = u'\\\\StringFileInfo\\{:04x}{:04x}\\{}'.format(
+                varpath = '\\\\StringFileInfo\\{:04x}{:04x}\\{}'.format(
                     translation.wLanguage, translation.wCodePage, string
                 )
 
-                bResult = VerQueryValueW(pBuffer, varpath, byref(pvData), byref(dwSize))
+                bResult = VerQueryValueW(
+                    pBuffer, varpath, byref(pvData), byref(dwSize)
+                )
                 if not bResult:
                     continue
 
-                strings[string] = unicode(
-                    cast(pvData, LPCWSTR).value
-                ).encode('utf-8')
+                strings[string] = cast(pvData, LPCWSTR).value
 
             if strings:
                 translations[translation.wLanguage] = strings
@@ -615,7 +634,6 @@ def getfiletrust(filepath):
     }
 
 
-
 def getfilesec(filepath):
     header = ''
 
@@ -634,8 +652,9 @@ def getfilesec(filepath):
         owner, group, acls = getfileowneracls(filepath)
         streams = has_xattrs(filepath)
         link = None
+
     except Exception as e:
-        try_exc_utf8(e)
+        fix_exception_encoding(e)
         raise
 
     try:
@@ -658,6 +677,7 @@ def getfilesec(filepath):
         extras.update(certs)
         extras.update(getfiletrust(filepath))
 
-    return int(filestat.st_ctime), int(filestat.st_atime), \
-      int(filestat.st_mtime), filestat.st_size, owner, group, \
-      header, mode, {k:v for k,v in extras.items() if v}
+    return \
+        int(filestat.st_ctime), int(filestat.st_atime), \
+        int(filestat.st_mtime), filestat.st_size, owner, group, \
+        header, mode, {k: v for k, v in extras.items() if v}

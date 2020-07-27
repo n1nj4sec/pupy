@@ -8,7 +8,7 @@ from __future__ import unicode_literals
 import os
 from io import open
 
-from network.lib.convcompat import unicodify
+from network.lib.convcompat import as_unicode_string_deep
 
 
 class MountInfo(object):
@@ -137,4 +137,4 @@ def mounts():
         except:
             pass
 
-    return unicodify(mountinfo)
+    return as_unicode_string_deep(mountinfo)

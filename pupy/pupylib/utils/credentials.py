@@ -3,12 +3,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import sys
 import os
 import json
 import codecs
 
-from io import open, BytesIO
+from network.lib.convcompat import (
+    ExtendedJsonEncoder, ExtendedJsonDecoder,
+    as_unicode_string, as_unicode_string_deep
+)
+
+from io import BytesIO
 
 from ..PupyConfig import PupyConfig
 from ..PupyCredentials import Encryptor
@@ -39,10 +43,10 @@ class Credentials(object):
     def _save_db(self, data):
         with open(self.db, 'w+') as db:
             if self.encryptor:
-                jsondb = json.dumps(data, indent=4)
+                jsondb = json.dumps(data, cls=ExtendedJsonEncoder, indent=4)
                 self.encryptor.encrypt(BytesIO(jsondb), db)
             else:
-                json.dump(data, db, indent=4)
+                json.dump(data, db, cls=ExtendedJsonEncoder, indent=4)
 
     def _db_is_encrypted(self):
         with open(self.db) as db:
@@ -59,10 +63,12 @@ class Credentials(object):
                     raise EncryptionError(
                         'Encrpyted credential storage: {}'.format(self.db)
                     )
-                return json.loads(data.getvalue())
+                return json.loads(
+                    data.getvalue(), cls=ExtendedJsonDecoder
+                )
         else:
             with open(self.db, 'r') as db:
-                return json.load(db)
+                return json.load(db, cls=ExtendedJsonDecoder)
 
     def add(self, data, cid=None):
         try:
@@ -76,20 +82,13 @@ class Credentials(object):
 
             cid = self.client.node()
 
-        data = list(data)
+        data = as_unicode_string_deep(list(data), fail=False)
+
         for d in data:
             for k in d:
                 if not k.lower() == k:
                     d[k.lower()] = d[k]
                     del d[k]
-
-            for k in d:
-                ktype = type(d[k])
-                if issubclass(ktype, bytes):
-                    try:
-                        d[k] = d[k].decode('utf-8')
-                    except (UnicodeDecodeError, UnicodeEncodeError):
-                        d[k] = codecs.encode(d[k], 'hex')
 
             if 'credtype' not in d:
                 if d.get('password'):
@@ -111,13 +110,22 @@ class Credentials(object):
 
         self._save_db(db)
 
-    def display(self, search=None, isSorted=False):
+    def display(self, search=None, is_sorted=False):
+        search = as_unicode_string(search)
+
         data = self._load_db()
 
-        if isSorted:
-            data = sorted(data['creds'], key=lambda d: d.get('cid', d.get('uid')), reverse=True)
+        if is_sorted:
+            data = sorted(
+                data['creds'],
+                key=lambda d: d.get('cid', d.get('uid')),
+                reverse=True
+            )
         else:
-            data = sorted(data['creds'], key=lambda d: d.get('credtype'), reverse=True)
+            data = sorted(
+                data['creds'],
+                key=lambda d: d.get('credtype'), reverse=True
+            )
 
         if not data:
             return

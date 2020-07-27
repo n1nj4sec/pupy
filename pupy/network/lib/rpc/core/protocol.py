@@ -14,7 +14,7 @@ import time
 
 from threading import Lock, RLock, Event, Thread
 from network.lib.compat import (
-    pickle, next, is_py3k, maxint, select_error, as_attr_type
+    pickle, next, is_py3k, maxint, select_error, as_native_string
 )
 from ..lib.colls import WeakValueDict, RefCountingColl
 from ..lib import get_methods
@@ -576,7 +576,7 @@ class Connection(object):
     # attribute access
     #
     def _check_attr(self, obj, name):
-        name = as_attr_type(name)
+        name = as_native_string(name)
 
         if self._config["allow_exposed_attrs"]:
             if name.startswith(self._config["exposed_prefix"]):
@@ -598,7 +598,7 @@ class Connection(object):
         return False
 
     def _access_attr(self, oid, name, args, overrider, param, default):
-        name = as_attr_type(name)
+        name = as_native_string(name)
 
         obj = self._local_objects[oid]
         accessor = getattr(type(obj), overrider, None)
@@ -650,7 +650,7 @@ class Connection(object):
 
     def _handle_call(self, oid, args, kwargs=()):
         kwargs = {
-            as_attr_type(key): value for (key, value) in kwargs
+            as_native_string(key): value for (key, value) in kwargs
         }
 
         return self._local_objects[oid](*args, **kwargs)
@@ -672,29 +672,29 @@ class Connection(object):
     def _handle_getattr(self, oid, name):
         return self._access_attr(
             oid,
-            as_attr_type(name), (),
+            as_native_string(name), (),
             "_rpyc_getattr", "allow_getattr", getattr
         )
 
     def _handle_delattr(self, oid, name):
         return self._access_attr(
-            oid, as_attr_type(name), (),
+            oid, as_native_string(name), (),
             "_rpyc_delattr", "allow_delattr", delattr
         )
 
     def _handle_setattr(self, oid, name, value):
         return self._access_attr(
-            oid, as_attr_type(name), (value,),
+            oid, as_native_string(name), (value,),
             "_rpyc_setattr", "allow_setattr", setattr
         )
 
     def _handle_callattr(self, oid, name, args, kwargs):
         kwargs = {
-            as_attr_type(key): value for (key, value) in kwargs
+            as_native_string(key): value for (key, value) in kwargs
         }
 
         return self._handle_getattr(
-            oid, as_attr_type(name)
+            oid, as_native_string(name)
         )(*args, **kwargs)
 
     def _handle_pickle(self, oid, proto):

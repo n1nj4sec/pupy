@@ -13,7 +13,7 @@ import inspect
 import types
 
 from network.lib.compat import (
-    pickle, is_py3k, maxint, as_attr_type
+    pickle, is_py3k, maxint, as_native_string
 )
 
 from . import consts
@@ -173,34 +173,34 @@ class BaseNetref(object):
     def __getattr__(self, name):
         return syncreq(
             self, consts.HANDLE_GETATTR,
-            as_attr_type(name)
+            as_native_string(name)
         )
 
     def __delattr__(self, name):
         if name in _local_netref_attrs:
             object.__delattr__(
-                self, as_attr_type(name)
+                self, as_native_string(name)
             )
         else:
             syncreq(
                 self, consts.HANDLE_DELATTR,
-                as_attr_type(name)
+                as_native_string(name)
             )
 
     def __setattr__(self, name, value):
         if name in _local_netref_attrs:
             object.__setattr__(
-                self, as_attr_type(name), value
+                self, as_native_string(name), value
             )
         else:
             syncreq(
                 self, consts.HANDLE_SETATTR,
-                as_attr_type(name), value
+                as_native_string(name), value
             )
 
     def __dir__(self):
         return list(
-            as_attr_type(key) for key in syncreq(
+            as_native_string(key) for key in syncreq(
                 self, consts.HANDLE_DIR
             )
         )
@@ -219,11 +219,11 @@ class BaseNetref(object):
 
     def __repr__(self):
         # __repr__ MUST return string
-        return as_attr_type(syncreq(self, consts.HANDLE_REPR))
+        return as_native_string(syncreq(self, consts.HANDLE_REPR))
 
     def __str__(self):
         # __str__ MUST return string
-        return as_attr_type(syncreq(self, consts.HANDLE_STR))
+        return as_native_string(syncreq(self, consts.HANDLE_STR))
 
     # support for pickling netrefs
     def __reduce_ex__(self, proto):
@@ -248,7 +248,7 @@ def _make_method(name, doc):
         "__setslice__": "__setitem__"
     }
 
-    name = as_attr_type(name)  # IronPython issue #10
+    name = as_native_string(name)  # IronPython issue #10
     if name == "__call__":
         def __call__(_self, *args, **kwargs):
             kwargs = tuple(kwargs.items())
@@ -317,14 +317,14 @@ def class_factory(clsname, modname, methods):
 
     :returns: a netref class
     """
-    clsname = as_attr_type(clsname)
-    modname = as_attr_type(modname)
+    clsname = as_native_string(clsname)
+    modname = as_native_string(modname)
 
     ns = {"__slots__": ()}
 
     for name, doc in methods:
-        name = as_attr_type(name)
-        doc = as_attr_type(doc) if doc else ''
+        name = as_native_string(name)
+        doc = as_native_string(doc) if doc else ''
 
         if name == 'next':
             ns['__next__'] = _make_method(name, doc)

@@ -222,7 +222,6 @@ def _sql(cursor, on_data, completion, limit, portion=4096):
         on_data(ERROR, '{}: {}'.format(e, traceback.format_exc()))
     finally:
         cursor.cancel()
-        cursor.close()
 
 
 @as_cursor

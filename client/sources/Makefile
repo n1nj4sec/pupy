@@ -141,7 +141,7 @@ revision.h:
 	 else rev=$$COMMIT; fi; echo "#define GIT_REVISION_HEAD \"$$rev\"" >$@
 
 import-tab.c import-tab.h: ../mktab.py
-	$(HOST_PYTHON) $(PFLAGS) $<
+	$(HOST_PYTHON) $(PFLAGS) $< UCS2
 
 resources/$(ARCH)/library.txt: ../gen_library_compressed_string.py resources/$(ARCH)/library.zip
 	$(HOST_PYTHON) ../gen_library_compressed_string.py $@ resources/$(ARCH)/library.zip

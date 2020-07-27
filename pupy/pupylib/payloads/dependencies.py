@@ -14,11 +14,13 @@ import marshal
 from zipfile import ZipFile
 
 from elftools.elf.elffile import ELFFile
-from io import open, BytesIO
+from io import BytesIO
 
 from pupylib.PupyCompile import pupycompile
 from pupylib.utils.arch import is_native
 from pupylib import ROOT, getLogger
+
+from network.lib.convcompat import reprb
 
 
 if sys.version_info.major > 2:
@@ -27,14 +29,9 @@ if sys.version_info.major > 2:
 
     xrange = range
 
-    def reprb(data):
-        return repr(data)
 else:
     import cPickle as pickle
     from os import getcwdu as getcwd
-
-    def reprb(data):
-        return 'b' + repr(data)
 
 
 class BinaryObjectError(ValueError):
@@ -96,6 +93,13 @@ class Target(object):
     @property
     def pyver(self):
         return (self.pymaj, self.pymin)
+
+    @property
+    def platform(self):
+        if self.os and self.arch:
+            return (self.os, self.arch)
+        else:
+            return None
 
     @property
     def pyver_str(self):
@@ -302,7 +306,7 @@ def bootstrap(stdlib, config, autostart=True):
 
 def importer(
     target, dependencies, path=None,
-        as_bundle=False, as_dict=False):
+        ignore_native=False, as_bundle=False, as_dict=False):
 
     if path:
         modules = {}
@@ -319,7 +323,8 @@ def importer(
             blob = modules
     else:
         blob, modules, _ = package(
-            dependencies, target, as_dict=as_dict
+            target, dependencies,
+            ignore_native=ignore_native, as_dict=as_dict
         )
 
     if as_bundle or as_dict:
@@ -347,11 +352,24 @@ def modify_native_content(target, filename, content):
     return content
 
 
-def open_module(filepath):
-    if filepath.endswith('.py'):
-        return open(filepath, 'r')
-    else:
-        return open(filepath, 'rb')
+def get_py_encoding(content):
+    lines = content[:1024].splitlines()
+    if len(lines) < 1:
+        return
+
+    line = lines[0]
+    if not (line.startswith(b'#') and
+            b'coding:' in line):
+        return
+
+    idx = line.find(b'coding:') + 7
+    end = line.find(b'-*-', idx)
+
+    if end == -1:
+        end = None
+
+    coding = line[idx:end]
+    return coding.decode('latin-1').strip()
 
 
 def get_content(target, prefix, filepath, archive=None, honor_ignore=True):
@@ -386,7 +404,7 @@ def get_content(target, prefix, filepath, archive=None, honor_ignore=True):
 
                 if os.path.exists(maybe_patch):
                     logger.info('Patch: %s -> %s', filepath, maybe_patch)
-                    with open_module(maybe_patch) as filedata:
+                    with open(maybe_patch, 'rb') as filedata:
                         return filedata.read()
 
                 elif os.path.exists(maybe_patch+'.ignore'):
@@ -413,10 +431,8 @@ def get_content(target, prefix, filepath, archive=None, honor_ignore=True):
 
     if archive:
         content = archive.read(filepath)
-        if filepath.endswith('.py'):
-            content = content.decode('utf-8')
     else:
-        with open_module(filepath) as filedata:
+        with open(filepath, 'rb') as filedata:
             content = filedata.read()
 
     if not target.native:
@@ -495,12 +511,16 @@ def from_path(
 
                 # Garbage removing
                 if ext == 'py':
-                    module_code = pupycompile(
-                        module_code, modpath, target=target.pyver
-                    )
-                    modpath = base+'.pyo'
-                    if base+'.pyc' in modules_dic:
-                        del modules_dic[base+'.pyc']
+                    try:
+                        module_code = pupycompile(
+                            module_code, modpath, target=target.pyver
+                        )
+                        modpath = base+'.pyo'
+                        if base+'.pyc' in modules_dic:
+                            del modules_dic[base+'.pyc']
+                    except Exception as e:
+                        logger.error('Failed to compile %s: %s', modpath, e)
+
                 elif ext == 'pyc':
                     if base+'.pyo' in modules_dic:
                         continue
@@ -521,7 +541,8 @@ def from_path(
                     if base+'.pyo' in modules_dic:
                         del modules_dic[base+'.pyo']
 
-                modules_dic[modpath] = module_code
+                if module_code is not None:
+                    modules_dic[modpath] = module_code
 
     else:
         extlist = ['.py', '.pyo', '.pyc']
@@ -605,6 +626,10 @@ def _dependencies(target, module_name, dependencies):
     if module_name in dependencies:
         return
 
+    if target.pymaj == 2 and target.os == 'windows' and \
+            module_name in ('pythoncom', 'pywintypes', 'pythoncomloader'):
+        dependencies.add(module_name + '27.dll')
+
     dependencies.add(module_name)
 
     mod_deps = WELL_KNOWN_DEPS.get(module_name, {})
@@ -636,12 +661,6 @@ def _package(
             modules_dic = {}
 
             endings = COMMON_MODULE_ENDINGS
-
-            # Horrible pywin32..
-            if target.pymaj == '2':
-                if module_name in (
-                        'pythoncom', 'pythoncomloader', 'pywintypes'):
-                    endings = tuple(['27.dll'])
 
             start_paths = tuple([
                 (

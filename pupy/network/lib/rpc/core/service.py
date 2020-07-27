@@ -1,15 +1,18 @@
 """
-Services are the heart of RPyC: each side of the connection exposes a *service*,
-which define the capabilities available to the other side.
+Services are the heart of RPyC: each side of the connection exposes
+a *service*, which define the capabilities available to the other side.
 
-Note that the services by both parties need not be symmetric, e.g., one side may
-exposed *service A*, while the other may expose *service B*. As long as the two
-can interoperate, you're good to go.
+Note that the services by both parties need not be symmetric, e.g., one
+side may exposed *service A*, while the other may expose *service B*.
+As long as the two can interoperate, you're good to go.
 """
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-from __future__ import unicode_literals
+
+# Wrong conversions
+# from __future__ import unicode_literals
 
 from network.lib.compat import execute, is_py3k
 
@@ -101,7 +104,9 @@ class ModuleNamespace(object):
     """used by the :class:`SlaveService` to implement the magical
     'module namespace'"""
 
-    __slots__ = ("__getmodule", "__cache", "__weakref__")
+    __slots__ = (
+        "__getmodule", "__cache", "__weakref__"
+    )
 
     def __init__(self, getmodule):
         self.__getmodule = getmodule
@@ -116,10 +121,12 @@ class ModuleNamespace(object):
             return True
 
     def __getitem__(self, name):
-        if type(name) is tuple:
-            name = ".".join(name)
+        if isinstance(name, (tuple, list)):
+            name = '.'.join(name)
+
         if name not in self.__cache:
             self.__cache[name] = self.__getmodule(name)
+
         return self.__cache[name]
 
     def __getattr__(self, name):

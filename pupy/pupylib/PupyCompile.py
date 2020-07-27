@@ -1,9 +1,14 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+#                  WARNING !!!!
+
+# __future__ will influence compiled files
+# This must not be used, due to errors in standard libraries
+
+# from __future__ import absolute_import
+# from __future__ import division
+# from __future__ import print_function
+# from __future__ import unicode_literals
 
 import sys
 import ast
@@ -43,23 +48,6 @@ class Compiler(ast.NodeTransformer):
 
         self._source_ast = None
 
-        if not isinstance(source, bytes):
-            lines = source.split('\n', 3)
-            filtered_lines = []
-            filtered = False
-
-            for line in lines:
-                if line.strip().startswith('#') and \
-                        'coding:' in line:
-                    filtered = True
-                    filtered_lines.append('')
-                    continue
-
-                filtered_lines.append(line)
-
-            if filtered:
-                source = '\n'.join(filtered_lines)
-
         try:
             self._source_ast = ast.parse(source)
 
@@ -92,7 +80,9 @@ class Compiler(ast.NodeTransformer):
 
             output = bytearray(body_len + 8)
             for i, x in enumerate(body):
-                output[i+offset] = (ord(x)^((2**((65535-i)%65535))%251))
+                output[i+offset] = (
+                    ord(x) ^ ((2 ** ((65535 - i) % 65535)) % 251)
+                )
 
             if raw:
                 for i in xrange(8):
@@ -117,21 +107,25 @@ class Compiler(ast.NodeTransformer):
                         col_offset=node.col_offset
                     )
                 ]
-        if not self._main and type(node.test) == ast.Compare and type(node.test.left) == ast.Name \
-          and node.test.left.id == '__name__':
+        if not self._main and type(node.test) == ast.Compare \
+            and type(node.test.left) == ast.Name \
+                and node.test.left.id == '__name__':
             for comparator in node.test.comparators:
                 if type(comparator) == ast.Str and comparator.s == '__main__':
                     return node.orelse
         elif hasattr(node.test, 'operand') and type(node.test.op) == ast.Not \
-          and type(node.test.operand) == ast.Name and node.test.operand.id == '__debug__':
+            and type(node.test.operand) == ast.Name and \
+                node.test.operand.id == '__debug__':
             return node.body
 
         return node
 
     def visit_Expr(self, node):
-        if type(node.value) == ast.Call and type(node.value.func) == ast.Attribute and \
-          type(node.value.func.value) == ast.Name and \
-          node.value.func.value.id == 'logging' and node.value.func.attr == 'debug':
+        if type(node.value) == ast.Call and type(
+            node.value.func) == ast.Attribute and type(
+                node.value.func.value) == ast.Name and \
+                    node.value.func.value.id == 'logging' and \
+                        node.value.func.attr == 'debug':
             return None
         elif (type(node.value) == ast.Str):
             if not self._docstrings:
@@ -153,9 +147,6 @@ class Compiler(ast.NodeTransformer):
 
 
 def py2compile(data, filename, obfuscate=False, raw=False, debug=False):
-    if isinstance(data, bytes):
-        data = data.decode('utf-8')
-
     body = py2c.compile(data, filename, 0 if debug else 2)
 
     if obfuscate:

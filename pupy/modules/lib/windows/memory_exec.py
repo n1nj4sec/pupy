@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
 # Copyright (c) 2015, Nicolas VERDIER (contact@n1nj4.eu)
-# Pupy is under the BSD 3-Clause license. see the LICENSE file at the root of the project for the detailed licence terms
+# Pupy is under the BSD 3-Clause license. see the LICENSE
+# file at the root of the project for the detailed licence terms
 
 from __future__ import absolute_import
 from __future__ import division
@@ -11,12 +13,14 @@ from __future__ import unicode_literals
 from pupylib.utils.pe import get_pe_arch, is_dotnet_bin
 from modules.lib.utils.cmdrepl import CmdRepl
 
-from io import open
-
 import threading
 
 
-def exec_pe(module, prog_args, path=None, raw_pe=None, interactive=False, use_impersonation=False, suspended_process="cmd.exe", codepage=None, wait=True):
+def exec_pe(
+    module, prog_args, path=None, raw_pe=None,
+    interactive=False, use_impersonation=False,
+        suspended_process='cmd.exe', codepage=None, wait=True):
+
     if not raw_pe and not path:
         raise Exception("raw_pe or path must be supplied")
 
@@ -27,13 +31,17 @@ def exec_pe(module, prog_args, path=None, raw_pe=None, interactive=False, use_im
             module.error(
                 '%s is a %s PE and your pupy payload is a %s process. '
                 'Please inject a %s PE or migrate into a %s process first' % (
-                    path, pe_arch, proc_arch, proc_arch, pe_arch))
+                    path, pe_arch, proc_arch, proc_arch, pe_arch
+                )
+            )
             return
 
         if is_dotnet_bin(path):
             module.error(
-                '%s is a .Net binary. Right now this kind of binary is not managed and cannot be loaded '
-                'in memory.' % path)
+                '%s is a .Net binary. Right now this kind of '
+                'binary is not managed and cannot be loaded '
+                'in memory.' % path
+            )
             return
 
     if not raw_pe:
@@ -45,7 +53,10 @@ def exec_pe(module, prog_args, path=None, raw_pe=None, interactive=False, use_im
     if use_impersonation:
         dupHandle = module.client.impersonated_dupHandle
         if dupHandle is None:
-            module.error('No token has been impersonated on this session. use impersonate module first')
+            module.error(
+                'No token has been impersonated on this session. '
+                'use impersonate module first'
+            )
             return
 
     if not hasattr(module, 'mp'):
@@ -89,7 +100,7 @@ def exec_pe(module, prog_args, path=None, raw_pe=None, interactive=False, use_im
             complete.set()
             module.error('Launch failed. Press ENTER')
     else:
-        pid = mp.execute(complete.set)
+        pid = mp.execute(complete.set, module.log)
         if pid:
             module.success('[Process launched: PID={}]'.format(pid))
 

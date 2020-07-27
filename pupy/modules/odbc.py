@@ -79,6 +79,8 @@ class ODBC(PupyModule):
         cls.arg_parser = PupyArgumentParser(
             prog='odbc', description=cls.__doc__)
 
+        cls.arg_parser.set_defaults(func=False)
+
         commands = cls.arg_parser.add_subparsers(title='commands')
 
         register = commands.add_parser('register', help='Register driver')
@@ -181,6 +183,10 @@ class ODBC(PupyModule):
         query.set_defaults(func=cls.query)
 
     def run(self, args):
+        if args.func is False:
+            self.log(self.arg_parser.format_help())
+            return
+
         need_impl = self.client.remote('odbc', 'need_impl')
         if not self.client.is_windows() and need_impl():
             self.client.load_dll('libodbc.so')

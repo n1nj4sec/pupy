@@ -29,10 +29,14 @@ from ctypes.wintypes import (
 )
 
 from network.lib.pupyrpc import nowait
+from network.lib.convcompat import (
+    try_as_unicode_string, as_native_string
+)
 
 if sys.version_info.major > 2:
     basestring = str
     unicode = str
+
 
 class FILETIME(Structure):
     _fields_ = [
@@ -287,43 +291,6 @@ def value_to_bytes(value, ktype):
     return value
 
 
-def as_unicode(value):
-    if isinstance(value, bytes):
-        try:
-            value = value.decode(sys.getfilesystemencoding())
-        except UnicodeError:
-            try:
-                value = value.decode('utf-8')
-            except UnicodeError:
-                value = value.decode('latin-1')
-
-    return value
-
-
-if sys.version_info.major > 2:
-    def as_str(value):
-        if not isinstance(value, basestring):
-            return str(value)
-
-        if sys.version_info.major > 2 and isinstance(value, str):
-            return value.encode('utf-8')
-
-        return value
-else:
-    def as_str(value):
-        if not isinstance(value, basestring):
-            return str(value)
-
-        return value
-
-
-def as_local(value):
-    if isinstance(value, unicode):
-        return value.encode(sys.getfilesystemencoding())
-
-    return value
-
-
 def raise_on_error(code):
     if code == ERROR_SUCCESS:
         return
@@ -335,7 +302,7 @@ def QueryValueEx(key, value_name):
     typ = DWORD()
     size = DWORD(0)
 
-    value_name = as_unicode(value_name)
+    value_name = try_as_unicode_string(value_name, fail=False)
 
     rc = RegQueryValueEx(
         key, value_name, None,
@@ -410,7 +377,7 @@ def EnumKey(key, index):
 
 
 def OpenKey(key, sub_key, access=KEY_READ, options=REG_OPTION_RESERVED):
-    sub_key = as_unicode(sub_key)
+    sub_key = try_as_unicode_string(sub_key, fail=False)
 
     new_key = HKEY()
     rc = RegOpenKeyEx(
@@ -425,7 +392,7 @@ def OpenKey(key, sub_key, access=KEY_READ, options=REG_OPTION_RESERVED):
 
 
 def CreateKey(key, sub_key, access=KEY_WRITE, options=REG_OPTION_RESERVED):
-    sub_key = as_unicode(sub_key)
+    sub_key = try_as_unicode_string(sub_key, fail=False)
     new_key = HKEY()
     rc = RegCreateKeyEx(
         key, sub_key, 0, None, options, access,
@@ -438,7 +405,7 @@ def CreateKey(key, sub_key, access=KEY_WRITE, options=REG_OPTION_RESERVED):
 
 def SetValueEx(key, name, ktype, value):
     value = value_to_bytes(value, ktype)
-    name = as_unicode(name)
+    name = try_as_unicode_string(name, fail=False)
     size = len(value)
 
     rc = RegSetValueEx(
@@ -448,13 +415,13 @@ def SetValueEx(key, name, ktype, value):
 
 
 def DeleteKey(key, subkey):
-    subkey = as_unicode(subkey)
+    subkey = try_as_unicode_string(subkey, fail=False)
     rc = RegDeleteKey(key, subkey)
     raise_on_error(rc)
 
 
 def DeleteValue(key, value):
-    value = as_unicode(value)
+    value = try_as_unicode_string(value, fail=False)
     rc = RegDeleteValue(key, value)
     raise_on_error(rc)
 
@@ -530,17 +497,18 @@ class KeyIter(object):
                 self.is_value = True
                 return next(self)
 
+
 class Value(object):
     __slots__ = ('parent', 'name', 'value', 'type')
 
     def __init__(self, parent, name, value, ktype):
-        parent = as_unicode(parent)
-        name = as_unicode(name)
+        parent = try_as_unicode_string(parent, fail=False)
+        name = try_as_unicode_string(name, fail=False)
 
         if len(value) < 5 and all(x == '\0' for x in value):
             value = ''
 
-        if isinstance(value, str):
+        if isinstance(value, bytes):
             if ktype in (REG_SZ, REG_EXPAND_SZ):
                 try:
                     value = value.decode('utf-16le')
@@ -549,6 +517,7 @@ class Value(object):
                         value = value.decode('mbcs')
                     except UnicodeError:
                         raise ValueError('{}: {}'.format(repr(value), len(value)))
+
                 value = value.rstrip('\0')
 
             elif ktype == REG_MULTI_SZ:
@@ -598,7 +567,7 @@ class Value(object):
         return value_to_bytes(self.value, self.type)
 
     def __str__(self):
-        return as_str(self.value)
+        return as_native_string(self.value)
 
     def __int__(self):
         return int(self.value)
@@ -611,6 +580,7 @@ class Value(object):
             repr(self.type)
         )
 
+
 class Key(object):
     __slots__ = ('arg', 'key', 'sub', 'access', 'create')
 
@@ -618,7 +588,7 @@ class Key(object):
         sub_key = None
         top_key = None
 
-        key = as_unicode(key)
+        key = try_as_unicode_string(key, fail=False)
         for wkk, wrk in WELL_KNOWN_KEYS.items():
             if key == wkk:
                 top_key = wrk
@@ -663,7 +633,7 @@ class Key(object):
             raise KeyError(self.sub)
 
     def _query_value(self, handle, attr):
-        attr = as_unicode(attr)
+        attr = try_as_unicode_string(attr, fail=False)
         try:
             value, ktype = QueryValueEx(handle, attr)
         except WindowsError as e:
@@ -693,10 +663,10 @@ class Key(object):
             CloseKey(handle)
 
     def __str__(self):
-        return as_str(self.arg)
+        return as_native_string(self.arg)
 
     def __unicode__(self):
-        return as_unicode(self.arg)
+        return try_as_unicode_string(self.arg, fail=False)
 
     def __repr__(self):
         return repr(self.arg)
@@ -807,8 +777,8 @@ def _search(
     if ignorecase:
         term = term.lower()
 
-    u_term = as_unicode(term)
-    b_term = as_str(term)
+    u_term = try_as_unicode_string(term, fail=False)
+    b_term = as_native_string(term)
 
     try:
         i_term = int(term)

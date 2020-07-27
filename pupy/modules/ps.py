@@ -22,6 +22,27 @@ if sys.version_info.major > 2:
     unicode = str
 
 
+class Key(str):
+    weights = ('id', 'key', 'PROPERTY', 'VAR', 'TYPE')
+
+    def __lt__(self, other):
+        if self not in self.weights:
+            if other in self.weights:
+                return False
+            else:
+                return str.__lt__(self, other)
+        elif other not in self.weights:
+            if self in self.weights:
+                return True
+            else:
+                return str.__lt__(self, other)
+        else:
+            this_weight = self.weights.index(self)
+            other_weight = self.weights.index(other)
+            return this_weight < other_weight
+
+
+
 def gen_colinfo(data):
     colinfo = {'pid': 0}
     for pid in data:
@@ -154,13 +175,6 @@ def gen_output_line(columns, info, record, wide=False):
     return output
 
 def print_psinfo(fout, families, socktypes, data, colinfo, sections=[], wide=False):
-    keys = ('id', 'key', 'PROPERTY', 'VAR', 'TYPE')
-
-    def sorter(x, y):
-        return -1 if (
-            x in keys and y not in keys
-        ) else (1 if (y in keys and x not in keys) else cmp(x, y))
-
     parts = []
 
     for pid, info in data.items():
@@ -211,7 +225,7 @@ def print_psinfo(fout, families, socktypes, data, colinfo, sections=[], wide=Fal
                 for section in sections:
                     section = section.lower()
                     if section in infosecs:
-                        labels = sorted(infosecs[section][0], cmp=sorter)
+                        labels = sorted(Key(x) for x in infosecs[section][0])
                         parts.append(
                             TruncateToTerm(
                                 Table(
@@ -222,7 +236,7 @@ def print_psinfo(fout, families, socktypes, data, colinfo, sections=[], wide=Fal
             else:
                 for section, table in infosecs.items():
                     if table:
-                        labels = sorted(table[0], cmp=sorter)
+                        labels = sorted(Key(x) for x in table[0])
                         parts.append(TruncateToTerm(Table(
                             table, labels, Color(section.upper(), 'yellow'))))
 

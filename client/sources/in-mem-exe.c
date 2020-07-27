@@ -227,7 +227,6 @@ BOOL MapNewExecutableRegionInProcess(
 		}
 	}
 
-
 	return ResumeThread(TargetThreadHandle) != (DWORD) -1;
 }
 

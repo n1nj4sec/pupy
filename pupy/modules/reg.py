@@ -16,6 +16,9 @@ from pupylib.PupyOutput import (
     Color, List, Table, Line, MultiPart, TruncateToTerm
 )
 
+from network.lib.convcompat import as_unicode_string
+
+
 if sys.version_info.major > 2:
     unicode = str
     basestring = str
@@ -43,19 +46,8 @@ TYPE_COLORS = {
 }
 
 
-def as_unicode(x):
-    if x is None:
-        return None
-    elif isinstance(x, unicode):
-        return x
-    elif isinstance(x, str):
-        return x.decode('utf-8')
-    else:
-        return unicode(x)
-
-
 def fix_key(x):
-    x = as_unicode(x)
+    x = as_unicode_string(x, fail='convert')
     x = x.strip()
 
     if x is None:
@@ -229,7 +221,7 @@ class reg(PupyModule):
 
         for record in results:
             is_key, key, rest = record[0], record[1], record[2:]
-            key = as_unicode(key)
+            key = as_unicode_string(key, fail='convert')
 
             if remove and key.startswith(remove):
                 key = key[len(remove)+1:]
@@ -243,12 +235,12 @@ class reg(PupyModule):
             ktype = TYPES[ktype]
             color = TYPE_COLORS[ktype]
 
-            name = as_unicode(name)
+            name = as_unicode_string(name, fail='convert')
 
             if ktype == 'BINARY':
                 value = 'hex:' + value.encode('hex')
             else:
-                value = as_unicode(value)
+                value = as_unicode_string(value, fail='convert')
 
             if not wide and isinstance(value, basestring):
                 value = value.strip()
@@ -293,7 +285,7 @@ class reg(PupyModule):
     def get(self, args):
         get = self._method('get', args)
 
-        value = get(args.key, as_unicode(args.name))
+        value = get(args.key, as_unicode_string(args.name, fail='convert'))
         if value is None:
             self.error('No such key')
         else:
@@ -306,10 +298,10 @@ class reg(PupyModule):
         if args.integer:
             value = int(value)
         else:
-            value = as_unicode(value)
+            value = as_unicode_string(value, fail='convert')
 
         try:
-            if kset(args.key, as_unicode(args.name), value, args.create):
+            if kset(args.key, as_unicode_string(args.name, fail='convert'), value, args.create):
                 self.success('OK')
             else:
                 self.error('No such key')
@@ -320,7 +312,7 @@ class reg(PupyModule):
     def rm(self, args):
         rm = self._method('rm', args)
 
-        if rm(args.key, as_unicode(args.name)):
+        if rm(args.key, as_unicode_string(args.name, fail='convert')):
             self.success('OK')
         else:
             self.error('No such key')
@@ -369,7 +361,7 @@ class reg(PupyModule):
 
         self.interrupt_cb = search(
             self._format_by_one, completed.set,
-            as_unicode(args.term),
+            as_unicode_string(args.term, fail='convert'),
             tuple(fix_key(x) for x in args.roots.split(',')),
             args.exclude_key_name, args.exclude_value_name,
             args.exclude_value,

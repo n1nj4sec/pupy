@@ -29,8 +29,11 @@ import pupy
 
 logger = pupy.get_logger('utils')
 
+
 def pupy_add_package(pkdic, compressed=False, name=None):
-    ''' Update the modules dictionary to allow remote imports of new packages '''
+    ''' Update the modules dictionary to allow
+        remote imports of new packages
+    '''
 
     if __debug__:
         logger.debug(
@@ -50,9 +53,9 @@ def pupy_add_package(pkdic, compressed=False, name=None):
 
 def has_module(name):
     try:
-        if name in sys.modules or \
-          name in sys.builtin_module_names or \
-          name in pupy.modules:
+        if (
+            name in sys.modules or name in sys.builtin_module_names or
+                name in pupy.modules):
             return True
 
         fsname = name.replace('.', '/')
@@ -97,8 +100,10 @@ def new_modules(names):
         ]
 
     except Exception as e:
-        pupy.dprint('new_modules Exception: {}/{} (type(names) == {})',
-            type(e), e, type(names))
+        pupy.dprint(
+            'new_modules Exception: {}/{} (type(names) == {})',
+            type(e), e, type(names)
+        )
 
         return names
 

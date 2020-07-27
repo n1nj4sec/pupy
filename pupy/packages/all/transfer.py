@@ -18,6 +18,7 @@ else:
 
 from network.lib.buffer import Buffer
 from network.lib.pupyrpc import nowait, brine
+from network.lib.convcompat import as_unicode_string
 
 from zipfile import ZipFile, is_zipfile
 from tarfile import is_tarfile
@@ -90,11 +91,6 @@ D_SPECIALS = 4
 D_EMPTY    = 5
 D_FILES    = 6
 
-def decodepath(filepath):
-    try:
-        return filepath.decode('utf-8')
-    except:
-        return filepath
 
 class Transfer(object):
     def __init__(self, exclude=None, include=None, follow_symlinks=False,
@@ -437,7 +433,8 @@ class Transfer(object):
             if not portion:
                 break
 
-            if zeros < (0xFFFFFFFE - self.read_portion) and all(v == '\0' for v in portion):
+            if zeros < (0xFFFFFFFE - self.read_portion) and all(
+                    v == b'\0' for v in portion):
                 zeros += len(portion)
                 del portion
                 continue
@@ -711,14 +708,14 @@ class Transfer(object):
         return (filepath, )
 
     def size(self, filepath, callback, nonblock=False):
-        filepath = decodepath(filepath)
+        filepath = as_unicode_string(filepath)
         if nonblock:
             callback = nowait(callback)
         self._submit_command(
             self._size, self._expand(filepath), callback)
 
     def transfer(self, filepath, callback, nonblock=False):
-        filepath = decodepath(filepath)
+        filepath = as_unicode_string(filepath)
         if nonblock:
             callback = nowait(callback)
         self._submit_command(

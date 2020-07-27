@@ -19,11 +19,8 @@ import threading
 import errno
 import traceback
 
-import string
-
 from uuid import uuid4
 
-from io import open
 from zipfile import ZipFile, is_zipfile
 from tarfile import is_tarfile
 from tarfile import open as open_tarfile
@@ -31,6 +28,9 @@ from tarfile import open as open_tarfile
 from fsutils import uidgid, username_to_uid, groupname_to_gid, has_xattrs
 
 from network.lib.pupyrpc import nowait
+from network.lib.convcompat import (
+    is_binary, try_as_unicode_string, fs_as_unicode_string, filter_strings
+)
 
 if sys.version_info.major > 2:
     getcwd = os.getcwd
@@ -47,10 +47,18 @@ SEARCH_WINDOW_SIZE = 32768
 OWAW_PROBE_NAME = str(uuid4())
 
 
+def _make_exception(exception, filepath):
+    setattr(exception, 'filename', filepath)
+    setattr(exception, 'exc', (
+        sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2]
+    ))
+    return filepath
+
+
 class Search(object):
     def __init__(
         self, path,
-        strings=[], max_size=20000000, root_path='.', no_content=False,
+        strings=(), max_size=20000000, root_path='.', no_content=False,
         case=False, binary=False, follow_symlinks=False, terminate=None,
         same_fs=True, search_in_archives=False, content_only=False,
         suid=False, sgid=False, user=False, group=False,
@@ -80,11 +88,8 @@ class Search(object):
         else:
             i = re.UNICODE
 
-        if isinstance(path, bytes):
-            path = path.decode(sys.getfilesystemencoding())
-
-        if isinstance(root_path, bytes):
-            root_path = root_path.decode(sys.getfilesystemencoding())
+        path = fs_as_unicode_string(path)
+        root_path = fs_as_unicode_string(root_path)
 
         path = os.path.expandvars(os.path.expanduser(path))
 
@@ -92,20 +97,23 @@ class Search(object):
             root_path = path
             self.name = None
             self.path = None
-        elif path.startswith('/'):
+        elif path.startswith(os.path.sep):
             root_path = os.path.dirname(path)
             self.name = re.compile(os.path.basename(path), i)
             self.path = None
-        elif '/' in path:
+        elif os.path.sep in path:
             self.path = re.compile(path, i)
             self.name = None
         else:
             self.name = re.compile(path, i)
             self.path = None
 
-        self.strings = [
-            re.compile(s, i) for s in strings
-        ]
+        if strings:
+            self.strings = [
+                re.compile(
+                    s, i
+                ) for s in strings
+            ]
 
         if self.xattr and self.xattr is not True:
             self.xattr = re.compile(self.xattr, i)
@@ -129,18 +137,27 @@ class Search(object):
     def search_string_in_fileobj(self, fileobj, find_all=False, filename=None):
         try:
             offset = 0
-            prev = ''
+
+            if self.binary:
+                prev = b''
+            else:
+                prev = ''
+
             found = False
 
             while offset < self.max_size and not found and not (
-                self.terminate and self.terminate.is_set()):
+                    self.terminate and self.terminate.is_set()):
 
                 chunk = fileobj.read(SEARCH_WINDOW_SIZE)
 
                 if not self.binary:
-                    for x in chunk:
-                        if x not in string.printable:
-                            return
+                    try:
+                        chunk = try_as_unicode_string(chunk)
+                    except UnicodeError:
+                        return
+
+                    if is_binary(chunk):
+                        return
 
                 for s in self.strings:
                     for match in s.finditer(prev + chunk):
@@ -164,14 +181,13 @@ class Search(object):
                 return
 
         except Exception as e:
-            setattr(e, 'filename', filename)
-            setattr(e, 'exc', (sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2]))
-            yield e
+            yield _make_exception(e, filename)
 
     def search_string(self, path, find_all=False):
         try:
             with open(path, 'rb') as f:
-                for result in self.search_string_in_fileobj(f, find_all, filename=path):
+                for result in self.search_string_in_fileobj(
+                        f, find_all, filename=path):
                     yield result
 
         except IOError as e:
@@ -179,9 +195,7 @@ class Search(object):
                 return
 
         except Exception as e:
-            setattr(e, 'filename', path)
-            setattr(e, 'exc', (sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2]))
-            yield e
+            yield _make_exception(e, path)
 
     def filter_extended(self, item):
         if not self.extended:
@@ -205,7 +219,8 @@ class Search(object):
 
         if self.user or self.group:
             uid, gid = uidgid(path, item.stat(), as_text=False)
-            if self.user and self.user == uid or self.group and self.group == gid:
+            if self.user and self.user == uid or \
+                    self.group and self.group == gid:
                 return True
 
         if self.owaw:
@@ -252,21 +267,24 @@ class Search(object):
                     name = os.path.basename(item.filename)
 
                     if (self.name and self.name.match(name)) or \
-                      (self.path and self.path.match(item.filename)) or \
-                      any_file:
+                        (self.path and self.path.match(item.filename)) or \
+                            any_file:
 
                         try:
-                            archive_filename = item.filename.decode(sys.getfilesystemencoding())
+                            archive_filename = item.filename.decode(
+                                sys.getfilesystemencoding()
+                            )
                         except UnicodeDecodeError:
                             archive_filename = item.filename
 
                         if self.strings:
                             for match in self.search_string_in_fileobj(
-                                zf.open(item), filename='zip:'+path+':'+item.filename):
+                                zf.open(item),
+                                    filename='zip:'+path+':'+item.filename):
                                 yield ('zip:'+path+':'+archive_filename, match)
 
                         elif not any_file:
-                            yield u'zip:'+path+u':'+archive_filename
+                            yield 'zip:'+path+':'+archive_filename
             finally:
                 zf.close()
 
@@ -279,29 +297,33 @@ class Search(object):
 
                     name = os.path.basename(item.name)
                     if (self.name and self.name.match(name)) or \
-                      (self.path and self.path.match(item.name)) or \
-                      any_file:
+                        (self.path and self.path.match(item.name)) or \
+                            any_file:
 
                         try:
-                            archive_filename = item.name.decode(sys.getfilesystemencoding())
+                            archive_filename = item.name.decode(
+                                sys.getfilesystemencoding()
+                            )
                         except UnicodeDecodeError:
                             archive_filename = item.name
 
                         if self.strings and item.isfile():
-                            for match in self.search_string_in_fileobj(
-                                tf.extractfile(item), filename='tar:+'+archive_filename+':'+path):
-
-                                yield ('tar:'+path+':'+archive_filename, match)
-
+                            pass
                         elif not any_file:
-                            yield u'tar:'+path+u':'+archive_filename
+                            yield 'tar:'+path+':'+archive_filename
+                        else:
+                            continue
+
+                        for match in self.search_string_in_fileobj(
+                            tf.extractfile(item),
+                                filename='tar:+'+archive_filename+':'+path):
+
+                            yield ('tar:'+path+':'+archive_filename, match)
 
             finally:
                 tf.close()
 
-
     def scanwalk(self, path, followlinks=False):
-
         ''' lists of DirEntries instead of lists of strings '''
 
         try:
@@ -312,12 +334,13 @@ class Search(object):
                 any_file = not self.name or self.path
 
                 if (
-                    (self.name and self.name.match(entry.name)) or \
-                    (self.path and self.path.match(entry.path)) or \
-                    any_file
-                ):
+                    (self.name and self.name.match(entry.name)) or
+                    (self.path and self.path.match(entry.path)) or
+                        any_file):
+
                     try:
-                        if not self.strings or not (self.strings and entry.is_file()):
+                        if not self.strings or not (
+                                self.strings and entry.is_file()):
                             if not any_file and self.filter_extended(entry):
                                 yield entry.path
                         else:
@@ -346,12 +369,12 @@ class Search(object):
                             continue
 
                     except Exception as e:
-                        setattr(e, 'filename', entry.path)
-                        setattr(e, 'exc', (sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2]))
+                        yield _make_exception(e, entry.path)
 
                 try:
                     if entry.is_dir(follow_symlinks=followlinks):
-                        if not self.same_fs or self.same_fs == entry.stat().st_dev:
+                        if not self.same_fs or \
+                                self.same_fs == entry.stat().st_dev:
                             for res in self.scanwalk(entry.path):
                                 yield res
 
@@ -364,8 +387,7 @@ class Search(object):
                         continue
 
                 except Exception as e:
-                    setattr(e, 'filename', entry.path)
-                    setattr(e, 'exc', (sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2]))
+                    yield _make_exception(e, entry.path)
 
         except IOError as e:
             if e.errno in PERMISSION_ERRORS:
@@ -373,16 +395,14 @@ class Search(object):
 
         # try / except used for permission denied
         except Exception as e:
-            setattr(e, 'filename', path)
-            setattr(e, 'exc', (sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2]))
-            yield e
+            yield _make_exception(e, path)
 
     def run(self):
         if os.path.isfile(self.root_path):
             for res in self.search_string(self.root_path, find_all=True):
                 try:
                     yield (self.root_path, res)
-                except:
+                except Exception:
                     pass
 
             if self.search_in_archives:
@@ -392,11 +412,12 @@ class Search(object):
 
                     try:
                         yield res
-                    except:
+                    except Exception:
                         pass
 
         else:
-            for files in self.scanwalk(self.root_path, followlinks=self.follow_symlinks):
+            for files in self.scanwalk(
+                    self.root_path, followlinks=self.follow_symlinks):
                 if self.content_only and type(files) is not tuple:
                     continue
 
@@ -411,20 +432,32 @@ class Search(object):
                     if isinstance(result, OSError):
                         if result.errno not in (errno.EPERM, errno.EACCES):
                             on_error(
-                                result.filename + ': ' + \
-                                u' '.join(x for x in result.args if isinstance(x, basestring)))
-                    elif isinstance(result, UnicodeDecodeError):
-                        on_error('Invalid encoding: {}'.format(repr(result.args[1])))
+                                result.filename + ': ' +
+                                ' '.join(filter_strings(result.args))
+                            )
+                    elif isinstance(result, UnicodeError):
+                        on_error(
+                            'Invalid encoding: {}'.format(repr(result.args[1]))
+                        )
                     else:
                         try:
-                            on_error('Scanwalk exception: {}:{}:{}'.format(
-                                str(type(result)), str(result),
-                                '\n'.join(traceback.format_exception(*result.exc))))
+                            on_error(
+                                'Scanwalk exception: {}:{}:{}'.format(
+                                    type(result), result,
+                                    '\n'.join(
+                                        traceback.format_exception(*result.exc)
+                                    )
+                                )
+                            )
                         except Exception as e:
                             try:
-                                on_error('Scanwalk exception (module): ({})'.format(e))
-                            except:
+                                on_error(
+                                    'Scanwalk exception '
+                                    '(module): ({})'.format(e)
+                                )
+                            except Exception:
                                 pass
+
                             break
 
                 continue
@@ -436,7 +469,7 @@ class Search(object):
             except Exception as e:
                 try:
                     on_error('Scanwalk exception (module): {}'.format(e))
-                except:
+                except Exception:
                     pass
 
                 break
@@ -453,7 +486,12 @@ class Search(object):
 
         on_completed = nowait(on_completed)
 
-        search = threading.Thread(target=self._run_thread, args=(on_data, on_completed, on_error))
+        search = threading.Thread(
+            target=self._run_thread, args=(
+                on_data, on_completed, on_error
+            )
+        )
+
         search.daemon = False
         search.start()
 
@@ -461,6 +499,11 @@ class Search(object):
         if not self.terminate:
             self.terminate = threading.Event()
 
-        search = threading.Thread(target=self._run_thread, args=(on_data, on_completed, on_error))
+        search = threading.Thread(
+            target=self._run_thread, args=(
+                on_data, on_completed, on_error
+            )
+        )
+
         search.daemon = False
         search.start()

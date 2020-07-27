@@ -10,10 +10,15 @@ __all__ = [
 ]
 
 try:
-    from ConfigParser import ConfigParser, Error, NoSectionError
+    from ConfigParser import (
+        RawConfigParser, Error, NoSectionError, NoOptionError
+    )
+
+    setattr(RawConfigParser, 'read_file', RawConfigParser.readfp)
 except ImportError:
-    from configparser import ConfigParser, Error, NoSectionError
-    from io import open
+    from configparser import (
+        RawConfigParser, Error, NoSectionError, NoOptionError
+    )
 
 from os import path, makedirs
 from netaddr import IPAddress
@@ -23,32 +28,50 @@ import platform
 import random
 import string
 import datetime
+import errno
+
+from network.lib.convcompat import (
+    as_unicode_string, as_native_string
+)
 
 from .PupyLogger import getLogger
 logger = getLogger('config')
 
 if sys.version_info.major > 2:
     long = int
+    xrange = range
+
+
+TAGS_SECTION = as_native_string('tags')
+PATHS_SECTION = as_native_string('paths')
 
 
 class Tags(object):
     def __init__(self, config, node):
         self.config = config
-        self.node = node
+        self.node = as_native_string(node)
 
     def __iter__(self):
-        return iter(self.get())
+        for item in self.get():
+            yield as_unicode_string(item)
 
     def get(self):
-        try:
-            return set(self.config.get('tags', self.node).split(','))
-        except:
+        tags = self.config.get(TAGS_SECTION, self.node)
+        if not tags:
             return set()
 
+        return set(
+            as_unicode_string(tag) for tag in tags.split(',')
+        )
+
     def set(self, tags):
-        return self.config.set('tags', self.node, ','.join([
-            str(x) for x in tags
-        ]))
+        encoded_tags = as_native_string(
+            ','.join([
+                as_unicode_string(x, fail='convert') for x in tags
+            ])
+        )
+
+        return self.config.set(TAGS_SECTION, self.node, encoded_tags)
 
     def add(self, *tags):
         current_tags = self.get()
@@ -68,13 +91,13 @@ class Tags(object):
             self.clear()
 
     def clear(self):
-        self.config.remove_option('tags', self.node)
+        self.config.remove_option(TAGS_SECTION, self.node)
 
     def __str__(self):
-        return ','.join(self.get())
+        return as_native_string(','.join(self.get()))
 
-class PupyConfig(ConfigParser):
-    NoSectionError = NoSectionError
+
+class PupyConfig(RawConfigParser):
 
     def __init__(self, config='pupy.conf'):
         self.root = path.abspath(path.join(path.dirname(__file__), '..'))
@@ -91,11 +114,18 @@ class PupyConfig(ConfigParser):
         self.randoms = {}
         self.command_line = {}
 
-        ConfigParser.__init__(self)
+        RawConfigParser.__init__(self)
 
-        logger.debug('Loading config from {}'.format(':'.join(self.files)))
+        for file in self.files:
+            try:
+                self.read_file(open(file, 'r'))
 
-        self.read(self.files)
+                logger.info(
+                    'Loaded config data from %s', self.files
+                )
+            except (IOError, OSError) as e:
+                if e.errno == errno.EEXIST:
+                    pass
 
     def tags(self, node):
         if type(node) in (int, long):
@@ -105,7 +135,10 @@ class PupyConfig(ConfigParser):
 
     def by_tags(self, tags):
         available_tags = {
-            k:self.get('tags', k).split(',') for k in self.options('tags')
+            as_unicode_string(k): tuple([
+                as_unicode_string(tag)
+                for tag in self.get('tags', k).split(',')
+            ]) for k in self.options('tags')
         }
 
         if '&' in tags:
@@ -136,7 +169,7 @@ class PupyConfig(ConfigParser):
             with open(self.project_path, 'w') as config:
                 self.write(config)
 
-            logger.debug('Config saved to {}'.format(self.project_path))
+            logger.info('Config saved to %s', self.project_path)
 
         if user:
             user_dir = path.dirname(self.user_path)
@@ -146,14 +179,14 @@ class PupyConfig(ConfigParser):
             with open(self.user_path, 'w') as config:
                 self.write(config)
 
-            logger.debug('Config saved to {}'.format(self.user_path))
+            logger.info('Config saved to %s', self.user_path)
 
     def get_path(self, filepath, substitutions={}, create=True, dir=False):
-        prefer_workdir = self.getboolean('paths', 'prefer_workdir')
-        from_config = self.get('paths', filepath)
+        prefer_workdir = self.getboolean(PATHS_SECTION, 'prefer_workdir')
+        from_config = self.get(PATHS_SECTION, filepath)
 
         if from_config:
-            filepath = from_config
+            filepath = as_unicode_string(from_config)
 
         retfilepath = ''
 
@@ -182,7 +215,9 @@ class PupyConfig(ConfigParser):
                 retfilepath = path.join(self.user_root, filepath)
 
         substitutions.update({
-            '%t': str(datetime.datetime.now()).replace(' ','_').replace(':','-')
+            '%t': as_unicode_string(
+                datetime.datetime.now(), fail='convert'
+            ).replace(' ', '_').replace(':', '-')
         })
 
         for key in substitutions:
@@ -191,10 +226,12 @@ class PupyConfig(ConfigParser):
                 value = value.replace('/', '_').replace('..', '_')
                 if platform.system == 'Windows':
                     value = value.replace(':', '_')
-            except:
+            except Exception:
                 pass
 
-            retfilepath = retfilepath.replace(key, str(value))
+            retfilepath = retfilepath.replace(
+                key, as_unicode_string(value, fail='convert')
+            )
 
         if dir and path.isdir(retfilepath):
             return path.abspath(retfilepath)
@@ -224,9 +261,14 @@ class PupyConfig(ConfigParser):
 
     def remove_option(self, section, key):
         if section != 'randoms':
-            ConfigParser.remove_option(self, section, key)
+            RawConfigParser.remove_option(
+                self,
+                as_native_string(section),
+                as_native_string(key)
+            )
 
-        elif section in self.command_line and key in self.command_line[section]:
+        elif section in self.command_line and \
+                key in self.command_line[section]:
             del self.command_line[section][key]
             if not self.command_line[section]:
                 del self.command_line[section]
@@ -242,24 +284,31 @@ class PupyConfig(ConfigParser):
                 self.command_line[section] = {}
             self.command_line[section][key] = str(value)
         elif section != 'randoms':
-            if section in self.command_line and key in self.command_line[section]:
+            section = as_native_string(section)
+            key = as_native_string(key)
+
+            if section in self.command_line and \
+                    key in self.command_line[section]:
                 del self.command_line[section][key]
                 if not self.command_line[section]:
                     del self.command_line[section]
 
             try:
-                ConfigParser.set(self, section, key, value)
+                RawConfigParser.set(self, section, key, value)
             except NoSectionError:
                 logger.debug('Create new section {}'.format(section))
-                ConfigParser.add_section(self, section)
-                ConfigParser.set(self, section, key, value)
+                RawConfigParser.add_section(self, section)
+                RawConfigParser.set(self, section, key, value)
 
         else:
             if not key:
                 N = kwargs.get('random', 10)
                 while True:
-                    key = ''.join(random.choice(
-                        string.ascii_letters + string.digits) for _ in range(N))
+                    key = ''.join(
+                        random.choice(
+                            string.ascii_letters + string.digits
+                        ) for _ in range(N)
+                    )
 
                     if key not in self.randoms:
                         break
@@ -267,41 +316,67 @@ class PupyConfig(ConfigParser):
             self.randoms[key] = value
             return key
 
-    def getboolean(self, *args, **kwargs):
+    def getboolean(self, section, option, default=False):
+        section = as_native_string(section)
+        option = as_native_string(option)
+
         try:
-            return ConfigParser.getboolean(self, *args, **kwargs)
+            result = RawConfigParser.getboolean(self, section, option)
+
+            if result is None:
+                return default
+
+            return result
         except AttributeError:
-            return False
+            return default
 
-    def get(self, *args, **kwargs):
+    def get(
+        self, section, option, default=None,
+            random=10, new=True, **kwargs):
         try:
-            if args[0] == 'randoms':
-                if not args[1] in self.randoms:
-                    N = kwargs.get('random', 10)
-                    new = kwargs.get('new', True)
+            if section == 'randoms':
+                if option not in self.randoms:
                     if new:
-                        self.randoms[args[1]] = ''.join(
+                        self.randoms[option] = ''.join(
                             random.choice(
-                                string.ascii_letters + string.digits) for _ in range(N))
+                                string.ascii_letters + string.digits
+                            ) for _ in xrange(random)
+                        )
 
-                return self.randoms.get(args[1], None)
+                return self.randoms.get(option, None)
 
-            elif args[0] in self.command_line and args[1] in self.command_line[args[0]]:
-                return self.command_line[args[0]][args[1]]
+            elif section in self.command_line and \
+                    option in self.command_line[section]:
+                return self.command_line[section][option]
 
-            return ConfigParser.get(self, *args, **kwargs)
-        except:
-            return None
+            section = as_native_string(section)
+            option = as_native_string(option)
+            result = as_unicode_string(
+                RawConfigParser.get(self, section, option, **kwargs),
+                fail=False
+            )
 
-    def getip(self, *args, **kwargs):
-        ip = self.get(*args, **kwargs)
+            if result is None:
+                return default
+
+            return result
+
+        except (NoSectionError, NoOptionError):
+            return default
+
+    def getip(self, section, option, default=None):
+        ip = self.get(section, option)
         if not ip:
-            return None
+            return default
 
         return IPAddress(ip)
 
     def sections(self):
-        sections = ConfigParser.sections(self)
+        sections = [
+            as_unicode_string(section)
+            for section in RawConfigParser.sections(self)
+        ]
+
         sections.append('randoms')
         for section in self.command_line:
             if section not in sections:
@@ -311,7 +386,12 @@ class PupyConfig(ConfigParser):
 
     def options(self, section):
         if section != 'randoms':
-            return ConfigParser.options(self, section)
+            return [
+                as_unicode_string(option)
+                for option in RawConfigParser.options(
+                    self, as_native_string(section)
+                )
+            ]
 
         keys = self.randoms.keys()
         if section in self.command_line:

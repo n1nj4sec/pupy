@@ -4,44 +4,51 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 __all__ = (
     'readlink', 'lstat', 'has_xattrs', 'uidgid',
     'username_to_uid', 'groupname_to_gid',
     'NoUidGidMapping', 'NoSuchUser', 'NoSuchGroup'
 )
 
-class NoUidGidMapping(Exception):
-    pass
-
-class NoSuchUser(NoUidGidMapping):
-    pass
-
-class NoSuchGroup(NoUidGidMapping):
-    pass
 
 from os import readlink, lstat
 from sys import platform
 
-HAVE_XATTRS = False
+from network.lib.convcompat import as_unicode_string
+
+
+def _has_xattrs(filepath):
+    return None
+
+
+has_xattrs = _has_xattrs
 
 if platform.startswith('linux'):
 
     try:
         from xattr import listxattr
 
-        def has_xattrs(filepath):
+        def linux_has_xattrs(filepath):
             return listxattr(filepath)
 
-
-
-        HAVE_XATTRS = True
+        has_xattrs = linux_has_xattrs
 
     except ImportError:
         pass
 
-if not HAVE_XATTRS:
-    def has_xattrs(filepath):
-        return None
+
+class NoUidGidMapping(Exception):
+    pass
+
+
+class NoSuchUser(NoUidGidMapping):
+    pass
+
+
+class NoSuchGroup(NoUidGidMapping):
+    pass
+
 
 try:
     from pwd import getpwuid, getpwnam
@@ -49,13 +56,17 @@ try:
 
     def username_to_uid(username):
         try:
-            return getpwnam(username).pw_uid
+            return as_unicode_string(
+                getpwnam(username).pw_uid
+            )
         except KeyError:
             raise NoSuchUser(username)
 
     def groupname_to_gid(groupname):
         try:
-            return getgrnam(groupname).gr_gid
+            return as_unicode_string(
+                getgrnam(groupname).gr_gid
+            )
         except KeyError:
             raise NoSuchGroup(groupname)
 
@@ -73,9 +84,15 @@ try:
         except KeyError:
             gr = None
 
-        return \
-          pw.pw_name if pw else str(item.st_uid), \
-          gr.gr_name if gr else str(item.st_gid)
+        return as_unicode_string(
+            pw.pw_name
+        ) if pw else as_unicode_string(
+            str(item.st_uid)
+        ), as_unicode_string(
+            gr.gr_name
+        ) if gr else as_unicode_string(
+            str(item.st_gid)
+        )
 
 except ImportError:
     def uidgid(filepath, item):

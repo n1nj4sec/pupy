@@ -28,9 +28,7 @@ static const char *preload_modules[] = {
     "traceback",
     "_weakrefset",
     "abc",
-    "encodings.aliases",
-    "encodings.ascii",
-    "encodings.utf_8",
+    ENCODINGS ".aliases",
     NULL
 };
 
@@ -226,8 +224,19 @@ PyObject *py_eval_package_init(
     PyObject *new_module_dict;
     PyObject *builtins;
     PyObject *py_eval_result;
+    PyObject *modules = NULL;
 
     size_t last_dm = 0;
+
+    modules = PySys_GetObject("modules");
+    if (!modules) {
+        dprint(
+            "py_eval_package_init(%s) :: can't get sys.modules\n",
+            name
+        );
+
+        return NULL;
+    }
 
     new_module = PyImport_AddModule(name);
     if (!new_module) {
@@ -251,7 +260,9 @@ PyObject *py_eval_package_init(
     last_dm = last_chr_offt(name, '.');
 
     if (is_init) {
-        PyObject *modules = NULL;
+        PyObject *key, *value;
+        Py_ssize_t pos = 0;
+        Py_ssize_t name_len = strlen(name);
 
         PyObject_SetAttrString(
             new_module, "__package__", PyString_FromString(name)
@@ -262,63 +273,51 @@ PyObject *py_eval_package_init(
             name, new_module, name
         );
 
-        modules = PySys_GetObject("modules");
-        if (modules) {
-            PyObject *key, *value;
-            Py_ssize_t pos = 0;
-            Py_ssize_t name_len = strlen(name);
+
+        dprint(
+            "py_eval_package_init(%s): iterate modules at %p\n", name, modules
+        );
+
+        /* Need to find/set all childs */
+        while (PyDict_Next(modules, &pos, &key, &value)) {
+            const char *modname = NULL;
+            Py_ssize_t modname_len = 0;
+
+            if (PyString_AsStringAndSize(key, &modname, &modname_len) < 0) {
+                dprint(
+                    "py_eval_package_init(%s) :: key at %d is not a string\n",
+                    name, pos
+                );
+
+                PyErr_Clear();
+            }
+
+            if (! (modname && modname_len)) {
+                dprint(
+                    "py_eval_package_init(%s) :: nothing to compare\n",
+                    name
+                );
+                continue;
+            }
+
+            if (modname_len < name_len + 2)
+                continue;
+
+            if (strncmp(name, modname, name_len))
+                continue;
+
+            if (modname[name_len] != '.')
+                continue;
 
             dprint(
-                "py_eval_package_init(%s): iterate modules at %p\n", name, modules
+                "py_eval_package_init(%s) :: child: %s\n",
+                name, modname + name_len + 1
             );
 
-            /* Need to find/set all childs */
-            while (PyDict_Next(modules, &pos, &key, &value)) {
-                const char *modname = NULL;
-                Py_ssize_t modname_len = 0;
-
-                if (PyString_AsStringAndSize(key, &modname, &modname_len) < 0) {
-                    dprint(
-                        "py_eval_package_init(%s) :: key at %d is not a string\n",
-                        name, pos
-                    );
-
-                    PyErr_Clear();
-                }
-
-                if (! (modname && modname_len)) {
-                    dprint(
-                        "py_eval_package_init(%s) :: nothing to compare\n",
-                        name
-                    );
-                    continue;
-                }
-
-                if (modname_len < name_len + 2)
-                    continue;
-
-                if (strncmp(name, modname, name_len))
-                    continue;
-
-                if (modname[name_len] != '.')
-                    continue;
-
-                dprint(
-                    "py_eval_package_init(%s) :: child: %s\n",
-                    name, modname + name_len + 1
-                );
-
-                PyObject_SetAttrString(
-                    new_module, modname + name_len + 1, value
-                );
-            }
-        } else {
-            dprint(
-                "py_eval_package_init(%s) :: can't get sys.modules\n",
-                name
+            PyObject_SetAttrString(
+                new_module, modname + name_len + 1, value
             );
         }
-
     } else if (last_dm) {
         PyObject *py_tmp = PyString_FromStringAndSize(
             name, last_dm
@@ -369,6 +368,11 @@ PyObject *py_eval_package_init(
 
     if (!py_eval_result) {
         // FIXME: Delete from sys.modules (?)
+        if (PyDict_DelItemString(modules, name) < 0) {
+            dprint(
+                "py_eval_package_init(%s) Failed to delete from sys.modules\n", name
+            );
+        }
         return NULL;
     }
 
@@ -403,15 +407,16 @@ PyObject* py_module_from_stdlib(PyObject *py_stdlib, const char *name, int is_in
     char *path_name = NULL;
     char *ptr = NULL;
 
+    int is_path = 1;
+
     // pupy:// name /__init__.pyo
     // OR
     // pupy:// name .pyo
 
     size_t vpath_len =
         strlen(name)
-        + sizeof(VPATH_EXT) - 1
         + sizeof(VPATH_PREFIX) - 1
-        + (is_init? sizeof("/__init__") - 1: 0)
+        + (is_init? sizeof(VPATH_INIT_EXT) : sizeof(VPATH_EXT)) - 1
         + 1
         ;
 
@@ -428,7 +433,7 @@ PyObject* py_module_from_stdlib(PyObject *py_stdlib, const char *name, int is_in
             *ptr = '/';
 
     if (is_init)
-        strcat(vpath_name, "/__init__" VPATH_EXT);
+        strcat(vpath_name, VPATH_INIT_EXT);
     else
         strcat(vpath_name, VPATH_EXT);
 
@@ -511,6 +516,57 @@ lbMemFailure1:
 }
 
 
+void py_clear_sys_list(const char *name)
+{
+    PyObject *list_obj;
+    Py_ssize_t list_len;
+
+    list_obj = PySys_GetObject(name);
+    if (!list_obj) {
+        dprint("sys.%s not found\n", name);
+        PyErr_Clear();
+        return;
+    }
+
+    list_len = PyList_Size(list_obj);
+    if (list_len < 0) {
+        dprint("sys.%s is not list\n", name);
+        PyErr_Clear();
+        return;
+    }
+
+    if (PyList_SetSlice(list_obj, 0, list_len, NULL) < 0) {
+        dprint("sys.%s - failed to clear\n", name);
+        PyErr_Clear();
+        return;
+    }
+
+    dprint("sys.%s - cleared\n", name);
+}
+
+
+void py_clear_sys_dict(const char *name)
+{
+    PyObject *dict_obj;
+
+    dict_obj = PySys_GetObject(name);
+    if (!dict_obj) {
+        dprint("sys.%s not found\n", name);
+        PyErr_Clear();
+        return;
+    }
+
+    PyDict_Clear(dict_obj);
+    if (PyErr_Occurred()) {
+        dprint("sys.%s - failed to clear\n", name);
+        PyErr_Clear();
+        return;
+    }
+
+    dprint("sys.%s - cleared\n", name);
+}
+
+
 void run_pupy() {
     union {
         unsigned int l;
@@ -522,6 +578,9 @@ void run_pupy() {
     PyObject *py_config_list;
     PyObject *py_pupylib;
     PyObject *py_stdlib;
+    PyObject *py_stdlib_keys;
+    PyObject *py_stdlib_keys_iter;
+    PyObject *py_stdlib_keys_item;
     PyObject *pupy_dict;
     PyObject *py_debug;
     PyObject *py_main;
@@ -529,6 +588,13 @@ void run_pupy() {
     PyObject *py_config = NULL;
 
     const char **preload_module = NULL;
+
+    dprint("Clean sys defaults\n");
+
+    py_clear_sys_list("path");
+    py_clear_sys_list("meta_path");
+    py_clear_sys_list("path_hooks");
+    py_clear_sys_dict("path_importer_cache");
 
     dprint("Load config\n");
     len.c[3] = __config__[0];
@@ -584,8 +650,48 @@ void run_pupy() {
             goto lbExit4;
     }
 
-    if (!py_module_from_stdlib(py_stdlib, "encodings", 1))
+    if (!py_module_from_stdlib(py_stdlib, ENCODINGS, 1))
         goto lbExit4;
+
+    dprint("Preload encodings\n");
+    py_stdlib_keys = PyDict_Keys(py_stdlib);
+    if (!py_stdlib_keys)
+        goto lbExit4;
+
+    py_stdlib_keys_iter = PyObject_GetIter(py_stdlib_keys);
+    if (!py_stdlib_keys_iter) {
+        Py_DecRef(py_stdlib_keys);
+        goto lbExit4;
+    }
+
+    while ((py_stdlib_keys_item = PyIter_Next(py_stdlib_keys_iter))) {
+        char *filepath;
+        Py_ssize_t filepath_len;
+
+        if (PyString_AsStringAndSize(
+                py_stdlib_keys_item, &filepath, &filepath_len) == -1) {
+            /* Something unexpected. Who cares */
+            PyErr_Clear();
+        } else if (strstr(filepath, ENCODINGS "/") == filepath &&
+            strstr(filepath, ENCODINGS "/" VPATH_INIT_EXT) != filepath) {
+            char *child = strdup(filepath);
+            child[last_chr_offt(child, '.')] = '\0';
+            child[sizeof(ENCODINGS) - 1] = '.';
+
+            if (!py_module_from_stdlib(py_stdlib, child, 0)) {
+                dprint("Load encoding: %s (%s): failed\n", child, filepath);
+                PyErr_Clear();
+            } else {
+                dprint("Loaded encoding: %s\n", child);
+            }
+
+            free(child);
+        }
+
+        Py_DecRef(py_stdlib_keys_item);
+    }
+
+    Py_DecRef(py_stdlib_keys_iter);
 
     dprint("Loading pupy\n");
     pupy = py_module_from_stdlib(py_stdlib, "pupy", 1);

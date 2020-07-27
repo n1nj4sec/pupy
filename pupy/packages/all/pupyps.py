@@ -16,7 +16,7 @@ import time
 
 from io import open
 
-from network.lib.convcompat import fsunicodify
+from network.lib.convcompat import as_unicode_string_deep
 
 
 families = {
@@ -48,13 +48,21 @@ if sys.version_info.major > 2:
     def iteritems(value):
         return value.items()
 
+    def psutil_str(value):
+        return value
+
 else:
     def iteritems(value):
         return value.iteritems()
 
+    def psutil_str(value):
+        return as_unicode_string_deep(
+            value, encoding=psutil._common.ENCODING
+        )
+
 
 try:
-    USERNAME = fsunicodify(SELF.username())
+    USERNAME = psutil_str(SELF.username())
 except:
     try:
         import getpass
@@ -63,9 +71,10 @@ except:
         USERNAME = None
 
 KNOWN_DOMAINS = (
-    fsunicodify('NT AUTHORITY\\'),
-    fsunicodify(socket.gethostname() + '\\')
+    psutil_str('NT AUTHORITY\\'),
+    psutil_str(socket.gethostname() + '\\')
 )
+
 
 # Try to figure out not supported fields
 def make_known_fields():
@@ -121,12 +130,12 @@ def set_relations(infos):
     if not username:
         return
 
-    if USERNAME and USERNAME == fsunicodify(username):
+    if USERNAME and USERNAME == username:
         infos['same_user'] = True
 
     if username.startswith(KNOWN_DOMAINS):
         _, username = username.split('\\', 1)
-        infos['username'] = fsunicodify(username)
+        infos['username'] = username
 
 
 def _psiter(obj):
@@ -212,7 +221,7 @@ def psinfo(pids):
 
         data[pid] = info
 
-    return fsunicodify(data)
+    return psutil_str(data)
 
 
 def pstree():
@@ -228,6 +237,8 @@ def pstree():
             'cpu_percent', 'memory_percent', 'connections',
             'terminal', 'pid'
         ])
+
+        props = psutil_str(props)
 
         set_relations(props)
 
@@ -257,7 +268,7 @@ def pstree():
     if 0 in tree and 0 in tree[0]:
         tree[0].remove(0)
 
-    return min(tree), fsunicodify(tree), fsunicodify(data)
+    return min(tree), tree, data
 
 
 def users():
@@ -270,16 +281,19 @@ def users():
                 'terminal', 'pid', 'exe', 'name', 'cmdline'
             ])
 
+            pinfo = psutil_str(pinfo)
+
             if pinfo.get('terminal'):
                 terminals[
                     pinfo['terminal'].replace('/dev/', '')
                  ] = pinfo
 
     users = psutil.users()
+    users = psutil_str(users)
 
     for term in users:
         terminfo = {
-            k: v
+            psutil_str(k): v
             for k, v in _psiter(term) if v and k not in ('host', 'name')
         }
 
@@ -291,6 +305,8 @@ def users():
                             'exe', 'cmdline', 'name'
                         ]).items()
                 }
+
+                pinfo = psutil_str(pinfo)
 
                 terminfo.update(pinfo)
             except (psutil.NoSuchProcess, psutil.AccessDenied):
@@ -323,13 +339,14 @@ def users():
 
         info[term.name][host].append(terminfo)
 
-    return fsunicodify(info)
+    return info
 
 
 def connections():
     connections = []
 
     net_connections = psutil.net_connections()
+    net_connections = psutil_str(net_connections)
 
     for connection in net_connections:
         obj = {
@@ -351,14 +368,14 @@ def connections():
 
         connections.append(obj)
 
-    return fsunicodify(connections)
+    return connections
 
 
 def _tryint(x):
     try:
         return int(x)
     except:
-        return fsunicodify(str(x))
+        return psutil_str(str(x))
 
 
 def interfaces():
@@ -386,7 +403,7 @@ def interfaces():
     except:
         stats = None
 
-    return fsunicodify({
+    return psutil_str({
         'addrs': addrs,
         'stats': stats
     })
@@ -396,6 +413,7 @@ def drives():
     partitions = []
 
     disk_partitions = psutil.disk_partitions()
+    disk_partitions = psutil_str(disk_partitions)
 
     for partition in disk_partitions:
         record = {
@@ -419,7 +437,7 @@ def drives():
 
         partitions.append(record)
 
-    return fsunicodify(partitions)
+    return partitions
 
 
 def cstring(string):
@@ -427,7 +445,7 @@ def cstring(string):
 
 
 def convrecord(item):
-    return item if type(item) in (int,long) else cstring(item)
+    return item if type(item) in (int, long) else cstring(item)
 
 
 def wtmp(input='/var/log/wtmp'):
@@ -514,7 +532,7 @@ def wtmp(input='/var/log/wtmp'):
                 'duration': now - items[9]
             })
 
-    return fsunicodify({
+    return psutil_str({
         'now': now,
         'records': retval
     })
@@ -549,13 +567,13 @@ def lastlog(log='/var/log/lastlog'):
                 }
             uid += 1
 
-    return fsunicodify(result)
+    return psutil_str(result)
 
 
 def get_win_services():
-    return fsunicodify([
-        service.as_dict() for service in psutil.win_service_iter()
-    ])
+    return [
+        psutil_str(service.as_dict()) for service in psutil.win_service_iter()
+    ]
 
 
 if __name__ == '__main__':

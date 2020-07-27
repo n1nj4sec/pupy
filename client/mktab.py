@@ -5,8 +5,23 @@ from __future__ import unicode_literals
 #
 
 import string
+import sys
 
 from io import open
+
+UCS_ABI = 'UCS4'
+if len(sys.argv) > 1:
+    UCS_ABI = sys.argv[1]
+
+
+mappings = {
+    'PyUnicode_AsWideChar': (
+        'PyUnicode' + UCS_ABI + '_AsWideChar'
+    ),
+    'PyUnicode_GetSize': (
+        'PyUnicode' + UCS_ABI + '_GetSize'
+    )
+}
 
 decls = '''
 void, Py_InitializeEx, (int)
@@ -26,6 +41,8 @@ PyObject *, PyLong_FromVoidPtr, (void *)
 PyObject *, Py_InitModule4, (const char *, PyMethodDef *, const char *, PyObject *, int)
 int, Py_IsInitialized, (void)
 int, PyObject_SetAttrString, (PyObject *, const char *, PyObject *)
+void*, PyUnicode_AsWideChar, (PyObject *o, wchar_t *w, Py_ssize_t size)
+Py_ssize_t, PyUnicode_GetSize, (PyObject *unicode)
 PyObject *, PyCFunction_NewEx, (PyMethodDef *, PyObject *, PyObject *)
 PyObject *, PyObject_GetAttrString, (PyObject *, const char *)
 PyObject *, Py_BuildValue, (const char *, ...)
@@ -44,6 +61,8 @@ void, Py_IncRef, (PyObject *)
 void, Py_DecRef, (PyObject *)
 
 PyObject, PyInt_Type
+PyObject, PyUnicode_Type
+PyObject, PyString_Type
 PyObject, _Py_NoneStruct
 PyObject, _Py_ZeroStruct
 
@@ -68,12 +87,14 @@ PyGILState_STATE, PyGILState_Ensure, (void)
 void, PyGILState_Release, (PyGILState_STATE)
 
 void, PySys_SetObject, (const char *, PyObject *)
-PyObject *, PySys_GetObject, (char *)
+PyObject *, PySys_GetObject, (const char *)
 PyObject *, PyString_FromString, (const char *)
 PyObject *, PyImport_AddModule, (const char *)
 PyObject*, PyImport_ExecCodeModuleEx, (char *name, PyObject *co, char *pathname)
 PyObject *, PyModule_GetDict, (PyObject *)
 int, PyDict_Next, (PyObject *, Py_ssize_t *, PyObject **, PyObject **)
+PyObject*, PyDict_Keys, (PyObject *)
+void, PyDict_Clear, (PyObject *)
 Py_ssize_t, PySequence_Length, (PyObject *)
 PyObject *, PySequence_GetItem, (PyObject *, Py_ssize_t)
 PyObject *, PyEval_EvalCode, (PyCodeObject *, PyObject *, PyObject *)
@@ -84,7 +105,11 @@ const char *, Py_FileSystemDefaultEncoding
 PyObject*, PyList_New, (Py_ssize_t)
 PyObject*, PyList_GetItem, (PyObject *, Py_ssize_t)
 PyObject*, PyList_Append, (PyObject *, PyObject *)
+int, PyList_SetSlice, (PyObject *list, Py_ssize_t low, Py_ssize_t high, PyObject *itemlist)
+Py_ssize_t, PyList_Size, (PyObject *list)
 int, PyObject_IsTrue, (PyObject *)
+PyObject*, PyObject_GetIter, (PyObject *)
+PyObject*, PyIter_Next, (PyObject *o)
 void, PyErr_SetString, (PyObject *, const char *)
 void, PyEval_InitThreads, (void)
 
@@ -135,6 +160,8 @@ for decl in decls:
         print('\t{ "Py_InitModule4", NULL },' % locals(), file=cfile)
         print('#  endif', file=cfile)
         print('#endif', file=cfile)
+    elif name in mappings:
+        print('\t{ "%s", NULL },' % mappings[name], file=cfile)
     else:
         print('\t{ "%(name)s", NULL },' % locals(), file=cfile)
 

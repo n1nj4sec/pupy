@@ -12,19 +12,38 @@ import os
 import struct
 import platform
 import re
+import locale
+import codecs
 
 import fcntl
 import termios
 
+import hexdump
+
 from pygments import highlight
+from pygments.formatters import TerminalFormatter
+from pygments.lexers.hexdump import HexdumpLexer
 
 from pupylib.PupyOutput import (
     Hint, Text, NewLine, Title, MultiPart, Indent, Color,
     TruncateToTerm, Error, Log, Warn, Success, Info,
-    ServiceInfo, Section, Line, List, Table, Pygment
+    ServiceInfo, Section, Line, List, Table, Hex, Pygment
 )
 
 DEFAULT_MULTIBYTE_CP = 'utf-8'
+
+_default_locale = locale.getdefaultlocale()
+if _default_locale:
+    import codecs
+
+    try:
+        _, coding = _default_locale
+        if coding.lower() not in ('posix', 'c', ''):
+            codecs.getdecoder(coding)
+            DEFAULT_MULTIBYTE_CP = coding
+    except LookupError:
+        pass
+
 FALLBACK_MULTIBYTE_CP = 'latin-1'
 
 
@@ -258,7 +277,7 @@ def remove_esc(s, coding=DEFAULT_MULTIBYTE_CP):
 
 def non_symbol_len(s, coding=DEFAULT_MULTIBYTE_CP):
     if isinstance(s, bytes):
-        total_len = len(s.decode(coding))
+        total_len = len(s.decode(coding, 'ignore'))
     else:
         total_len = len(s)
         s = s.encode(coding)
@@ -546,13 +565,28 @@ def as_term_bytes(text, width=0):
         ])
 
     elif hint is Section:
+        levels = ('white', 'cyan', 'yellow', 'green')
+
+        if text.level < 4:
+            indent = 3 - text.level
+        else:
+            indent = 0
+
+        prefix = colorize(
+            (b'==' * indent) + b'> ',
+            levels[indent]
+        )
+
+        suffix = colorize(
+            b' <' + (b'==' * indent),
+            levels[indent]
+        )
+
         return b'\n'.join((
             b''.join((
-                colorize(b'#>#> ', 'green'),
-                as_term_bytes(text.header, width),
-                colorize(b'  <#<#', 'green')
+                prefix, as_term_bytes(text.header, width), suffix
             )),
-            as_term_bytes(text.data, width)
+            as_term_bytes(text.data, width) if text.data else b''
         ))
 
     elif hint is Line:
@@ -615,6 +649,32 @@ def as_term_bytes(text, width=0):
             table_as_bytes(table_data, wl=headers, legend=text.legend),
             b'\n'*text.vspace
         ))
+
+    elif hint is Hex:
+        content = text.data
+        if not isinstance(content, bytes):
+            content = content.encode(DEFAULT_MULTIBYTE_CP)
+
+        lines = []
+
+        for line in hexdump.dumpgen(content):
+            if text.colorize:
+                # Change to something HexdumpLexer knows
+                lines.append(
+                    line[:8] + ' ' + line[9:60] + '|' +
+                    line[60:] + '|'
+                )
+            else:
+                lines.append(line)
+
+        content = '\n'.join(lines)
+
+        if text.colorize:
+            return as_term_bytes(
+                Pygment(HexdumpLexer(), content), width
+            )
+        else:
+            return content.encode(DEFAULT_MULTIBYTE_CP)
 
     elif hint is Pygment:
         lexer = text.lexer

@@ -21,12 +21,13 @@ import select
 import array
 import pwd
 import errno
-import shlex
 
 from io import open
 
 from collections import deque
+
 from network.lib.pupyrpc import nowait
+from network.lib.convcompat import shlex
 
 from pupy import manager, Task
 
