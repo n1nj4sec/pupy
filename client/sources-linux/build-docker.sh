@@ -49,7 +49,7 @@ $PIP_INSTALL \
     zeroconf==0.19.1 pyodbc \
     watchdog pulsectl pycryptodomex==3.7.0 --no-binary :all:
 
-LDFLAGS="$LDFLAGS -lm -lasound" \
+LDFLAGS="$LDFLAGS -lm -lasound" CFLAGS="$CFLAGS -std=gnu99" \
     $PIP_INSTALL pyalsaaudio  --no-binary :all:
 
 if [ "$TOOLCHAIN_ARCH" == "x86" ]; then
