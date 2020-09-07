@@ -50,7 +50,7 @@ __all__ = (
     'Channel', 'Connection', 'Service', 'BaseNetref', 'AsyncResult',
     'GenericException', 'AsyncResultTimeout',
     'nowait', 'timed', 'buffiter', 'BgServingThread', 'restricted',
-    'classic',
+    'classic', 'byref',
     '__version__'
 )
 
@@ -58,7 +58,7 @@ import sys
 
 from network.lib.rpc.core import (
     Channel, Connection, Service, BaseNetref, AsyncResult,
-    GenericException, AsyncResultTimeout
+    GenericException, AsyncResultTimeout, byref
 )
 
 from network.lib.rpc.utils.helpers import (

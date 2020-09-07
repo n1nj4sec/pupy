@@ -71,12 +71,8 @@ for module in ('nt', 'posix'):
     if module in sys.builtin_module_names:
         os_ = __import__(module)
 
-if sys.version_info.major < 3:
+if sys.version_info.major > 2:
     xrange = range
-
-    __all__ = tuple(
-        export.encode('ascii') for export in __all__
-    )
 
 
 def _stub(*args, **kwargs):

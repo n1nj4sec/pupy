@@ -771,6 +771,7 @@ def transfer_closure(callback, exclude=None, include=None, follow_symlinks=False
 
     return _closure, _stop, t.terminate
 
+
 if __name__ == '__main__':
     import StringIO
 

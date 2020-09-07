@@ -21,56 +21,69 @@ from ..lib import get_methods
 from . import consts, brine, vinegar, netref
 from .nowait import AsyncResult
 
+
 class PingError(Exception):
     """The exception raised should :func:`Connection.ping` fail"""
     pass
 
 
-DEFAULT_CONFIG = dict(
+DEFAULT_CONFIG = {
     # ATTRIBUTES
-    allow_safe_attrs = True,
-    allow_exposed_attrs = True,
-    allow_public_attrs = False,
-    allow_all_attrs = False,
-    safe_attrs = {
+    'allow_safe_attrs': True,
+    'allow_exposed_attrs': True,
+    'allow_public_attrs': False,
+    'allow_all_attrs': False,
+    'safe_attrs': {
         '__abs__', '__add__', '__and__', '__bool__', '__cmp__', '__contains__',
         '__delitem__', '__delslice__', '__div__', '__divmod__', '__doc__',
         '__eq__', '__float__', '__floordiv__', '__ge__', '__getitem__',
-        '__getslice__', '__gt__', '__hash__', '__hex__', '__iadd__', '__iand__',
-        '__idiv__', '__ifloordiv__', '__ilshift__', '__imod__', '__imul__',
-        '__index__', '__int__', '__invert__', '__ior__', '__ipow__', '__irshift__',
-        '__isub__', '__iter__', '__itruediv__', '__ixor__', '__le__', '__len__',
-        '__long__', '__lshift__', '__lt__', '__mod__', '__mul__', '__ne__',
-        '__neg__', '__new__', '__nonzero__', '__oct__', '__or__', '__pos__',
-        '__pow__', '__radd__', '__rand__', '__rdiv__', '__rdivmod__', '__repr__',
-        '__rfloordiv__', '__rlshift__', '__rmod__', '__rmul__', '__ror__',
-        '__rpow__', '__rrshift__', '__rshift__', '__rsub__', '__rtruediv__',
-        '__rxor__', '__setitem__', '__setslice__', '__str__', '__sub__',
-        '__truediv__', '__xor__', 'next', '__length_hint__', '__enter__',
-        '__exit__', '__next__'
+        '__getslice__', '__gt__', '__hash__', '__hex__', '__iadd__',
+        '__iand__', '__idiv__', '__ifloordiv__', '__ilshift__', '__imod__',
+        '__imul__', '__index__', '__int__', '__invert__', '__ior__',
+        '__ipow__', '__irshift__', '__isub__', '__iter__', '__itruediv__',
+        '__ixor__', '__le__', '__len__', '__long__', '__lshift__', '__lt__',
+        '__mod__', '__mul__', '__ne__', '__neg__', '__new__', '__nonzero__',
+        '__oct__', '__or__', '__pos__', '__pow__', '__radd__', '__rand__',
+        '__rdiv__', '__rdivmod__', '__repr__', '__rfloordiv__', '__rlshift__',
+        '__rmod__', '__rmul__', '__ror__', '__rpow__', '__rrshift__',
+        '__rshift__', '__rsub__', '__rtruediv__', '__rxor__', '__setitem__',
+        '__setslice__', '__str__', '__sub__', '__truediv__', '__xor__', 'next',
+        '__length_hint__', '__enter__', '__exit__', '__next__'
     },
-    exposed_prefix = "exposed_",
-    allow_getattr = True,
-    allow_setattr = False,
-    allow_delattr = False,
+
+    'exposed_prefix': 'exposed_',
+    'allow_getattr': True,
+    'allow_setattr': False,
+    'allow_delattr': False,
+
     # EXCEPTIONS
-    include_local_traceback = True,
-    instantiate_custom_exceptions = False,
-    import_custom_exceptions = False,
-    instantiate_oldstyle_exceptions = False, # which don't derive from Exception
-    propagate_SystemExit_locally = False, # whether to propagate SystemExit locally or to the other party
-    propagate_KeyboardInterrupt_locally = True,  # whether to propagate KeyboardInterrupt locally or to the other party
-    log_exceptions = True,
+    'include_local_traceback': True,
+    'instantiate_custom_exceptions': False,
+    'import_custom_exceptions': False,
+
+    # which don't derive from Exception
+    'instantiate_oldstyle_exceptions': False,
+
+    # whether to propagate SystemExit locally or to the other party
+    'propagate_SystemExit_locally': False,
+
+    # whether to propagate KeyboardInterrupt locally or to the other party
+    'propagate_KeyboardInterrupt_locally': True,
+    'log_exceptions': True,
+
     # MISC
-    allow_pickle = False,
-    connid = None,
-    credentials = None,
-    endpoints = None,
-    logger = None,
-    sync_request_timeout = 30,
-)
+    'allow_pickle': False,
+    'connid': None,
+    'credentials': None,
+    'endpoints': None,
+    'logger': None,
+    'sync_request_timeout': 30,
+}
+
+
 """
-The default configuration dictionary of the protocol. You can override these parameters
+The default configuration dictionary of the protocol. You can override these
+parameters
 by passing a different configuration dict to the :class:`Connection` class.
 
 .. note::
@@ -128,8 +141,10 @@ Parameter                                Default value     Description
 =======================================  ================  =====================================================
 """
 
+list_keys_type = type({}.keys())
 
 _connection_id_generator = itertools.count(1)
+
 
 class Connection(object):
     """The  *connection* (AKA *protocol*).
@@ -143,12 +158,25 @@ class Connection(object):
                   need to call :func:`_init_service` manually later
     """
 
-    def __init__(self, service, channel, config = {}, _lazy = False):
+    __slots__ = (
+        '__weakref__',
+
+        '_closed', '_config', '_config', '_channel', '_seqcounter',
+        '_recvlock', '_sendlock', '_sync_replies', '_sync_lock',
+        '_sync_event', '_async_callbacks', '_local_objects',
+        '_last_traceback', '_proxy_cache', '_netref_classes_cache',
+        '_remote_root', '_send_queue', '_local_root', '_closed'
+    )
+
+    def __init__(self, service, channel, config={}, _lazy=False):
         self._closed = True
         self._config = DEFAULT_CONFIG.copy()
         self._config.update(config)
+
         if self._config["connid"] is None:
-            self._config["connid"] = "conn%d" % (next(_connection_id_generator),)
+            self._config["connid"] = "conn%d" % (
+                next(_connection_id_generator),
+            )
 
         self._channel = channel
         self._seqcounter = itertools.count()
@@ -169,7 +197,6 @@ class Connection(object):
             self._init_service()
         self._closed = False
 
-
     def _init_service(self):
         self._local_root.on_connect()
 
@@ -189,7 +216,7 @@ class Connection(object):
     #
     # IO
     #
-    def _cleanup(self, _anyway = True):
+    def _cleanup(self, _anyway=True):
         if self._closed and not _anyway:
             return
         self._closed = True
@@ -203,10 +230,8 @@ class Connection(object):
         self._last_traceback = None
         self._remote_root = None
         self._local_root = None
-        #self._seqcounter = None
-        #self._config.clear()
 
-    def close(self, _catchall = True):
+    def close(self, _catchall=True):
         """closes the connection, releasing all held resources"""
         if self._closed:
             return
@@ -219,7 +244,7 @@ class Connection(object):
             if not _catchall:
                 raise
         finally:
-            self._cleanup(_anyway = True)
+            self._cleanup(_anyway=True)
 
     @property
     def closed(self):
@@ -230,7 +255,7 @@ class Connection(object):
         """Returns the connectin's underlying file descriptor"""
         return self._channel.fileno()
 
-    def ping(self, data = None, timeout = 3):
+    def ping(self, data=None, timeout=3):
         """
         Asserts that the other party is functioning properly, by making sure
         the *data* is echoed back before the *timeout* expires
@@ -242,15 +267,17 @@ class Connection(object):
         """
         if data is None:
             data = b'abcdefghijklmnopqrstuvwxyz' * 20
-        res = self.async_request(consts.HANDLE_PING, data, timeout = timeout)
+        res = self.async_request(
+            consts.HANDLE_PING, data, timeout=timeout
+        )
         if res.value != data:
             raise PingError("echo mismatches sent data")
 
     def _get_seq_id(self):
         return next(self._seqcounter)
 
-    def _send(self, msg, seq, args):
-        data = brine.dump((msg, seq, args))
+    def _send(self, msg, seq, args, version):
+        data = brine.dump((msg, seq, args), version)
         # GC might run while sending data
         # if so, a BaseNetref.__del__ might be called
         # BaseNetref.__del__ must call asyncreq,
@@ -280,52 +307,105 @@ class Connection(object):
             finally:
                 self._sendlock.release()
 
-    def _send_request(self, seq, handler, args):
-        self._send(consts.MSG_REQUEST, seq, (handler, self._box(args)))
+    def _send_request(self, seq, handler, args, version=0):
+        self._send(
+            consts.MSG_REQUEST, seq, (
+                handler, self._box(args, version)
+            ), version
+        )
 
-    def _send_reply(self, seq, obj):
-        self._send(consts.MSG_REPLY, seq, self._box(obj))
+    def _send_reply(self, seq, obj, version=0):
+        self._send(
+            consts.MSG_REPLY, seq, self._box(obj, version),
+            version
+        )
 
-    def _send_exception(self, seq, exctype, excval, exctb):
-        exc = vinegar.dump(exctype, excval, exctb,
-            include_local_traceback = self._config["include_local_traceback"])
-        self._send(consts.MSG_EXCEPTION, seq, exc)
+    def _send_exception(self, seq, exctype, excval, exctb, version):
+        exc = vinegar.dump(
+            exctype, excval, exctb,
+            self._config["include_local_traceback"],
+            version
+        )
+        self._send(
+            consts.MSG_EXCEPTION, seq, exc, version
+        )
 
     #
     # boxing
     #
-    def _box(self, obj):
+    def _box(self, obj, version=0, copy_mutable=True):
         """store a local object in such a way that it could be recreated on
         the remote party either by-value or by-reference"""
-        if brine.dumpable(obj):
+
+        if isinstance(obj, netref.byref):
+            obj = obj.object
+            copy_mutable = False
+
+        if brine.dumpable(obj, version, copy_mutable=copy_mutable):
             return consts.LABEL_VALUE, obj
-        if type(obj) is tuple:
-            return consts.LABEL_TUPLE, tuple(self._box(item) for item in obj)
+
+        elif type(obj) is tuple:
+            return consts.LABEL_TUPLE, tuple(
+                self._box(item, version, copy_mutable) for item in obj
+            )
+
         elif isinstance(obj, netref.BaseNetref) and obj.____conn__() is self:
             return consts.LABEL_LOCAL_REF, obj.____oid__
-        else:
-            self._local_objects.add(obj)
-            try:
-                cls = obj.__class__
-            except Exception:
-                # see issue #16
-                cls = type(obj)
-            if not isinstance(cls, type):
-                cls = type(obj)
-            return consts.LABEL_REMOTE_REF, (id(obj), cls.__name__, cls.__module__)
 
-    def _unbox(self, package):
+        elif version > 0:
+            if copy_mutable and type(obj) is set:
+                return consts.LABEL_V1_SET, tuple(
+                    self._box(item, version, copy_mutable) for item in obj
+                )
+            elif (copy_mutable and type(obj) is list) or (
+                    is_py3k and type(obj) is list_keys_type):
+                return consts.LABEL_V1_LIST, tuple(
+                    self._box(item, version, copy_mutable) for item in obj
+                )
+
+            elif copy_mutable and type(obj) is dict:
+                return consts.LABEL_V1_DICT, tuple(
+                    (
+                        self._box(key, version, copy_mutable),
+                        self._box(value, version, copy_mutable)
+                    ) for key, value in obj.items()
+                )
+            elif isinstance(obj, tuple) and \
+                    type(obj) in brine.REGISTERED_NAMED_TUPLES_PACK:
+                return consts.LABEL_V1_NAMED_TUPLE, (
+                    brine.REGISTERED_NAMED_TUPLES_PACK[type(obj)],
+                    tuple(
+                        self._box(item, version, copy_mutable) for item in obj
+                    )
+                )
+
+        self._local_objects.add(obj)
+        try:
+            cls = obj.__class__
+        except Exception:
+            # see issue #16
+            cls = type(obj)
+
+        if not isinstance(cls, type):
+            cls = type(obj)
+
+        return consts.LABEL_REMOTE_REF, (
+            id(obj), cls.__name__, cls.__module__
+        )
+
+    def _unbox(self, package, version=0):
         """recreate a local object representation of the remote object: if the
         object is passed by value, just return it; if the object is passed by
         reference, create a netref to it"""
+
         label, value = package
         if label == consts.LABEL_VALUE:
             return value
-        if label == consts.LABEL_TUPLE:
-            return tuple(self._unbox(item) for item in value)
-        if label == consts.LABEL_LOCAL_REF:
+        elif label == consts.LABEL_TUPLE:
+            return tuple(self._unbox(item, version) for item in value)
+        elif label == consts.LABEL_LOCAL_REF:
             return self._local_objects[value]
-        if label == consts.LABEL_REMOTE_REF:
+        elif label == consts.LABEL_REMOTE_REF:
             oid, clsname, modname = value
             if oid in self._proxy_cache:
                 proxy = self._proxy_cache[oid]
@@ -338,6 +418,29 @@ class Connection(object):
             proxy = self._netref_factory(oid, clsname, modname)
             self._proxy_cache[oid] = proxy
             return proxy
+        elif version > 0:
+            if label == consts.LABEL_V1_SET:
+                return set(
+                    self._unbox(item, version) for item in value
+                )
+            elif label == consts.LABEL_V1_LIST:
+                return list(
+                    self._unbox(item, version) for item in value
+                )
+            elif label == consts.LABEL_V1_NAMED_TUPLE:
+                tuple_id, values = value
+                if tuple_id not in brine.REGISTERED_NAMED_TUPLES_UNPACK:
+                    raise ValueError('Unexpected tuple id %s' % (tuple_id,))
+
+                tuple_type = brine.REGISTERED_NAMED_TUPLES_UNPACK[tuple_id]
+                return tuple_type(*tuple(
+                    self._unbox(item, version) for item in values
+                ))
+            elif label == consts.LABEL_V1_DICT:
+                return {
+                    self._unbox(key, version): self._unbox(value, version)
+                    for (key, value) in value
+                }
 
         raise ValueError("invalid label %r" % (label,))
 
@@ -356,38 +459,43 @@ class Connection(object):
     #
     # dispatching
     #
-    def _dispatch_request(self, seq, raw_args):
+    def _dispatch_request(self, seq, raw_args, version):
         try:
             handler, args = raw_args
-            args = self._unbox(args)
+            args = self._unbox(args, version)
             res = self._HANDLERS[handler](self, *args)
-        except:
+        except Exception:
             # need to catch old style exceptions too
             t, v, tb = sys.exc_info()
             self._last_traceback = tb
             logger = self._config["logger"]
             if logger and t is not StopIteration:
                 logger.debug("Exception caught", exc_info=True)
-            if t is SystemExit and self._config["propagate_SystemExit_locally"]:
+            if t is SystemExit and self._config[
+                    "propagate_SystemExit_locally"]:
                 raise
-            if t is KeyboardInterrupt and self._config["propagate_KeyboardInterrupt_locally"]:
+            if t is KeyboardInterrupt and self._config[
+                    "propagate_KeyboardInterrupt_locally"]:
                 raise
-            self._send_exception(seq, t, v, tb)
+            self._send_exception(seq, t, v, tb, version)
         else:
-            self._send_reply(seq, res)
+            self._send_reply(seq, res, version)
 
-    def _dispatch_reply(self, seq, raw):
-        obj = self._unbox(raw)
+    def _dispatch_reply(self, seq, raw, version):
+        obj = self._unbox(raw, version)
         if seq in self._async_callbacks:
             self._async_callbacks.pop(seq)(False, obj)
         else:
             self._sync_replies[seq] = (False, obj)
 
-    def _dispatch_exception(self, seq, raw):
-        obj = vinegar.load(raw,
-            import_custom_exceptions = self._config["import_custom_exceptions"],
-            instantiate_custom_exceptions = self._config["instantiate_custom_exceptions"],
-            instantiate_oldstyle_exceptions = self._config["instantiate_oldstyle_exceptions"])
+    def _dispatch_exception(self, seq, raw, version):
+        obj = vinegar.load(
+            raw,
+            import_custom_exceptions=self._config["import_custom_exceptions"],
+            instantiate_custom_exceptions=self._config[
+                "instantiate_custom_exceptions"],
+            instantiate_oldstyle_exceptions=self._config[
+                "instantiate_oldstyle_exceptions"])
         if seq in self._async_callbacks:
             self._async_callbacks.pop(seq)(True, obj)
         else:
@@ -411,14 +519,14 @@ class Connection(object):
             self._recvlock.release()
         return data
 
-    def _dispatch(self, data):
-        msg, seq, args = brine.load(data)
+    def _dispatch(self, data, version=0):
+        msg, seq, args = brine.load(data, version)
         if msg == consts.MSG_REQUEST:
-            self._dispatch_request(seq, args)
+            self._dispatch_request(seq, args, version)
         elif msg == consts.MSG_REPLY:
-            self._dispatch_reply(seq, args)
+            self._dispatch_reply(seq, args, version)
         elif msg == consts.MSG_EXCEPTION:
-            self._dispatch_exception(seq, args)
+            self._dispatch_exception(seq, args, version)
         else:
             raise ValueError("invalid message type: %r" % (msg,))
 
@@ -427,7 +535,7 @@ class Connection(object):
         if self._sync_lock.acquire(False):
             try:
                 self._sync_event.clear()
-                data = self._recv(timeout, wait_for_lock = False)
+                data = self._recv(timeout, wait_for_lock=False)
                 if not data:
                     return False
                 self._dispatch(data)
@@ -438,7 +546,7 @@ class Connection(object):
         else:
             self._sync_event.wait()
 
-    def poll(self, timeout = 0):
+    def poll(self, timeout=0):
         """Serves a single transaction, should one arrives in the given
         interval. Note that handling a request/reply may trigger nested
         requests, which are all part of a single transaction.
@@ -446,7 +554,7 @@ class Connection(object):
         :returns: ``True`` if a transaction was served, ``False`` otherwise"""
         return self.sync_recv_and_dispatch(timeout, wait_for_lock=False)
 
-    def serve(self, timeout = 1):
+    def serve(self, timeout=1):
         """Serves a single request or reply that arrives within the given
         time frame (default is 1 sec). Note that the dispatching of a request
         might trigger multiple (nested) requests, thus this function may be
@@ -501,7 +609,8 @@ class Connection(object):
     def poll_all(self, timeout=0):
         """Serves all requests and replies that arrive within the given interval.
 
-        :returns: ``True`` if at least a single transaction was served, ``False`` otherwise
+        :returns: ``True`` if at least a single transaction was served,
+        ``False`` otherwise
         """
         at_least_once = False
         t0 = time.time()
@@ -540,12 +649,12 @@ class Connection(object):
         else:
             return obj
 
-    def _async_request(self, handler, args = (), callback = (lambda a, b: None)):
+    def _async_request(self, handler, args=(), callback=(lambda a, b: None)):
         seq = self._get_seq_id()
         self._async_callbacks[seq] = callback
         try:
             self._send_request(seq, handler, args)
-        except:
+        except Exception:
             if seq in self._async_callbacks:
                 del self._async_callbacks[seq]
             raise
@@ -558,7 +667,8 @@ class Connection(object):
         """
         timeout = kwargs.pop("timeout", None)
         if kwargs:
-            raise TypeError("got unexpected keyword argument(s) %s" % (list(kwargs.keys()),))
+            raise TypeError("got unexpected keyword argument(s) %s" % (
+                list(kwargs.keys()),))
         res = AsyncResult(weakref.proxy(self))
         self._async_request(handler, args, res)
         if timeout is not None:
@@ -589,15 +699,18 @@ class Connection(object):
         if self._config["allow_all_attrs"]:
             return name
 
-        if self._config["allow_safe_attrs"] and name in self._config["safe_attrs"]:
+        if self._config["allow_safe_attrs"] and \
+                name in self._config["safe_attrs"]:
             return name
 
-        if self._config["allow_public_attrs"] and not name.startswith("_"):
+        if self._config["allow_public_attrs"] and \
+                not name.startswith("_"):
             return name
 
         return False
 
     def _access_attr(self, oid, name, args, overrider, param, default):
+
         name = as_native_string(name)
 
         obj = self._local_objects[oid]
@@ -652,7 +765,6 @@ class Connection(object):
         kwargs = {
             as_native_string(key): value for (key, value) in kwargs
         }
-
         return self._local_objects[oid](*args, **kwargs)
 
     def _handle_dir(self, oid):
@@ -693,13 +805,18 @@ class Connection(object):
             as_native_string(key): value for (key, value) in kwargs
         }
 
-        return self._handle_getattr(
-            oid, as_native_string(name)
-        )(*args, **kwargs)
+        function = self._access_attr(
+            oid,
+            as_native_string(name), (),
+            "_rpyc_getattr", "allow_getattr", getattr
+        )
+
+        return function(*args, **kwargs)
 
     def _handle_pickle(self, oid, proto):
         if not self._config["allow_pickle"]:
             raise ValueError("pickling is disabled")
+
         return pickle.dumps(self._local_objects[oid], proto)
 
     def _handle_buffiter(self, oid, count):
@@ -727,7 +844,7 @@ class Connection(object):
             return getslice(start, stop, *args)
 
     # collect handlers
-    _HANDLERS = {}
+    _HANDLERS = [None] * consts.HANDLE_MAX
 
     for name, obj in dict(locals()).items():
         if name.startswith("_handle_"):

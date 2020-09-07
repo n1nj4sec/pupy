@@ -200,6 +200,8 @@ dict_keys = type({}.keys())
 dict_items = type({}.items())
 dict_values = type({}.values())
 
+tuple_items = type(().__iter__())
+
 #############################################################################
 # Exported Functions and Glob
 #############################################################################

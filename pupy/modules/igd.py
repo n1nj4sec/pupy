@@ -9,6 +9,7 @@ import json
 
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.utils.term import colorize
+from network.lib.convcompat import as_unicode_string_deep
 from defusedxml import minidom
 
 __class_name__ = "IGDClient"
@@ -25,10 +26,14 @@ class IGDCMDClient(object):
 
         self.igdc = IGDClient(
             args.source, args.url,
-            args.DEBUG, args.pretty_print)
+            args.DEBUG, args.pretty_print
+        )
+
         self.log = log
 
     def show(self, values):
+        values = as_unicode_string_deep(values)
+
         if isinstance(values, dict):
             column_size = max([len(x) for x in values])
             fmt = '{{:<{}}}'.format(column_size)
@@ -427,9 +432,6 @@ class IGDClient(PupyModule):
         if not self.cli.igdc.available:
             self.error('IGD: Not found in LAN')
             return
-
-        self.cli.igdc.enableDebug(args.DEBUG)
-        self.cli.igdc.enablePPrint(args.pretty_print)
 
         try:
             args.func(args)

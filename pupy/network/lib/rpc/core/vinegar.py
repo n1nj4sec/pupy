@@ -37,7 +37,7 @@ except NameError:
     # python 2.4 compatible
     BaseException = Exception
 
-def dump(typ, val, tb, include_local_traceback):
+def dump(typ, val, tb, include_local_traceback, version):
     """Dumps the given exceptions info, as returned by ``sys.exc_info()``
 
     :param typ: the exception's type (class)
@@ -75,7 +75,7 @@ def dump(typ, val, tb, include_local_traceback):
     for name in dir(val):
         if name == "args":
             for a in val.args:
-                if brine.dumpable(a):
+                if brine.dumpable(a, version):
                     args.append(a)
                 else:
                     args.append(repr(a))
@@ -87,7 +87,7 @@ def dump(typ, val, tb, include_local_traceback):
             except AttributeError:
                 # skip this attr. see issue #108
                 continue
-            if not brine.dumpable(attrval):
+            if not brine.dumpable(attrval, version):
                 attrval = repr(attrval)
             attrs.append((name, attrval))
 

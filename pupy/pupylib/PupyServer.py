@@ -52,6 +52,7 @@ else:
     from itertools import ifilterfalse as filterfalse
 
 from netaddr import IPAddress
+from netaddr.core import AddrFormatError
 from random import randint
 from tempfile import NamedTemporaryFile
 from inspect import isclass
@@ -69,7 +70,9 @@ from pupylib.PupyCompile import pupycompile
 from pupylib.PupyOutput import Error, Line, Color
 from pupylib.PupyModule import QA_STABLE, IgnoreModule, PupyModule
 from pupylib.PupyDnsCnc import PupyDnsCnc
-from pupylib.PupyTriggers import event, event_to_string, register_event_id, CUSTOM
+from pupylib.PupyTriggers import (
+    event, event_to_string, register_event_id, CUSTOM
+)
 from pupylib.PupyTriggers import ON_CONNECT, ON_DISCONNECT, ON_START, ON_EXIT
 from pupylib.PupyTriggers import RegistrationNotAllowed, UnregisteredEventId
 from pupylib.PupyWeb import PupyWebServer
@@ -86,7 +89,9 @@ from network.conf import transports
 from network.transports.ssl.conf import PupySSLAuthenticator
 from network.lib.connection import PupyConnectionThread
 from network.lib.servers import PupyTCPServer
-from network.lib.streams.PupySocketStream import PupySocketStream, PupyUDPSocketStream
+from network.lib.streams.PupySocketStream import (
+    PupySocketStream, PupyUDPSocketStream
+)
 from network.lib.streams.PupyVirtualStream import PupyVirtualStream
 
 from network.lib.utils import parse_transports_args
@@ -115,7 +120,10 @@ class PupyKCPSocketStream(PupySocketStream):
 
 
 class Listener(Thread):
-    def __init__(self, pupsrv, name, args, httpd=False, igd=False, local=None, external=None, pproxy=None):
+    def __init__(
+        self, pupsrv, name, args, httpd=False, igd=False,
+            local=None, external=None, pproxy=None):
+
         Thread.__init__(self)
         self.daemon = True
         self.name = 'Listener({})'.format(name)
@@ -126,7 +134,7 @@ class Listener(Thread):
         self.name = name.lower().strip()
         self.transport = transports[self.name]()
         self.authenticator = self.transport.authenticator() if \
-          self.transport.authenticator else None
+            self.transport.authenticator else None
 
         self.pupsrv = pupsrv
         self.config = pupsrv.config
@@ -183,7 +191,9 @@ class Listener(Thread):
 
                     self.ipv6 = (address.version == 6) or default_ipv6
                 except Exception as e:
-                    raise ListenerException('Invalid IP: {} ({})'.format(ip, e))
+                    raise ListenerException(
+                        'Invalid IP: {} ({})'.format(ip, e)
+                    )
 
             else:
                 port = args[0]
@@ -213,25 +223,31 @@ class Listener(Thread):
 
                 try:
                     self.external = str(IPAddress(extip))
-                except:
+                except AddrFormatError:
                     self.external = '127.0.0.1'
 
         if '=' in port:
             port = [x.strip() for x in port.split('=', 1)]
             try:
                 self.external_port = int(port[0])
-            except:
-                raise ListenerException("Invalid external port: {}".format(port[0]))
+            except ValueError:
+                raise ListenerException(
+                    "Invalid external port: {}".format(port[0])
+                )
 
             try:
                 self.port = int(port[1])
-            except:
-                raise ListenerException("Invalid local port: {}".format(port[1]))
+            except ValueError:
+                raise ListenerException(
+                    "Invalid local port: {}".format(port[1])
+                )
         else:
             try:
                 self.port = int(port)
-            except:
-                raise ListenerException("Invalid local port: {}".format(port[1]))
+            except ValueError:
+                raise ListenerException(
+                    "Invalid local port: {}".format(port[1])
+                )
 
             self.external_port = self.port
 
@@ -335,7 +351,7 @@ class Listener(Thread):
                 logger.error(
                     "Couldn't delete IGD Mapping: {}".format(e.description)
                 )
-            except:
+            except Exception:
                 pass
 
         if self.server:
@@ -377,14 +393,14 @@ class Listener(Thread):
             result += ' ' + ' '.join(
                 '{}={}'.format(
                     k, v if k != 'password' else '*'*len(v)
-                ) for k,v in self.kwargs.items())
+                ) for k, v in self.kwargs.items())
 
         return '{}: {}'.format(self.name, result)
 
 
 class PupyServer(object):
     SUFFIXES = tuple([
-        suffix for suffix, _, rtype in imp.get_suffixes() \
+        suffix for suffix, _, rtype in imp.get_suffixes()
         if rtype == imp.PY_SOURCE
     ])
 
@@ -434,7 +450,8 @@ class PupyServer(object):
 
         pproxy_dnscnc = None
 
-        if pproxy and ca and key and cert and (pproxy_listener_required or pproxy_dnscnc_required):
+        if pproxy and ca and key and cert and (
+                pproxy_listener_required or pproxy_dnscnc_required):
             try:
                 pproxy_manager = PupyOffloadManager(
                     pproxy, ca, key, cert, via)
@@ -452,11 +469,15 @@ class PupyServer(object):
                         ' via {}'.format(via) if via else ''))
 
             except (socket.error, OffloadProxyCommonError) as e:
-                self.motd['fail'].append('Offload proxy unavailable: {}'.format(e))
+                self.motd['fail'].append(
+                    'Offload proxy unavailable: {}'.format(e)
+                )
 
             except Exception as e:
                 logger.exception(e)
-                self.motd['fail'].append('Using Pupy Offload Proxy: Failed: {}'.format(e))
+                self.motd['fail'].append(
+                    'Using Pupy Offload Proxy: Failed: {}'.format(e)
+                )
 
         if self.config.getboolean('pupyd', 'httpd'):
             self.httpd = True
@@ -485,7 +506,8 @@ class PupyServer(object):
         self.listeners = {}
 
         dnscnc = self.config.get('pupyd', 'dnscnc')
-        if dnscnc and not dnscnc.lower() in ('no', 'false', 'stop', 'n', 'disable'):
+        if dnscnc and dnscnc.lower() not in (
+                'no', 'false', 'stop', 'n', 'disable'):
             try:
                 self.dnscnc = PupyDnsCnc(
                     igd=self.igd,
@@ -548,17 +570,29 @@ class PupyServer(object):
 
         with self.clients_lock:
             if isinstance(dst_id, int):
-                dst_client = [x for x in self.clients if x.desc['id'] == dst_id]
+                dst_client = [
+                    x for x in self.clients if x.desc['id'] == dst_id
+                ]
+
                 if not dst_client:
-                    raise ValueError('Client with id {} not found'.format(dst_id))
+                    raise ValueError(
+                        'Client with id {} not found'.format(dst_id)
+                    )
+
                 dst_client = dst_client[0]
             else:
                 dst_client = dst_id
 
             if isinstance(src_id, int):
-                src_client = [x for x in self.clients if x.desc['id'] == src_id]
+                src_client = [
+                    x for x in self.clients if x.desc['id'] == src_id
+                ]
+
                 if not src_client:
-                    raise ValueError('Client with id {} not found'.format(src_id))
+                    raise ValueError(
+                        'Client with id {} not found'.format(src_id)
+                    )
+
                 src_client = src_client[0]
             else:
                 src_client = src_id
@@ -577,7 +611,11 @@ class PupyServer(object):
                 logger.debug('Id not found in current_id list: %s', id)
 
     def register_handler(self, instance):
-        """ register the handler instance, typically a PupyCmd, and PupyWeb in the futur"""
+        """
+        register the handler instance, typically a PupyCmd,
+        and PupyWeb in the future
+        """
+
         self.handler = instance
 
         if self.dnscnc:
@@ -607,7 +645,9 @@ class PupyServer(object):
                 return True
             return False
 
-        return nodeid in set([x.strip().lower() for x in allowed_nodes.split(',')])
+        return nodeid in set([
+            x.strip().lower() for x in allowed_nodes.split(',')
+        ])
 
     def add_client(self, conn):
         client = None
@@ -661,8 +701,8 @@ class PupyServer(object):
             try:
                 if type(conn_id) is list:
                     address = conn_id[0]
-                address = conn_id.rsplit(':',1)[0]
-            except:
+                address = conn_id.rsplit(':', 1)[0]
+            except Exception:
                 address = str(address)
 
             client_info.update({
@@ -684,7 +724,7 @@ class PupyServer(object):
             if self.handler:
                 try:
                     client_ip, client_port = conn_id.rsplit(':', 1)
-                except:
+                except Exception:
                     client_ip, client_port = '0.0.0.0', 0
 
                 if ':' in client_ip:
@@ -724,8 +764,12 @@ class PupyServer(object):
             self.info('Session {} closed'.format(client.desc['id']))
 
     def get_clients(self, search_criteria):
-        """ return a list of clients corresponding to the search criteria. ex: platform:*win* """
-        #if the criteria is a simple id we return the good client
+        """
+        return a list of clients corresponding to the search criteria.
+        ex: platform:*win*
+        """
+
+        # if the criteria is a simple id we return the good client
 
         if not search_criteria:
             return self.clients
@@ -746,33 +790,39 @@ class PupyServer(object):
 
         clients = set([])
 
-        if search_criteria=="*":
+        if search_criteria == '*':
             return self.clients
 
         for c in self.clients:
             take = False
             tags = self.config.tags(c.node())
             for sc in search_criteria.split():
-                tab = sc.split(":",1)
-                #if the field is specified we search for the value in this field
-                if len(tab)==2 and tab[0] in c.desc:
-                    take=True
-                    if not tab[1].lower() in str(c.desc[tab[0]]).lower():
-                        take=False
-                        break
-                elif len(tab)==2 and tab[0] == 'tag' and tab[1] in tags:
+                tab = sc.split(':', 1)
+                # if the field is specified we search for
+                # the value in this field
+
+                if len(tab) == 2 and tab[0] in c.desc:
                     take = True
-                elif len(tab)==2 and tab[0] == 'tags':
+                    if not tab[1].lower() in str(c.desc[tab[0]]).lower():
+                        take = False
+                        break
+
+                elif len(tab) == 2 and tab[0] == 'tag' and tab[1] in tags:
+                    take = True
+
+                elif len(tab) == 2 and tab[0] == 'tags':
                     if '&' in tab[1]:
                         take = all(x in tags for x in tab[1].split('&') if x)
                     else:
                         take = any(x in tags for x in tab[1].split(',') if x)
-                elif len(tab)!=2:#if there is no field specified we search in every field for at least one match
-                    take=False
+                elif len(tab) != 2:
+                    # if there is no field specified we search in every field
+                    # for at least one match
+                    take = False
                     if tab[0] in tags:
                         take = True
                     else:
-                        for k,v in c.desc.items():
+                        for k, v in c.desc.items():
                             if isinstance(v, basestring):
                                 if tab[0].lower() in v.decode('utf8').lower():
                                     take = True
@@ -819,19 +869,29 @@ class PupyServer(object):
                 yield module
 
     def get_module_name_from_category(self, modpath):
-        """ take a category virtual path and return the module's name or the path untouched if not found """
+        """
+        take a category virtual path and return the module's
+        name or the path untouched if not found
+        """
+
         mod = self.categories.get_module_from_path(modpath)
+
         if mod:
             return mod.get_name()
         else:
             return modpath
 
     def get_aliased_modules(self):
-        """ return a list of aliased module names that have to be displayed as commands """
+        """
+        return a list of aliased module names that have to be
+        displayed as commands
+        """
+
         modules = []
         for m in self.iter_modules():
             if not m.is_module:
                 modules.append((m.get_name(), m.__doc__))
+
         return modules
 
     def _refresh_modules(self, force=False):
@@ -870,7 +930,7 @@ class PupyServer(object):
             current_stats = stat(modpath)
 
             if not force and modname in self.modules and \
-              self._modules_stats[modname] == current_stats.st_mtime:
+                    self._modules_stats[modname] == current_stats.st_mtime:
                 continue
 
             try:
@@ -889,12 +949,16 @@ class PupyServer(object):
                     Error('Invalid module:'),
                     Color(modname, 'yellow'),
                     'at ({}): {}. Traceback:\n{}'.format(
-                    modpath, e, tb))
+                        modpath, e, tb
+                    )
+                )
 
                 self.info(error, error=True)
 
     def get_module(self, name):
-        enable_dangerous_modules = self.config.getboolean('pupyd', 'enable_dangerous_modules')
+        enable_dangerous_modules = self.config.getboolean(
+            'pupyd', 'enable_dangerous_modules'
+        )
 
         if name not in self.modules:
             self._refresh_modules(force=True)
@@ -923,22 +987,27 @@ class PupyServer(object):
                             'but it is already registered as "%s"',
                             name, event_name, registered_event_name)
 
-                        raise PupyModuleDisabled('Modules with errors are disabled.')
+                        raise PupyModuleDisabled(
+                            'Modules with errors are disabled.'
+                        )
 
                 except UnregisteredEventId:
                     try:
                         register_event_id(event_id, event_name)
                     except RegistrationNotAllowed:
                         logger.error(
-                            'script "%s" registers event_id 0x%08x which is not allowed, '
-                            'eventid should be >0x%08x',
-                            name, event_id, CUSTOM)
+                            'script "%s" registers event_id 0x%08x '
+                            'which is not allowed, eventid should be >0x%08x',
+                            name, event_id, CUSTOM
+                        )
 
-                        raise PupyModuleDisabled('Modules with errors are disabled.')
+                        raise PupyModuleDisabled(
+                            'Modules with errors are disabled.'
+                        )
 
         if not class_name:
-            #TODO automatically search the class name in the file
-            exit("Error : no __class_name__ for module %s"%module)
+            # TODO automatically search the class name in the file
+            exit('Error : no __class_name__ for module %s' % module)
 
         module_class = getattr(module, class_name)
 
@@ -949,9 +1018,13 @@ class PupyServer(object):
         return module_class
 
     def module_parse_args(self, module_name, args):
-        """ This method is used by the PupyCmd class to verify validity of arguments passed to a specific module """
-        module=self.get_module(module_name)
-        ps=module(None,None)
+        """
+        This method is used by the PupyCmd class to verify validity
+        of arguments passed to a specific module
+        """
+
+        module = self.get_module(module_name)
+        ps = module(None, None)
         if ps.known_args:
             return ps.arg_parser.parse_known_args(args)
         else:
@@ -959,22 +1032,23 @@ class PupyServer(object):
 
     def del_job(self, job_id):
         if job_id is not None:
-            job_id=int(job_id)
+            job_id = int(job_id)
             if job_id in self.jobs:
                 del self.jobs[job_id]
 
     def add_job(self, job):
-        job.id=self.jobs_id
-        self.jobs[self.jobs_id]=job
-        self.jobs_id+=1
+        job.id = self.jobs_id
+        self.jobs[self.jobs_id] = job
+        self.jobs_id += 1
 
     def get_job(self, job_id):
         try:
-            job_id=int(job_id)
+            job_id = int(job_id)
         except ValueError:
             raise PupyModuleError("job id must be an integer !")
         if job_id not in self.jobs:
-            raise PupyModuleError("%s: no such job !"%job_id)
+            raise PupyModuleError("%s: no such job !" % job_id)
+
         return self.jobs[job_id]
 
     def create_virtual_connection(self, transport, peer):
@@ -987,8 +1061,10 @@ class PupyServer(object):
         transport_conf = transports.get(transport)
         transport_class = transport_conf().server_transport
 
-        logger.debug('create_virtual_connection(%s, %s) - transport - %s / %s',
-            transport, peer, transport_conf, transport_class)
+        logger.debug(
+            'create_virtual_connection(%s, %s) - transport - %s / %s',
+            transport, peer, transport_conf, transport_class
+        )
 
         stream = PupyVirtualStream(transport_class)
 
@@ -1002,18 +1078,24 @@ class PupyServer(object):
             })
 
         def activate(peername, on_receive):
-            logger.debug('VirtualStream (%s, %s) - activating',
-                stream, peername)
+            logger.debug(
+                'VirtualStream (%s, %s) - activating',
+                stream, peername
+            )
 
             stream.activate(peername, on_receive)
 
-            logger.debug('VirtualStream (%s, %s) - starting thread',
-                stream, peername)
+            logger.debug(
+                'VirtualStream (%s, %s) - starting thread',
+                stream, peername
+            )
 
             vc.start()
 
-            logger.debug('VirstualStream (%s, %s) - activated',
-                stream, peername)
+            logger.debug(
+                'VirstualStream (%s, %s) - activated',
+                stream, peername
+            )
 
         return activate, stream.submit, stream.close
 
@@ -1070,11 +1152,14 @@ class PupyServer(object):
 
     def add_listener(self, name, config=None, motd=False, ignore_pproxy=False):
         if self.listeners and name in self.listeners:
-            self.handler.display_warning('Listener {} already registered'.format(name))
+            self.handler.display_warning(
+                'Listener {} already registered'.format(name)
+            )
             return
 
         if name not in transports:
-            error = 'Transport {} is not registered. To show available: listen -L'.format(repr(name))
+            error = 'Transport {} is not registered. ' \
+                'To show available: listen -L'.format(repr(name))
 
             if motd:
                 self.motd['fail'].append(error)
@@ -1085,8 +1170,8 @@ class PupyServer(object):
 
         listener_config = config or self.config.get('listeners', name)
         if not listener_config:
-            error = 'Transport {} does not have default settings. Specfiy args (at least port)'.format(
-                repr(name))
+            error = 'Transport {} does not have default settings. ' \
+                'Specfiy args (at least port)'.format(repr(name))
 
             if motd:
                 self.motd['fail'].append(error)
@@ -1131,12 +1216,15 @@ class PupyServer(object):
 
         except socket.error as e:
             if e.errno == errno.EACCES:
-                error = 'Listen: {}: Insufficient privileges to bind'.format(listener)
+                error = 'Listen: {}: ' \
+                    'Insufficient privileges to bind'.format(listener)
             elif e.errno == errno.EADDRINUSE:
-                error = 'Listen: {}: Address/Port already used'.format(listener)
+                error = 'Listen: {}: ' \
+                    'Address/Port already used'.format(listener)
             elif e.errno == errno.EADDRNOTAVAIL:
-                error = 'Listen: {}: No network interface with addresss {}'.format(
-                    listener, listener.address)
+                error = 'Listen: {}: ' \
+                    'No network interface with addresss {}'.format(
+                        listener, listener.address)
             else:
                 error = 'Listen: {}: {}'.format(listener, e)
 

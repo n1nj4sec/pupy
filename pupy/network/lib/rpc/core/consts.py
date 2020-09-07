@@ -17,6 +17,11 @@ LABEL_TUPLE      = 2
 LABEL_LOCAL_REF  = 3
 LABEL_REMOTE_REF = 4
 
+LABEL_V1_SET     = 5
+LABEL_V1_DICT    = 6
+LABEL_V1_NAMED_TUPLE = 7
+LABEL_V1_LIST    = 8
+
 # action handlers
 HANDLE_PING        = 1
 HANDLE_CLOSE       = 2
@@ -36,6 +41,7 @@ HANDLE_DEL         = 15
 HANDLE_INSPECT     = 16
 HANDLE_BUFFITER    = 17
 HANDLE_OLDSLICING  = 18
+HANDLE_MAX         = 19
 
 # optimized exceptions
 EXC_STOP_ITERATION = 1

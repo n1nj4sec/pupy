@@ -20,19 +20,24 @@ from . import consts
 
 
 _local_netref_attrs = frozenset([
-    '____conn__', '____oid__', '____refcount__', '__class__', '__cmp__', '__del__', '__delattr__',
+    '____conn__', '____oid__', '____refcount__', '___async_call__',
+    '___methods__',
+
+    '__class__', '__cmp__',
+    '__del__', '__delattr__',
     '__dir__', '__doc__', '__getattr__', '__getattribute__', '__hash__',
     '__init__', '__metaclass__', '__module__', '__new__', '__reduce__',
     '__reduce_ex__', '__repr__', '__setattr__', '__slots__', '__str__',
-    '__weakref__', '__dict__', '__members__', '__methods__',
+    '__weakref__', '__dict__', '__members__'
 ])
 """the set of attributes that are local to the netref object"""
 
 _builtin_types = [
-    type, object, bool, complex, dict, float, int, list, slice, str, tuple, set,
-    frozenset, Exception, type(None), types.BuiltinFunctionType, types.GeneratorType,
-    types.MethodType, types.CodeType, types.FrameType, types.TracebackType,
-    types.ModuleType, types.FunctionType,
+    type, object, bool, complex, dict, float, int, list,
+    slice, str, tuple, set, frozenset, Exception, type(None),
+    types.BuiltinFunctionType, types.GeneratorType,
+    types.MethodType, types.CodeType, types.FrameType,
+    types.TracebackType, types.ModuleType, types.FunctionType,
 
     type(int.__add__),      # wrapper_descriptor
     type((1).__add__),      # method-wrapper
@@ -61,8 +66,17 @@ else:
         types.InstanceType, type, types.DictProxyType,
     ])
 
-_normalized_builtin_types = dict(((t.__name__, t.__module__), t)
-    for t in _builtin_types)
+_normalized_builtin_types = dict(
+    ((t.__name__, t.__module__), t)
+    for t in _builtin_types
+)
+
+
+class byref(object):
+    __slots__ = ('object',)
+
+    def __init__(self, obj):
+        self.object = obj
 
 
 def syncreq(proxy, handler, *args):
@@ -123,8 +137,8 @@ class BaseNetref(object):
     defined in the :data:`_builtin_types`), and they are shared between all
     connections.
 
-    The rest of the netref classes are created by :meth:`.core.protocl.Connection._unbox`,
-    and are private to the connection.
+    The rest of the netref classes are created by
+    :meth:`.core.protocl.Connection._unbox`, and are private to the connection.
 
     Do not use this class directly; use :func:`class_factory` instead.
 
@@ -135,15 +149,18 @@ class BaseNetref(object):
 
     __metaclass__ = NetrefMetaclass
     __slots__ = (
-        "____conn__", "____oid__", "__weakref__", "____refcount__"
+        '____conn__', '____oid__', '__weakref__', '____refcount__',
+        '___async_call__'
     )
 
     def __init__(self, conn, oid):
         self.____conn__ = conn
         self.____oid__ = oid
         self.____refcount__ = 1
+        self.___async_call__ = None
 
     def __del__(self):
+        # print('DEL', repr((type(self), repr(self))))
         try:
             asyncreq(self, consts.HANDLE_DEL, self.____refcount__)
         except Exception:
@@ -153,24 +170,43 @@ class BaseNetref(object):
             pass
 
     def __getattribute__(self, name):
+        methods = object.__getattribute__(self, '___methods__')
+        method = methods.get(name)
+        if method is not None:
+            bound_method = method.__get__(self)
+            setattr(
+                bound_method, '___async_call__',
+                method.___async_call__.__get__(self)
+            )
+
+            return bound_method
+
         if name in _local_netref_attrs:
-            if name == "__class__":
-                cls = object.__getattribute__(self, "__class__")
+            if name == '__class__':
+                cls = object.__getattribute__(self, '__class__')
                 if cls is None:
-                    cls = self.__getattr__("__class__")
+                    cls = self.__getattr__('__class__')
                 return cls
-            elif name == "__doc__":
-                return self.__getattr__("__doc__")
-            elif name == "__members__":                       # for Python < 2.6
+            elif name == '__doc__':
+                return self.__getattr__('__doc__')
+            elif name == '__members__':  # for Python < 2.6
                 return self.__dir__()
+            elif name == '___async_call__':
+                call = methods.get('__call__')
+                if call is None:
+                    return None
+
+                return call.___async_call__.__get__(self)
             else:
                 return object.__getattribute__(self, name)
-        elif name == "__call__":                          # IronPython issue #10
-            return object.__getattribute__(self, "__call__")
+        elif name == '__call__':  # IronPython issue #10
+            return object.__getattribute__(self, '__call__')
         else:
+            # print('GETATTRIBUTE', repr((type(self), repr(name), repr(self))))
             return syncreq(self, consts.HANDLE_GETATTR, name)
 
     def __getattr__(self, name):
+        # print('GETATTR', repr((type(self), name)))
         return syncreq(
             self, consts.HANDLE_GETATTR,
             as_native_string(name)
@@ -182,7 +218,8 @@ class BaseNetref(object):
                 self, as_native_string(name)
             )
         else:
-            syncreq(
+            # print('DELATTR', repr((type(self), name)))
+            asyncreq(
                 self, consts.HANDLE_DELATTR,
                 as_native_string(name)
             )
@@ -193,12 +230,14 @@ class BaseNetref(object):
                 self, as_native_string(name), value
             )
         else:
-            syncreq(
+            # print('SETATTR', repr((type(self), name)))
+            asyncreq(
                 self, consts.HANDLE_SETATTR,
                 as_native_string(name), value
             )
 
     def __dir__(self):
+        # print('DIR', repr((type(self))))
         return list(
             as_native_string(key) for key in syncreq(
                 self, consts.HANDLE_DIR
@@ -207,21 +246,26 @@ class BaseNetref(object):
 
     # support for metaclasses
     def __hash__(self):
+        # print('HASH', repr((type(self))))
         return syncreq(self, consts.HANDLE_HASH)
 
     def __iter__(self):
+        # print('ITER', repr((type(self))))
         return syncreq(
             self, consts.HANDLE_CALLATTR, '__iter__'
         )
 
     def __cmp__(self, other):
+        # print('CMP', repr((type(self))))
         return syncreq(self, consts.HANDLE_CMP, other)
 
     def __repr__(self):
+        # print('REPR', repr((type(self))))
         # __repr__ MUST return string
         return as_native_string(syncreq(self, consts.HANDLE_REPR))
 
     def __str__(self):
+        # print('STR', repr((type(self))))
         # __str__ MUST return string
         return as_native_string(syncreq(self, consts.HANDLE_STR))
 
@@ -231,7 +275,7 @@ class BaseNetref(object):
 
 
 if not isinstance(BaseNetref, NetrefMetaclass):
-    # python 2 and 3 compatible metaclass...
+    # python 2 and 3 compatibe metaclass...
     ns = dict(BaseNetref.__dict__)
     for slot in BaseNetref.__slots__:
         ns.pop(slot)
@@ -243,18 +287,28 @@ def _make_method(name, doc):
     :func:`syncreq` on its `self` argument"""
 
     slicers = {
-        "__getslice__": "__getitem__",
-        "__delslice__": "__delitem__",
-        "__setslice__": "__setitem__"
+        '__getslice__': '__getitem__',
+        '__delslice__': '__delitem__',
+        '__setslice__': '__setitem__'
     }
 
     name = as_native_string(name)  # IronPython issue #10
-    if name == "__call__":
+    if name == '__call__':
         def __call__(_self, *args, **kwargs):
             kwargs = tuple(kwargs.items())
+
             return syncreq(_self, consts.HANDLE_CALL, args, kwargs)
 
+        def ___async_call__(_self, *args, **kwargs):
+            kwargs = tuple(kwargs.items())
+
+            return asyncreq(_self, consts.HANDLE_CALL, args, kwargs)
+
         __call__.__doc__ = doc
+        ___async_call__.__doc__ = doc + ' (async)'
+
+        setattr(__call__, '___async_call__', ___async_call__)
+        setattr(___async_call__, '___async_call__', ___async_call__)
         return __call__
 
     elif name in slicers:
@@ -267,8 +321,23 @@ def _make_method(name, doc):
                 name, start, stop, args
             )
 
+        def async_method(self, start, stop, *args):
+            if stop == maxint:
+                stop = None
+
+            return asyncreq(
+                self, consts.HANDLE_OLDSLICING, slicers[name],
+                name, start, stop, args
+            )
+
         method.__name__ = name
         method.__doc__ = doc
+
+        async_method.__name__ = name
+        async_method.__doc__ = doc + ' (async)'
+
+        setattr(method, '___async_call__', async_method)
+        setattr(async_method, '___async_call__', async_method)
         return method
 
     else:
@@ -278,8 +347,21 @@ def _make_method(name, doc):
                 _self, consts.HANDLE_CALLATTR, name, args, kwargs
             )
 
+        def async_method(_self, *args, **kwargs):
+            # print("ASYNC METHOD CALL ARGS", _self, args, kwargs)
+            kwargs = tuple(kwargs.items())
+            return asyncreq(
+                _self, consts.HANDLE_CALLATTR, name, args, kwargs
+            )
+
         method.__name__ = name
         method.__doc__ = doc
+
+        async_method.__name__ = name
+        async_method.__doc__ = doc + ' (async)'
+
+        setattr(method, '___async_call__', async_method)
+        setattr(async_method, '___async_call__', async_method)
         return method
 
 
@@ -320,7 +402,10 @@ def class_factory(clsname, modname, methods):
     clsname = as_native_string(clsname)
     modname = as_native_string(modname)
 
-    ns = {"__slots__": ()}
+    ns = {
+        '__slots__': (),
+        '___methods__': {}
+    }
 
     for name, doc in methods:
         name = as_native_string(name)
@@ -330,19 +415,21 @@ def class_factory(clsname, modname, methods):
             ns['__next__'] = _make_method(name, doc)
 
         if name not in _local_netref_attrs:
-            ns[name] = _make_method(name, doc)
+            wrapper = _make_method(name, doc)
+            ns[name] = wrapper
+            ns['___methods__'][name] = wrapper
 
-    ns["__module__"] = modname
+    ns['__module__'] = modname
 
     if modname in sys.modules and hasattr(sys.modules[modname], clsname):
-        ns["__class__"] = getattr(sys.modules[modname], clsname)
+        ns['__class__'] = getattr(sys.modules[modname], clsname)
 
     elif (clsname, modname) in _normalized_builtin_types:
-        ns["__class__"] = _normalized_builtin_types[clsname, modname]
+        ns['__class__'] = _normalized_builtin_types[clsname, modname]
 
     else:
         # to be resolved by the instance
-        ns["__class__"] = None
+        ns['__class__'] = None
 
     return type(clsname, (BaseNetref,), ns)
 

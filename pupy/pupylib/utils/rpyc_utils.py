@@ -38,9 +38,14 @@ def safe_obtain(proxy):
         ptype = type(proxy)
 
         if type(proxy) in (tuple, list, set):
-            objs = list(safe_obtain(x) for x in proxy)
-            return ptype(objs)
+            return ptype([
+                safe_obtain(x) for x in proxy
+            ])
 
+        return proxy
+
+    if conn.is_extended():
+        # No need to call obtain
         return proxy
 
     if not hasattr(conn, 'obtain'):

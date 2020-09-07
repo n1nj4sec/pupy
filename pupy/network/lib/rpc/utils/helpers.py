@@ -147,18 +147,32 @@ def nowait(proxy):
         order**. In particular, multiple subsequent async requests may be
         executed in reverse order.
     """
+
+    async_call = getattr(proxy, '___async_call__')
+    if async_call is not None:
+        return async_call
+
     pid = id(proxy)
+
     if pid in _async_proxies_cache:
         return _async_proxies_cache[pid]
+
     if not hasattr(proxy, "____conn__") or not hasattr(proxy, "____oid__"):
         raise TypeError("'proxy' must be a Netref: %r", (proxy,))
+
     if not callable(proxy):
-        raise TypeError("'proxy' must be callable: %r (%s)" % (proxy, type(proxy)))
+        raise TypeError(
+            "'proxy' must be callable: %r (%s)" % (proxy, type(proxy))
+        )
+
     caller = _Async(proxy)
     _async_proxies_cache[id(caller)] = _async_proxies_cache[pid] = caller
+
     return caller
 
+
 nowait.__doc__ = _Async.__doc__
+
 
 class timed(object):
     """Creates a timed asynchronous proxy. Invoking the timed proxy will

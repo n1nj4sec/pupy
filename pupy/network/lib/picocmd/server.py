@@ -33,10 +33,8 @@ import logging
 try:
     from pupylib import getLogger
     logger = getLogger('dnscnc')
-except:
+except ImportError:
     logger = logging.getLogger('dnscnc')
-
-blocks_logger = logger.getChild('whitelist')
 
 import socket
 import socketserver
@@ -69,6 +67,9 @@ from network.lib.compat import (
     as_byte, is_int, is_str, xrange
 )
 
+blocks_logger = logger.getChild('whitelist')
+
+
 SUPPORTED_METHODS = {
     QTYPE.A: A,
     QTYPE.AAAA: AAAA,
@@ -78,7 +79,7 @@ SUPPORTED_METHODS = {
 def convert_node(node):
     try:
         return str(netaddr.IPAddress(node))
-    except:
+    except netaddr.core.AddrFormatError:
         return int(node, 16)
 
 
@@ -187,7 +188,9 @@ class Node(ExpirableObject):
         '_warning', '_warning_set_time'
     )
 
-    def __init__(self, node, timeout, cid=0x31337, iid=0, version=1, commands=[], alert=False):
+    def __init__(
+        self, node, timeout, cid=0x31337, iid=0,
+            version=1, commands=[], alert=False):
         super(Node, self).__init__(timeout)
         self.node = node
         self.cid = cid
@@ -221,8 +224,10 @@ class Node(ExpirableObject):
             self.commands.append(command)
 
     def __repr__(self):
-        return '{{NODE:{:012X} IID:{} CID:{:08X} ALERT:{} COMMANDS:{}}}'.format(
-            self.node, self.iid, self.cid, self.alert, len(self.commands))
+        return \
+            '{{NODE:{:012X} IID:{} CID:{:08X} ALERT:{} COMMANDS:{}}}'.format(
+                self.node, self.iid, self.cid, self.alert, len(self.commands)
+            )
 
 
 class Session(ExpirableObject):
@@ -330,7 +335,8 @@ class DnsCommandServerHandler(BaseResolver):
     ENCODER_V1 = 0
     ENCODER_V2 = 1
 
-    def __init__(self, domain, key, recursor=None, timeout=None,
+    def __init__(
+        self, domain, key, recursor=None, timeout=None,
             whitelist=None, edns=False, activation={}):
 
         self.sessions = {}
@@ -370,9 +376,10 @@ class DnsCommandServerHandler(BaseResolver):
         # Calculate max packet size
 
         # https://tools.ietf.org/html/rfc791
-        #  All hosts must be prepared to accept datagrams of up to 576 octets (whether they
-        # arrive whole or in fragments).  It is recommended that hosts only send datagrams
-        # larger than 576 octets if they have assurance that the destination is prepared to
+        #  All hosts must be prepared to accept datagrams of up to 576
+        # octets (whether they arrive whole or in fragments).  It is
+        # recommended that hosts only send datagrams larger than 576 octets
+        # if they have assurance that the destination is prepared to
         # accept the larger datagrams.
 
         # https://dnsflagday.net/
@@ -381,7 +388,8 @@ class DnsCommandServerHandler(BaseResolver):
         # Query header size = len(domain) + 2 + 4
         # Answer header size = 2 {if name = .} + 10 + len(record)
 
-        # Default length limited to 256B to spend only 1 byte for info about the length
+        # Default length limited to 256B to spend only 1 byte for info about
+        # the length.
         # Each payload has index field
         # As request is dynamic, we don't count it here, but in encoder
 
@@ -439,17 +447,20 @@ class DnsCommandServerHandler(BaseResolver):
 
     def _nodes_by_nodeids(self, ids):
         return [
-            node for (nodeid, iid),node in self.nodes.items() if nodeid in ids
+            node for (nodeid, iid), node in self.nodes.items()
+            if nodeid in ids
         ]
 
     def _sessions_by_nodeids(self, ids):
         return [
-            session for session in self.sessions if self.sessions[session].node in ids
+            session for session in self.sessions
+            if self.sessions[session].node in ids
         ]
 
     def _nodeids_with_sessions(self, ids):
         return set([
-            session.node for session in self.sessions if self.sessions[session].node in ids
+            session.node for session in self.sessions
+            if self.sessions[session].node in ids
         ])
 
     @locked
@@ -588,7 +599,7 @@ class DnsCommandServerHandler(BaseResolver):
 
         if not (spi or node):
             return [
-                session for session in self.sessions.values() \
+                session for session in self.sessions.values()
                 if session.system_info is not None
             ]
         elif spi:
@@ -597,20 +608,25 @@ class DnsCommandServerHandler(BaseResolver):
             ]
         elif node:
             return [
-                session for session in self.sessions.values() \
-                    if session.cid == node or session.node == node or (
-                        session.system_info and \
-                        (session.system_info['node'] in set(node) or \
-                              str(session.system_info['external_ip']) in set(node)))
+                session for session in self.sessions.values()
+                if session.cid == node or session.node == node or (
+                    session.system_info and (
+                        session.system_info['node'] in set(node) or
+                        str(session.system_info['external_ip']) in set(node)
+                    )
+                )
             ]
 
     @locked
     def set_policy(self, kex=True, timeout=None, interval=None, node=None):
-        if kex == self.kex and self.timeout == timeout and self.interval == self.interval:
+        if kex == self.kex and self.timeout == timeout and \
+                self.interval == self.interval:
             return
 
         if interval and interval < 30:
-            raise ValueError('Interval should not be less then 30s to avoid DNS storm')
+            raise ValueError(
+                'Interval should not be less then 30s to avoid DNS storm'
+            )
 
         if node and (interval or timeout):
             sessions = self.find_sessions(
@@ -631,7 +647,10 @@ class DnsCommandServerHandler(BaseResolver):
 
         else:
             self.interval = interval or self.interval
-            self.timeout = max(timeout if timeout else self.timeout, self.interval*3)
+            self.timeout = max(
+                timeout if timeout else self.timeout,
+                self.interval*3
+            )
             self.kex = kex if (kex is not None) else self.kex
 
             interval = self.interval
@@ -729,7 +748,8 @@ class DnsCommandServerHandler(BaseResolver):
 
         response = []
 
-        for idx, part in enumerate([payload[i:i+3] for i in xrange(0, len(payload), 3)]):
+        for idx, part in enumerate([
+                payload[i:i+3] for i in xrange(0, len(payload), 3)]):
             header = (random.randint(1, 3) << 30)
             idx = idx << 25
             bits = (struct.unpack('>I', b'\x00'+part+as_byte(
@@ -739,7 +759,12 @@ class DnsCommandServerHandler(BaseResolver):
                 '{}.{}.{}.{}'.format(
                     *struct.unpack(
                         '!BBBB', struct.pack(
-                            '>I', header | idx | bits | int(not bool(bits & 6))))))
+                            '>I',
+                            header | idx | bits | int(not bool(bits & 6))
+                        )
+                    )
+                )
+            )
 
         return response
 
@@ -765,7 +790,8 @@ class DnsCommandServerHandler(BaseResolver):
 
         response = []
 
-        for idx, part in enumerate([payload[i:i+15] for i in xrange(0, len(payload), 15)]):
+        for idx, part in enumerate([
+                payload[i:i+15] for i in xrange(0, len(payload), 15)]):
             packed = struct.pack('B', idx) + part
             if len(packed) < 16:
                 packed = packed + b'\x00' * (16 - len(packed))
@@ -796,7 +822,7 @@ class DnsCommandServerHandler(BaseResolver):
         elif len(parts) == 1 and parts[0] in self.activation:
             raise DnsActivationRequest(self.activator(parts[0]))
 
-        elif len(parts) not in (2,3):
+        elif len(parts) not in (2, 3):
             raise DnsNoCommandServerException()
 
         parts = [
@@ -853,7 +879,8 @@ class DnsCommandServerHandler(BaseResolver):
 
         if node_blob:
             offset_node_blob = len(payload) - (1+4+2+6)
-            payload, node_blob = payload[:offset_node_blob], payload[offset_node_blob:]
+            payload = payload[:offset_node_blob]
+            node_blob = payload[offset_node_blob:]
 
             version, cid, iid = struct.unpack_from('>BIH', node_blob)
 
@@ -862,8 +889,10 @@ class DnsCommandServerHandler(BaseResolver):
 
             nodeid = from_bytes(node_blob[1+4+2:1+4+2+6])
 
-        logger.debug('NONCE: %08x SPI: %08x NODE: %012x',
-            nonce, spi, nodeid if bool(node_blob) else 0)
+        logger.debug(
+            'NONCE: %08x SPI: %08x NODE: %012x',
+            nonce, spi, nodeid if bool(node_blob) else 0
+        )
 
         return payload, session, nonce, nodeid, cid, iid, version
 
@@ -893,7 +922,7 @@ class DnsCommandServerHandler(BaseResolver):
 
         node = Node(
             command.node, self.timeout,
-            commands = self.node_commands.get(nodeid),
+            commands=self.node_commands.get(nodeid),
             iid=sid or 0
         )
 
@@ -905,13 +934,16 @@ class DnsCommandServerHandler(BaseResolver):
         return node
 
     def _cmd_processor(self, command, session, node, csum_gen, csum_check):
-        logger.debug('command=%s/%s session=%s / node commands=%s / node = %s / cid = %s / iid = %s',
+        logger.debug(
+            'command=%s/%s session=%s / node commands=%s '
+            '/ node = %s / cid = %s / iid = %s',
             command, type(command).__name__,
             '{:08x}'.format(session.spi) if session else None,
             bool(self.node_commands),
             '{:012x}'.format(node.node) if node else None,
             '{:08x}'.format(node.cid) if node else None,
-            node.iid if node else None)
+            node.iid if node else None
+        )
 
         if isinstance(command, Poll) and session is None:
             if not self.kex or self._kex_is_disabled(node):
@@ -928,8 +960,10 @@ class DnsCommandServerHandler(BaseResolver):
         elif isinstance(command, Ack) and (session is None):
             if node:
                 if len(node.commands) < command.amount:
-                    logger.debug('ACK: invalid amount of commands: %d > %d',
-                        command.amount, len(node.commands))
+                    logger.debug(
+                        'ACK: invalid amount of commands: %d > %d',
+                        command.amount, len(node.commands)
+                    )
 
                 node.commands = node.commands[command.amount:]
 
@@ -944,9 +978,8 @@ class DnsCommandServerHandler(BaseResolver):
 
             return [Exit()]
 
-        elif (
-                isinstance(command, Poll) or isinstance(command, SystemStatus)
-            ) and (session is not None):
+        elif (isinstance(command, Poll) or
+                isinstance(command, SystemStatus)) and (session is not None):
             if session.system_info:
                 self.on_keep_alive(session.system_info)
 
@@ -954,7 +987,7 @@ class DnsCommandServerHandler(BaseResolver):
                 session.system_status = command.get_dict()
 
                 if session._users_cnt_reported is not None and \
-                  session._users_cnt_reported != session.system_status['users']:
+                        session._users_cnt_reported != session.system_status['users']:
                     if session._users_cnt_reported > session.system_status['users']:
                         self.on_users_decrement(session)
                     else:
@@ -970,7 +1003,7 @@ class DnsCommandServerHandler(BaseResolver):
                     session._high_resource_usage_reported = False
 
                 if session._user_active_reported is not None and \
-                  session._user_active_reported != session.system_status['idle']:
+                        session._user_active_reported != session.system_status['idle']:
                     if session.system_status['idle']:
                         self.on_user_become_inactive(session)
                     else:
@@ -998,8 +1031,10 @@ class DnsCommandServerHandler(BaseResolver):
 
                     node.bump()
 
-            logger.debug('SystemStatus + No session + node_commands: %s/%s in %s?',
-                node, extip, node.commands)
+            logger.debug(
+                'SystemStatus + No session + node_commands: %s/%s in %s?',
+                node, extip, node.commands
+            )
 
             return node.commands
 
@@ -1035,13 +1070,16 @@ class DnsCommandServerHandler(BaseResolver):
                 self.on_keep_alive(session.system_info)
 
             if command.amount > len(session.commands):
-                logger.debug('ACK: invalid amount of commands: %d > %d',
-                    command.amount, len(session.commands))
+                logger.debug(
+                    'ACK: invalid amount of commands: %d > %d',
+                    command.amount, len(session.commands)
+                )
             session.commands = session.commands[command.amount:]
 
             return [Ack(1)]
 
-        elif isinstance(command, (SystemInfo, SystemInfoEx)) and session is not None:
+        elif isinstance(command, (SystemInfo, SystemInfoEx)) \
+                and session is not None:
             new_session = not bool(session.system_info)
             session.system_info = command.get_dict()
             if isinstance(command, SystemInfoEx):
@@ -1050,7 +1088,9 @@ class DnsCommandServerHandler(BaseResolver):
             if not node:
                 with self.lock:
                     if not (command.node, session.spi) in self.nodes:
-                        node = self._new_node_from_systeminfo(command, session.spi)
+                        node = self._new_node_from_systeminfo(
+                            command, session.spi
+                        )
                     else:
                         node = self.nodes[(command.node, session.spi)]
 
@@ -1066,8 +1106,8 @@ class DnsCommandServerHandler(BaseResolver):
                 response = []
 
                 encoder_version = \
-                  self.ENCODER_V1 if not node or node.version == 1 \
-                  else self.ENCODER_V2
+                    self.ENCODER_V1 if not node or node.version == 1 \
+                    else self.ENCODER_V2
 
                 if command.spi not in self.sessions:
                     self.sessions[command.spi] = Session(
@@ -1106,7 +1146,9 @@ class DnsCommandServerHandler(BaseResolver):
         if request.q.qtype not in SUPPORTED_METHODS:
             reply = request.reply()
             reply.header.rcode = RCODE.NXDOMAIN
-            logger.debug('Request unknown qtype: %s', QTYPE.get(request.q.qtype))
+            logger.debug(
+                'Request unknown qtype: %s', QTYPE.get(request.q.qtype)
+            )
             return reply
 
         with self.lock:
@@ -1166,25 +1208,32 @@ class DnsCommandServerHandler(BaseResolver):
 
             if self.whitelist and node:
                 if not self.whitelist(nodeid, cid, version):
-                    blocks_logger.warning('Prohibit communication with %s/%s version %s on %s',
-                        iid, cid, version, nodeid)
+                    blocks_logger.warning(
+                        'Prohibit communication with %s/%s version %s on %s',
+                        iid, cid, version, nodeid
+                    )
 
                     node.alert = True
                     raise NodeBlocked()
 
             if session and session.last_nonce and session.last_qname:
                 if nonce < session.last_nonce:
-                    logger.info('Ignore nonce from past: %s < %s / %s',
-                        nonce, session.last_nonce, session.node)
+                    logger.info(
+                        'Ignore nonce from past: %s < %s / %s',
+                        nonce, session.last_nonce, session.node
+                    )
 
                     if node:
                         node.warning = 'Nonce from the past ({} < {})'.format(
                             nonce, session.last_nonce)
 
                     return []
-                elif session.last_nonce == nonce and session.last_qname != qname:
-                    logger.info('Last nonce but different qname: %s != %s',
-                        session.last_qname, qname)
+                elif session.last_nonce == nonce and \
+                        session.last_qname != qname:
+                    logger.info(
+                        'Last nonce but different qname: %s != %s',
+                        session.last_qname, qname
+                    )
 
                     if node:
                         node.warning = 'Different qname ({})'.format(qname)
@@ -1297,8 +1346,10 @@ class DnsCommandServerHandler(BaseResolver):
             try:
                 payload = Parcel(to_send).pack(nonce, gen_csum)
             except PackError as e:
-                emsg = 'Could not create parcel from commands: {} (session={})'.format(
-                    e, '{:08x}'.format(session.spi) if session else None)
+                emsg = 'Could not create parcel from commands: ' \
+                    '{} (session={})'.format(
+                        e, '{:08x}'.format(session.spi) if session else None
+                    )
 
                 logger.error(emsg)
 
@@ -1334,7 +1385,9 @@ class DnsCommandServerHandler(BaseResolver):
         if not qname.matchSuffix(self.domain):
             if self.recursor:
                 try:
-                    return DNSRecord.parse(request.send(self.recursor, timeout=2))
+                    return DNSRecord.parse(
+                        request.send(self.recursor, timeout=2)
+                    )
                 except socket.error:
                     pass
                 except Exception as e:
@@ -1345,13 +1398,17 @@ class DnsCommandServerHandler(BaseResolver):
             reply.header.rcode = RCODE.NXDOMAIN
             return reply
 
+        answers = self.process(
+            qtype, qname.stripSuffix(self.domain).idna()[:-1]
+        )
 
-        answers = self.process(qtype, qname.stripSuffix(self.domain).idna()[:-1])
         klass = SUPPORTED_METHODS[qtype]
 
         if answers:
             for answer in answers:
-                reply.add_answer(RR(qname, qtype, rdata=klass(answer), ttl=600))
+                reply.add_answer(
+                    RR(qname, qtype, rdata=klass(answer), ttl=600)
+                )
 
             if self.edns:
                 reply.add_ar(EDNS0(udp_len=512))
@@ -1360,6 +1417,7 @@ class DnsCommandServerHandler(BaseResolver):
 
         return reply
 
+
 class DnsCommandServer(object):
     def __init__(self, handler, port=5454, address='0.0.0.0'):
         self.handler = handler
@@ -1367,12 +1425,12 @@ class DnsCommandServer(object):
         self.udp_server = socketserver.UDPServer((address, port), DNSHandler)
         self.udp_server.allow_reuse_address = True
         self.udp_server.resolver = handler
-        self.udp_server.logger = DNSLogger(log='log_error',prefix=False)
+        self.udp_server.logger = DNSLogger(log='log_error', prefix=False)
 
         self.tcp_server = socketserver.TCPServer((address, port), DNSHandler)
         self.tcp_server.allow_reuse_address = True
         self.tcp_server.resolver = handler
-        self.tcp_server.logger = DNSLogger(log='log_error',prefix=False)
+        self.tcp_server.logger = DNSLogger(log='log_error', prefix=False)
 
         self.udp_server_thread = Thread(
             target=self.udp_server.serve_forever, kwargs={

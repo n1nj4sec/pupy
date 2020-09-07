@@ -5,6 +5,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+
 __all__ = (
     'append_PKCS7_padding',
     'strip_PKCS7_padding',
@@ -13,24 +14,47 @@ __all__ = (
 )
 
 import logging
+import sys
+
+if sys.version_info.major > 2:
+    xrange = range
+
+    def to_byte(x):
+        return bytes((x,))
+
+    def from_byte(x):
+        return x
+
+else:
+    def to_byte(x):
+        return chr(x)
+
+    def from_byte(x):
+        return ord(x)
+
 
 AES_BLOCK_SIZE = 16
 
+
 def append_PKCS7_padding(data):
     pad = AES_BLOCK_SIZE - (len(data) % AES_BLOCK_SIZE)
-    return data + chr(pad)*pad
+    return data + to_byte(pad)*pad
+
 
 def strip_PKCS7_padding(data):
     if len(data) % AES_BLOCK_SIZE != 0:
-        raise ValueError("data is not padded !")
+        raise ValueError('data is not padded')
 
-    padlen = ord(data[-1])
+    padlen = from_byte(data[-1])
 
     if padlen > AES_BLOCK_SIZE or padlen < 1:
-        raise ValueError("PKCS#7 invalid padding byte")
-    if data[-padlen:]!=chr(padlen)*padlen:
-        raise ValueError("PKCS#7 padding is invalid")
+        raise ValueError('PKCS#7 invalid padding byte')
+
+    if data[-padlen:] != to_byte(padlen) * padlen:
+        raise ValueError('PKCS#7 padding is invalid')
+
     return data[:-padlen]
+
 
 try:
     from Crypto.Cipher import AES
@@ -54,7 +78,10 @@ try:
         return AES.new(aes_key, mode, IV=iv)
 
 except ImportError as e:
-    logging.warning('pycrypto not available, using pure python libraries for AES (slower): %s', e)
+    logging.warning(
+        'pycrypto not available, using pure python '
+        'libraries for AES (slower): %s', e
+    )
 
     AES_MODE_CTR = 0
     AES_MODE_CFB = 1
@@ -85,8 +112,9 @@ except ImportError as e:
                     iv = long(iv.encode('hex'), 16)
 
                 self.iv = Counter(initial_value=iv)
-                self.cipher = AESModeOfOperationCTR(self.aes_key, counter=self.iv)
-
+                self.cipher = AESModeOfOperationCTR(
+                    self.aes_key, counter=self.iv
+                )
 
         def encrypt(self, data):
             """ data has to be padded """
@@ -95,8 +123,9 @@ except ImportError as e:
                 return self.cipher.encrypt(data)
 
             encrypted = []
-            for i in range(0,len(data), AES_BLOCK_SIZE):
-                encrypted.append(self.cipher.encrypt(data[i:i+AES_BLOCK_SIZE]))
+            for i in xrange(0, len(data), AES_BLOCK_SIZE):
+                encrypted.append(
+                    self.cipher.encrypt(data[i:i+AES_BLOCK_SIZE]))
 
             return b''.join(encrypted)
 
@@ -108,7 +137,8 @@ except ImportError as e:
 
             cleartext = []
 
-            for i in range(0,len(data), AES_BLOCK_SIZE):
-                cleartext.append(self.cipher.decrypt(data[i:i+AES_BLOCK_SIZE]))
+            for i in xrange(0, len(data), AES_BLOCK_SIZE):
+                cleartext.append(
+                    self.cipher.decrypt(data[i:i+AES_BLOCK_SIZE]))
 
             return b''.join(cleartext)

@@ -256,7 +256,7 @@ class SafePopen(object):
                 close_cb()
             return
 
-        queue = Queue.Queue()
+        queue = Queue()
         self._reader = threading.Thread(
             target=read_pipe,
             args=(queue, self._pipe, self._bufsize)

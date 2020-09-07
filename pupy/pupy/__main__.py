@@ -19,6 +19,8 @@ sys.path.extend((
     root, os.path.join(root, 'library_patches')
 ))
 
+sys.tracebacklimit = 50
+
 import pupylib
 assert(pupylib)
 

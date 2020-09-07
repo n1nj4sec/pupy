@@ -107,6 +107,9 @@ class PupyClient(object):
         if self.conn.protocol_version is None:
             # Legacy client
             self._legacy_init()
+        else:
+            # Extended init
+            self._versioned_init(self.conn.protocol_version)
 
         # To reuse impersonated handle in other modules
         self.impersonated_dupHandle = None
@@ -205,6 +208,7 @@ class PupyClient(object):
     def remote(self, module, function=None, need_obtain=True):
         remote_module = None
         remote_function = None
+        need_obtain = need_obtain and self.obtain_call is not False
 
         with self.remotes_lock:
             if module in self.remotes:
@@ -267,8 +271,47 @@ class PupyClient(object):
 
         return remote_variable
 
+    def _versioned_init(self, version):
+        self.pupyimporter = self.conn.pupyimporter
+
+        register_package_request_hook = nowait(
+            self.conn.pupyimporter_funcs['register_package_request_hook']
+        )
+
+        register_package_error_hook = nowait(
+            self.conn.pupyimporter_funcs['register_package_error_hook']
+        )
+
+        self.conn.register_remote_cleanup(
+            self.conn.pupyimporter_funcs['unregister_package_request_hook']
+        )
+
+        register_package_request_hook(self.remote_load_package)
+
+        self.conn.register_remote_cleanup(
+            self.conn.pupyimporter_funcs['unregister_package_error_hook']
+        )
+
+        register_package_error_hook(self.remote_print_error)
+
+        self.pupy_load_dll = self.conn.pupyimporter_funcs['load_dll']
+        self.remote_add_package = nowait(
+            self.conn.pupyimporter_funcs['pupy_add_package']
+        )
+        self.remote_invalidate_package = nowait(
+            self.conn.pupyimporter_funcs['invalidate_module']
+        )
+
+        self.new_dlls = self.conn.pupyimporter_funcs['new_dlls']
+        self.new_modules = self.conn.pupyimporter_funcs['new_modules']
+
+        self.obtain_call = lambda func, *args, **kwargs: func(*args, **kwargs)
+
+        self.imported_modules = self.conn.remote_loaded_modules
+        self.cached_modules = self.conn.remote_cached_modules
+
     def _legacy_init(self):
-        """ load pupyimporter in case it is not """
+        """ load pupyimporter in case it is not extended version """
 
         if not self.conn.pupyimporter:
             try:

@@ -16,17 +16,19 @@ import time
 
 from io import open
 
-from network.lib.convcompat import as_unicode_string_deep
+from network.lib.convcompat import (
+    as_unicode_string, as_unicode_string_deep
+)
 
 
 families = {
-    v: k[3:] for k, v in socket.__dict__.items()
+    int(v): k[3:] for k, v in socket.__dict__.items()
     if k.startswith('AF_')
 }
 
 try:
     families.update({
-        psutil.AF_LINK: 'LINK'
+        int(psutil.AF_LINK): 'LINK'
     })
 except:
     pass
@@ -36,7 +38,7 @@ families.update(
 )
 
 socktypes = {
-    v: k[5:] for k, v in socket.__dict__.items()
+    int(v): k[5:] for k, v in socket.__dict__.items()
     if k.startswith('SOCK_')
 }
 
@@ -138,22 +140,35 @@ def set_relations(infos):
         infos['username'] = username
 
 
+def _psutil_simplify(obj):
+    if hasattr(obj, 'value'):
+        return obj.value
+    else:
+        return obj
+
+
 def _psiter(obj):
     if hasattr(obj, '_fields'):
         for field in obj._fields:
-            yield field, getattr(obj, field)
+            yield as_unicode_string(field) if isinstance(
+                field, bytes
+            ) else field, _psutil_simplify(getattr(obj, field))
 
     elif hasattr(obj, '__dict__'):
         for k, v in iteritems(obj.__dict__):
-            yield k, v
+            yield as_unicode_string(k) if isinstance(
+                k, bytes
+            ) else k, _psutil_simplify(v)
 
     elif isinstance(obj, dict):
         for k, v in iteritems(obj):
-            yield k, v
+            yield as_unicode_string(k) if isinstance(
+                k, bytes
+            ) else k, _psutil_simplify(v)
 
     else:
         for v in obj:
-            yield v
+            yield _psutil_simplify(v)
 
 
 def _is_iterable(obj):
@@ -350,11 +365,10 @@ def connections():
 
     for connection in net_connections:
         obj = {
-            k: getattr(connection, k)
-            for k in (
-                'family', 'type', 'laddr', 'raddr', 'status'
-            )
+            as_unicode_string(k): tuple(v) if hasattr(v, '_fields') else v
+            for k, v in _psiter(connection)
         }
+
         try:
             if connection.pid:
                 obj.update(
@@ -389,7 +403,7 @@ def interfaces():
                 } for z in y
             ] for x, y in _psiter(if_addrs)
         }
-    except:
+    except Exception:
         addrs = None
 
     try:
@@ -400,7 +414,7 @@ def interfaces():
                 k: _tryint(v) for k, v in _psiter(y)
             } for x, y in _psiter(if_stats)
         }
-    except:
+    except Exception:
         stats = None
 
     return psutil_str({
