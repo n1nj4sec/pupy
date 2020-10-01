@@ -138,7 +138,7 @@ class Persistence(PupyModule):
                 return
 
         persist = self.client.remote('winpwnage.core.scanner', 'function', False)
-        result = persist(uac=False, persist=True).run(
+        result = persist(uac=False, persist=True, execute=False).run(
             id=method, payload=args.payload, name=name, add=not args.remove
         )
         if not result:
