@@ -450,7 +450,8 @@ class PupyModule(object):
         if not self.client.pupsrv.start_webserver():
             return None
         else:
-            return self.client.pupsrv.pupweb.start_webplugin('rdesktop', self.web_handlers)
+            plugin_name = 'rdesktop_%s' % self.client.id
+            return self.client.pupsrv.pupweb.start_webplugin(plugin_name, self.web_handlers)
 
     @classmethod
     def is_compatible_with(cls, client):
