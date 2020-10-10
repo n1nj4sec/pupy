@@ -331,8 +331,7 @@ def parse_scriptlet(filedir, filename):
 
     metadata = compile(meta, 'metadata-'+filename, 'exec')
     metadict = {}
-    exec (metadata, metadict)
-    del metadict['__builtins__']
+    eval(metadata, globals(), metadict)
 
     docstring = '\n'.join(
         x.strip() for x in docstrings
