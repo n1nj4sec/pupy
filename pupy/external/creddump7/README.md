@@ -98,7 +98,7 @@ FEATURES
 
 * Platform independent operation. The only inputs are the hive files
   from the system--we don't rely on any Windows functionality at all.
-* Open-source and (hopefully!) readble implementations of Windows
+* Open-source and (hopefully!) readable implementations of Windows
   obfuscation algorithms used to protect LSA secrets, cached domain
   passwords, and 
 * A reasonably forgiving registry file parser in pure Python. Look
