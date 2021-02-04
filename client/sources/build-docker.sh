@@ -29,12 +29,13 @@ PYOPUS=$EXTERNAL/pyopus/src
 echo "[+] Install python packages"
 for PYTHON in $PYTHON32 $PYTHON64; do
     $PYTHON -m pip install -q --upgrade pip
-    $PYTHON -m pip install -q --upgrade setuptools cython
+    $PYTHON -m pip install -q --upgrade setuptools cython wheel
 
     # Still problems here
     $PYTHON -m pip install -q --upgrade pynacl
 
-    $PYTHON -m pip install --upgrade --no-binary :all: $PACKAGES_BUILD
+    $PYTHON -m pip install --upgrade --no-binary :all: \
+	    --only-binary wheel $PACKAGES_BUILD
 
     NO_JAVA=1 \
         $PYTHON -m pip install --upgrade --force-reinstall \

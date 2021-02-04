@@ -18,7 +18,7 @@ set -e
 echo "[+] Install python packages"
 
 $PIP_INSTALL pip
-$PIP_INSTALL setuptools cython
+$PIP_INSTALL setuptools cython wheel
 $PIP_INSTALL -q six packaging appdirs
 
 CC=/gccwrap CFLAGS_ABORT="-D_FORTIFY_SOURCE=2 -fstack-protector" \
@@ -46,8 +46,8 @@ $PIP_INSTALL \
     https://github.com/warner/python-ed25519/archive/master.zip \
     https://github.com/alxchk/urllib-auth/archive/master.zip \
     https://github.com/alxchk/pykcp/archive/master.zip \
-    zeroconf==0.19.1 pyodbc \
-    watchdog pulsectl pycryptodomex==3.7.0 --no-binary :all:
+    zeroconf==0.19.1 pyodbc watchdog pulsectl pycryptodomex==3.7.0 \
+        --no-binary :all: --only-binary wheel
 
 LDFLAGS="$LDFLAGS -lm -lasound" CFLAGS="$CFLAGS -std=gnu99" \
     $PIP_INSTALL pyalsaaudio  --no-binary :all:
