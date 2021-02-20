@@ -129,8 +129,7 @@ class StaticTextHandler(TornadoRequestHandler):
     def set_default_headers(self):
         self.set_header('Server', SERVER_HEADER)
 
-    @tornado.web.asynchronous
-    def get(self):
+    async def get(self):
         self.finish(self.content)
 
 
@@ -180,8 +179,7 @@ class IndexHandler(tornado.web.RequestHandler):
     def set_default_headers(self):
         self.set_header('Server', SERVER_HEADER)
 
-    @tornado.web.asynchronous
-    def get(self):
+    async def get(self):
         if self.request.remote_ip in self.local_ips:
             self.render("index.html")
         else:
