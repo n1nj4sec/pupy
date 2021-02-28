@@ -611,7 +611,7 @@ def rm(path):
 
     if files == 1 and exception:
         try_exc_utf8(exception)
-        raise
+        raise exception
 
 # -------------------------- For cat function --------------------------
 
