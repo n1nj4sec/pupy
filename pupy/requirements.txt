@@ -1,7 +1,7 @@
 pycryptodome
 pefile 
 pyyaml
-rsa==4.0
+rsa==4.7
 netaddr
 ecdsa==0.13
 paramiko==2.0.2
