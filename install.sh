@@ -44,4 +44,4 @@ if [ ! $? -eq 0 ]; then
 fi
 
 # Create workspace at ~/pupyws
-${PYTHON} create-workspace.py -E docker -P $HOME/pupyws
+sudo ${PYTHON} create-workspace.py -E docker -P $HOME/pupyws
