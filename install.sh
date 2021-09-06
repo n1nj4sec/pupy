@@ -16,6 +16,7 @@ sudo su root <<'EOF'
 apt update
 apt install python3-pip curl -y
 apt-get install libssl-dev swig python3-dev gcc
+apt-get install flake8 python3 python2
 # Install Docker
 apt-get update
 apt-get install docker docker-ce docker-compose
