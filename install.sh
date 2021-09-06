@@ -14,24 +14,30 @@ sudo su root <<'EOF'
 
 # Apt update and installs
 apt update
-apt install python-pip curl -y
-
+apt install python3-pip curl -y
+apt-get install libssl-dev swig python3-dev gcc
+apt-get install flake8 python3 python2
 # Install Docker
-curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add -
+apt-get install \
+    apt-transport-https \
+    ca-certificates \
+    curl \
+    gnupg \
+    lsb-release
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+apt-get update
+apt-get install docker-ce docker-ce-cli containerd.io docker-compose
+pip3 install poster3
 
-if [ -f /etc/apt/sources.list.d/docker.list ]; then
-    echo "Apt source entry exists, skipping."
-else
-    echo 'deb https://download.docker.com/linux/debian stretch stable' > /etc/apt/sources.list.d/docker.list
-fi
-
-apt update
-apt-get install docker-ce -y
-systemctl start docker
-systemctl enable docker
+#Enable docker services
+systemctl enable docker.service
+systemctl enable containerd.service
 
 # Add user to docker group
-usermod -aG docker $username
+groupadd docker
+usermod -aG docker $USER
+
+
 
 # End of root section
 EOF
