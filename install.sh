@@ -15,7 +15,7 @@ sudo su root <<'EOF'
 # Apt update and installs
 apt update
 apt install python3-pip curl -y
-
+apt-get install libssl-dev swig python3-dev gcc
 # Install Docker
 apt-get update
 apt-get install docker docker-ce docker-compose
