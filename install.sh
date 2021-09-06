@@ -18,8 +18,15 @@ apt install python3-pip curl -y
 apt-get install libssl-dev swig python3-dev gcc
 apt-get install flake8 python3 python2
 # Install Docker
+apt-get install \
+    apt-transport-https \
+    ca-certificates \
+    curl \
+    gnupg \
+    lsb-release
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
 apt-get update
-apt-get install docker docker-ce docker-compose
+apt-get install docker-ce docker-ce-cli containerd.io docker-compose
 systemctl start docker
 systemctl enable docker
 
