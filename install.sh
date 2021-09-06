@@ -27,11 +27,16 @@ apt-get install \
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
 apt-get update
 apt-get install docker-ce docker-ce-cli containerd.io docker-compose
-systemctl start docker
-systemctl enable docker
+
+#Enable docker services
+systemctl enable docker.service
+systemctl enable containerd.service
 
 # Add user to docker group
-#usermod -aG docker $username
+groupadd docker
+usermod -aG docker $USER
+
+
 
 # End of root section
 EOF
