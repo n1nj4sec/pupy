@@ -14,24 +14,16 @@ sudo su root <<'EOF'
 
 # Apt update and installs
 apt update
-apt install python-pip curl -y
+apt install python3-pip curl -y
 
 # Install Docker
-curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add -
-
-if [ -f /etc/apt/sources.list.d/docker.list ]; then
-    echo "Apt source entry exists, skipping."
-else
-    echo 'deb https://download.docker.com/linux/debian stretch stable' > /etc/apt/sources.list.d/docker.list
-fi
-
-apt update
-apt-get install docker-ce -y
+apt-get update
+apt-get install docker docker-ce docker-compose
 systemctl start docker
 systemctl enable docker
 
 # Add user to docker group
-usermod -aG docker $username
+#usermod -aG docker $username
 
 # End of root section
 EOF
