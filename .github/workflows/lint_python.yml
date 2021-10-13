@@ -3,9 +3,14 @@ on: [pull_request, push]
 jobs:
   lint_python:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [ '2.7', '3.10' ]
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
       - run: pip install --upgrade pip wheel
       - run: pip install bandit black codespell flake8 flake8-2020 flake8-bugbear
                          flake8-comprehensions isort mypy pytest pyupgrade safety
