@@ -309,14 +309,15 @@ def initialize_workdir(workdir, gitdir):
     )
 
 
-def create_virtualenv(workdir, git_path, orchestrator=None, templates=[]):
+def create_virtualenv(workdir, git_path, orchestrator=None, templates=None):
     import virtualenv
 
     if hasattr(virtualenv, 'create_environment'):
         virtualenv.create_environment(workdir)
     else:
         virtualenv.cli_run([workdir])
-
+    if not templates:
+        templates = []
     print("[+] Update pip version ...")
     subprocess.check_call([
         os.path.join(workdir, 'bin', 'pip'),
