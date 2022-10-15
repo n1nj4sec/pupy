@@ -48,7 +48,7 @@ def _async_raise(tid, exctype):
 class Thread(threading.Thread):
     def _get_my_tid(self):
         """determines this (self's) thread id"""
-        if not self.isAlive():
+        if not self.is_alive():
             raise threading.ThreadError("the thread is not active")
 
         # do we have it cached?
@@ -86,7 +86,7 @@ class ThreadPool(object):
     def interrupt_all(self):
         self.interrupt.set()
         for t in self.thread_pool:
-            if t.isAlive():
+            if t.is_alive():
                 t.stop()
 
     def interrupt(self):
@@ -103,7 +103,7 @@ class ThreadPool(object):
 
                 allok = True
                 for t in self.thread_pool:
-                    if t.isAlive():
+                    if t.is_alive():
                         t.join(timeout)
                         allok = False
 
@@ -117,7 +117,7 @@ class ThreadPool(object):
 
     def all_finished(self):
         for t in self.thread_pool:
-            if t.isAlive():
+            if t.is_alive():
                 return False
 
         return True

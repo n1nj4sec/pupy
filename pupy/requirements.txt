@@ -46,3 +46,4 @@ http_request
 flake8
 flake8-per-file-ignores
 ushlex; python_version<'3'
+git+https://github.com/n1nj4sec/pyuv@fix-building-against-python311

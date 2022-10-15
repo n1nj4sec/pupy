@@ -129,8 +129,7 @@ class IndexHandler(RequestHandler):
         self.client = kwargs.pop('client', None)
         super(IndexHandler, self).initialize(**kwargs)
 
-    @tornado.web.asynchronous
-    def get(self):
+    async def get(self):
         self.render('rdesktop/index.html', port=self.client.pupsrv.pupweb.port)
 
 @config(category="admin", tags=["rdesktop","rdp", "vnc", "remote", "desktop"], compat=['windows', 'linux', 'darwin'])

@@ -220,7 +220,7 @@ class ConPTY(object):
         self._reader = Thread(target=self._read_loop, args=(read_cb,))
         self._reader.start()
 
-        while self.active() and self._reader.isAlive():
+        while self.active() and self._reader.is_alive():
             result = WaitForSingleObject(self._lpInfo.hProcess, 1000)
             if result == WAIT_TIMEOUT:
                 logger.info('Timeout!')
