@@ -31,12 +31,6 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE
 # --------------------------------------------------------------
-
-from __future__ import print_function
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import unicode_literals
-
 import sys
 import cmd
 import os
@@ -461,7 +455,6 @@ class PupyCmd(cmd.Cmd):
 
         self.stdout = fix_stdout(self.stdout)
 
-        cmd.info = self._make_intro
 
         self.pupsrv = pupsrv
         self.dnscnc = pupsrv.dnscnc
@@ -490,6 +483,7 @@ class PupyCmd(cmd.Cmd):
                 self._intro = []
         except Exception:
             pass
+        self.intro=self._make_intro().decode('utf8')
 
         self.aliases = {}
 
@@ -509,7 +503,7 @@ class PupyCmd(cmd.Cmd):
         self.pupsrv.register_handler(self)
 
     def _make_intro(self):
-        return '\n'.join(
+        return b'\n'.join(
             as_term_bytes(x) for x in self._intro
         )
 

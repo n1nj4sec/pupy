@@ -34,6 +34,7 @@ for PYTHON in $PYTHON32 $PYTHON64; do
     # Still problems here
     $PYTHON -m pip install -q --upgrade pynacl
 
+    $PYTHON -m pip install --upgrade pycryptodome
     $PYTHON -m pip install --upgrade --no-binary :all: $PACKAGES_BUILD
 
     NO_JAVA=1 \
@@ -138,14 +139,16 @@ for target in $TARGETS; do rm -f $TEMPLATES/$target; done
 
 set -e
 
-make -f Makefile -j BUILDENV=/build ARCH=win32 distclean
-make -f Makefile -j BUILDENV=/build ARCH=win32
-make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win32 clean
-make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win32
-make -f Makefile -j BUILDENV=/build ARCH=win64 clean
-make -f Makefile -j BUILDENV=/build ARCH=win64
-make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win64 clean
-make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win64
+#make -f Makefile -j BUILDENV=/build ARCH=win32 distclean
+#make -f Makefile -j BUILDENV=/build ARCH=win32
+#make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win32 clean
+#make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win32
+#make -f Makefile -j BUILDENV=/build ARCH=win64 clean
+#make -f Makefile -j BUILDENV=/build ARCH=win64
+#make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win64 clean
+#make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win64
+#make -f Makefile -j BUILDENV=/opt DEBUG=1 ARCH=win64 clean
+make -f Makefile -j BUILDENV=/opt DEBUG=1 FEATURE_DYNLOAD=1 ARCH=64
 
 for object in $TARGETS; do
     if [ -z "$object" ]; then

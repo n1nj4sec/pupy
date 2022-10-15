@@ -73,7 +73,7 @@ from os import SEEK_CUR
 import os
 import sys
 
-from collections import Callable
+from collections.abc import Callable
 from base64 import b64encode
 
 try:

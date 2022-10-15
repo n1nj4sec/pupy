@@ -1,13 +1,9 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
 INFO = {
     '__author__': 'Community',
-    '__version__': 'v1.8',
-    '__date__': 'Aug 2018',
+    '__version__': 'v3.0',
+    '__date__': 'Oct 2022',
     '__upstream__': 'https://github.com/n1nj4sec/pupy'
 }
 

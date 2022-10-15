@@ -1,7 +1,7 @@
 pycryptodome==3.7.0
 pyaes
 psutil
-rsa
+rsa==4.0
 netaddr==0.7.19
 tinyec
 poster

@@ -28,7 +28,7 @@ sys.path.insert(0, PATCHES)
 sys.path.append(os.path.join(ROOT, 'pupy'))
 sys.path.append(os.path.join(ROOT, 'pupy', 'pupylib'))
 
-pupycompile = __import__('PupyCompile').pupycompile
+from pupylib.PupyCompile import pupycompile
 
 sys.path.append(os.path.join(ROOT, 'pupy', 'packages', 'all'))
 

@@ -17,7 +17,6 @@ from pupylib.PupyCompile import pupycompile
 # FIXME
 
 def compress_encode_obfs(code, main=False):
-    return 'import zlib,marshal;exec' \
-        ' marshal.loads(zlib.decompress(%s))' % repr(
+    return 'import zlib,marshal;exec(marshal.loads(zlib.decompress(%s)))' % repr(
             zlib.compress(pupycompile(code, main=main, raw=True), 9)
         )

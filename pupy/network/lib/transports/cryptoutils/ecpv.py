@@ -1,10 +1,4 @@
 # -*- coding: utf-8 -*-
-
-from __future__ import print_function
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import unicode_literals
-
 __all__ = ('PubKeyCache', 'ECPV')
 
 import sys
@@ -102,7 +96,7 @@ class ECPV(object):
             raise ValueError('Incompatible hash function')
 
         if private_key:
-            self._private_key = from_bytes(base64.decodestring(private_key))
+            self._private_key = from_bytes(base64.b64decode(private_key))
         else:
             self._private_key = None
 
@@ -121,7 +115,7 @@ class ECPV(object):
             if record:
                 self._public_key, self._public_key_digest = _PUBKEY_CACHE.get(public_key)
             else:
-                self._public_key = osp2ec(self._curve, base64.decodestring(public_key))
+                self._public_key = osp2ec(self._curve, base64.b64decode(public_key))
                 if not self._public_key:
                     raise ValueError('Invalid public key')
 

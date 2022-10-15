@@ -61,7 +61,7 @@ def get_listener_ip_with_local(cache=True, external=False, config=None, igd=None
 
                 LISTENER_IP_EXTERNAL = external_ip(force_ipv4=not ipv6)
 
-        if not LISTENER_IP_EXTERNAL:
+        if not LISTENER_IP_EXTERNAL and igd and igd.available:
             logging.warning('Failed to find out external IP')
 
     if not LISTENER_IP_LOCAL and config:

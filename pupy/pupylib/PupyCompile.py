@@ -23,15 +23,9 @@ except ValueError:
     logger = logging
 
 if sys.version_info.major > 2:
-    try:
-        import py2c
-    except ImportError:
-        py2c = None
 
     xrange = range
     unicode = str
-else:
-    py2c = None
 
 
 class Compiler(ast.NodeTransformer):
@@ -146,55 +140,12 @@ class Compiler(ast.NodeTransformer):
         return node
 
 
-def py2compile(data, filename, obfuscate=False, raw=False, debug=False):
-    body = py2c.compile(data, filename, 0 if debug else 2)
-
-    if obfuscate:
-        body_len = len(body)
-        offset = 0 if raw else 8
-
-        output = bytearray(body_len + 8)
-        for i, x in enumerate(body):
-            output[i+offset] = (x ^ ((2 ** ((65535-i) % 65535)) % 251))
-
-        if raw:
-            for i in xrange(8):
-                output[i] = 0
-
-        return output
-
-    elif raw:
-        return body
-
-    else:
-        magic = b'\x00'*8
-        return magic + body
-
-
 def pupycompile(
     data, filename='', path=False, obfuscate=False,
         raw=False, debug=False, main=False, target=None):
 
     if target is not None:
         major, minor = target
-
-        if sys.version_info.major != major or sys.version_info.minor != minor:
-            if major == 2:
-                if py2c is None:
-                    raise NotImplementedError(
-                        'Support for bytecode cross-compilation is not '
-                        'supported without py2c'
-                    )
-
-                if path is True:
-                    data = open(data, 'rb').read()
-
-                return py2compile(data, filename, obfuscate, raw, debug)
-
-            elif major == 3 and minor < 6:
-                raise NotImplementedError(
-                    'Support for this target is not implemented (yet?)'
-                )
 
     if not debug:
         logger.info(data if path else filename)

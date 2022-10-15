@@ -14,7 +14,6 @@ mss==4.0.3
 pyOpenSSL
 scapy
 impacket
-pyuv
 dnslib
 http-parser
 cerberus
@@ -24,7 +23,7 @@ https://github.com/AlessandroZ/pypykatz/archive/master.zip
 https://github.com/warner/python-ed25519/archive/master.zip
 pygments
 requests
-tornado==v5.1.1
+tornado
 win_inet_pton
 scandir
 msgpack==0.6.2
@@ -46,5 +45,4 @@ http_request
 -e external/pykcp
 flake8
 flake8-per-file-ignores
-https://github.com/alxchk/py2c/archive/master.zip; python_version>'3'
 ushlex; python_version<'3'

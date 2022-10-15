@@ -1,10 +1,4 @@
 # -*- coding: utf-8-*-
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import sys
 
 if __name__ == '__main__':
@@ -19,6 +13,7 @@ import string
 import errno
 import time
 import json
+import hashlib
 
 from datetime import datetime
 
@@ -280,13 +275,15 @@ def _generate_ssl_ca():
     cert.set_not_before(now)
     cert.set_not_after(expire)
     cert.set_issuer(cert.get_subject())
+    cert.set_subject(cert.get_issuer())
     cert.set_pubkey(pk)
+
     cert.add_ext(
         X509.new_extension('basicConstraints', 'CA:TRUE')
     )
     cert.add_ext(
         X509.new_extension(
-            'subjectKeyIdentifier', str(cert.get_fingerprint()))
+            'subjectKeyIdentifier', gen_identifier(cert))
     )
     cert.sign(pk, 'sha256')
 
@@ -320,7 +317,7 @@ def _generate_ssl_keypair(
     )
     cert.add_ext(
         X509.new_extension(
-            'subjectKeyIdentifier', str(cert.get_fingerprint())
+            'subjectKeyIdentifier', gen_identifier(cert)
         )
     )
 
@@ -424,6 +421,13 @@ def _generate_simple_rsa_keys():
         'CONTROL_SIMPLE_RSA_PUB_KEY': RSA_PUBLIC_KEY_2,
     }
 
+def gen_identifier(cert, dig='sha256'):
+    instr = cert.get_pubkey().get_rsa().as_pem()
+    h = hashlib.new(dig)
+    h.update(instr)
+    digest = h.hexdigest().upper()
+
+    return ":".join(digest[pos: pos + 2] for pos in range(0, 40, 2))
 
 def _generate_apk_keypair():
     priv, pub, key = _generate_rsa_keypair(2048)
@@ -445,8 +449,7 @@ def _generate_apk_keypair():
     cert.set_not_after(expire)
     cert.set_pubkey(pk)
     cert.set_issuer(cert.get_subject())
-    cert.add_ext(X509.new_extension(
-        'subjectKeyIdentifier', str(cert.get_fingerprint())))
+    cert.add_ext(X509.new_extension('subjectKeyIdentifier', gen_identifier(cert)))
     cert.sign(pk, 'sha256')
 
     return {
@@ -513,8 +516,8 @@ class Credentials(object):
         'CLIENT_SIMPLE_RSA_PUB_KEY': _generate_simple_rsa_keys,
         'CLIENT_SIMPLE_RSA_PRIV_KEY': _generate_simple_rsa_keys,
         'CONTROL_SIMPLE_RSA_PUB_KEY': _generate_simple_rsa_keys,
-        'CONTROL_APK_PRIV_KEY': _generate_apk_keypair,
-        'CONTROL_APK_PUB_KEY': _generate_apk_keypair,
+        #'CONTROL_APK_PRIV_KEY': _generate_apk_keypair,
+        #'CONTROL_APK_PUB_KEY': _generate_apk_keypair,
         'SSL_CA_CERT': _generate_pki_ssl_keys,
         'SSL_CA_KEY': _generate_pki_ssl_keys,
         'CONTROL_SSL_BIND_KEY': _generate_pki_ssl_keys,

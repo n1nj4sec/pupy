@@ -16,7 +16,7 @@ webserver = false
 
 #Multiple listeners are allowed. Example
 #listen = ssl,kc4,ws
-listen = ecm
+listen = ssl
 
 #igd=True allow pupy to make IGD/UPNP requests to get you external IP and
 #    add mappings to your local machine from outside
@@ -118,7 +118,7 @@ mcs_sdk = 2
 display_banner = yes
 colors = yes
 #If 'shadow_screen = no', this can fix some scrollback issues in some terminals (e.g. Terminator)
-shadow_screen = yes
+shadow_screen = no
 
 [paths]
 prefer_workdir = no
