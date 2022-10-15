@@ -526,6 +526,29 @@ class PupyCmd(cmd.Cmd):
         self.execute(line, clients_filter)
         self.display_srvinfo('Action complete')
 
+    def onecmd(self, line):
+        """
+         class overwritten from stdlib to avoid some disturbing stack traces
+        """
+        cmd, arg, line = self.parseline(line)
+        if not line:
+            return self.emptyline()
+        if cmd is None:
+            return self.default(line)
+        self.lastcmd = line
+        if line == 'EOF' :
+            self.lastcmd = ''
+        if cmd == '':
+            return self.default(line)
+        else:
+            try:
+                func = getattr(self, 'do_' + cmd)
+            except AttributeError:
+                func = None
+            if not func:
+                return self.default(line)
+            return func(arg)
+
     def execute(self, line, clients_filter=None):
         if isinstance(line, bytes):
             line = line.decode(DEFAULT_MULTIBYTE_CP)

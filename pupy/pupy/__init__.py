@@ -487,6 +487,9 @@ class PupyPackageLoader(object):
         self.path = path
         self.archive = ''
 
+    def __repr__(self):
+        return f"'memory://{self.path}'"
+
     def _rename_aliased(self, fullname):
         for alias, aliased in aliases.items():
             if not fullname.startswith(alias):
