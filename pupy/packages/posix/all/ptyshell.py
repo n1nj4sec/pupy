@@ -45,7 +45,7 @@ def propose_shell():
         '/usr/local/sbin:/system/bin'
     ).split(':')
 
-    SHELLS = ['bash', 'ash', 'zsh', 'sh', 'ksh', 'csh']
+    SHELLS = ['zsh', 'bash', 'ash', 'sh', 'ksh', 'csh']
 
     for shell in (os.path.join(p, shell) for shell in SHELLS for p in PATHS):
         yield shell
