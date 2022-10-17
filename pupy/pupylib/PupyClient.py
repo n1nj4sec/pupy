@@ -318,8 +318,8 @@ class PupyClient(object):
                 self.pupyimporter = self.remote('pupyimporter')
             except Exception:
                 self.conn.execute('\n'.join([
-                    'import imp, sys, marshal',
-                    'mod = imp.new_module("pupyimporter")',
+                    'import importlib.util, sys, marshal',
+                    'mod = importlib.util.module_from_spec(importlib.util.spec_from_loader("pupyimporter", loader=None))',
                     'mod.__file__="<bootloader>/pupyimporter"',
                     'exec(marshal.loads({}), mod.__dict__)'.format(
                         reprb(pupycompile(

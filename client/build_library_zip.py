@@ -28,6 +28,8 @@ sys.path.insert(0, PATCHES)
 sys.path.append(os.path.join(ROOT, 'pupy'))
 sys.path.append(os.path.join(ROOT, 'pupy', 'pupylib'))
 
+
+setattr(sys, "__from_build_library_zip_compiler__", True)
 from pupylib.PupyCompile import pupycompile
 
 sys.path.append(os.path.join(ROOT, 'pupy', 'packages', 'all'))

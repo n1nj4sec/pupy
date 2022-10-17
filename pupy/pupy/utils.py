@@ -14,7 +14,6 @@ __all__ = (
 )
 
 import sys
-import imp
 import zlib
 import gc
 
@@ -72,7 +71,7 @@ def has_module(name):
 
         if not pupy.is_native():
             try:
-                imp.find_module(name)
+                find_module(name)
                 return True
 
             except ImportError:

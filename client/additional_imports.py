@@ -2,9 +2,8 @@ from __future__ import print_function
 import umsgpack
 import socket
 import threading
-import Queue
+import queue
 import collections
-import SocketServer
 import struct
 import os
 import sys
@@ -12,7 +11,6 @@ import time
 import traceback
 import uuid
 import subprocess
-import StringIO
 import imp
 import hashlib
 import hmac
@@ -37,9 +35,7 @@ import shlex
 import json
 import ctypes
 import threading
-import urlparse
 import urllib
-import urllib2
 import getpass
 import __future__
 import netaddr

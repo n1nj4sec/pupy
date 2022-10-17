@@ -1,10 +1,10 @@
 BUILDENV ?= $(PWD)/buildenv
 
-PYMAJ ?= 2
-PYMIN ?= 7
+PYMAJ ?= 3
+PYMIN ?= 8
 SUFFIX ?= $(PYMAJ)$(PYMIN).
+BITS ?= 32
 
-PYTHONPATH ?= C:\\Python$(PYMAJ)$(PYMIN)
 
 TEMPLATE_OUTPUT_PATH=../../pupy/payload_templates
 
@@ -12,22 +12,28 @@ ifndef ARCH
 $(error You must specify an architecture - win64 or win32)
 endif
 
-CC := $(BUILDENV)/$(ARCH)/cl.sh
-PYTHON := $(BUILDENV)/$(ARCH)/python.sh
-HOST_PYTHON := python
-OPENSSL_ABI ?= 1_1
 
 ifeq "$(ARCH)" "win64"
 CFLAGS:=$(CFLAGS) /DWIN_X64 /D_WIN64 /nologo
 PPARCH := x64
+BITS := 64
 LIBCRYPTO := libcrypto-$(OPENSSL_ABI)-x64.dll
 LIBSSL := libssl-$(OPENSSL_ABI)-x64.dll
 else
 CFLAGS:=$(CFLAGS) /DWIN_X86 /nologo
 PPARCH := x86
+BITS := 32
 LIBCRYPTO := libcrypto-$(OPENSSL_ABI).dll
 LIBSSL := libssl-$(OPENSSL_ABI).dll
 endif
+
+PYTHONPATH ?= C:\\Python$(PYMAJ)-$(BITS)
+
+CC := $(BUILDENV)/$(BITS)/cl.sh
+PYTHON := $(BUILDENV)/$(BITS)/python.sh
+HOST_PYTHON := python
+OPENSSL_ABI ?= 1_1
+
 
 CFLAGS += /Iresources\\$(ARCH) /Iresources /DHAVE_WINDOW
 CFLAGS += /DLIBCRYPTO=\"$(LIBCRYPTO)\" /DLIBSSL=\"$(LIBSSL)\"
@@ -115,7 +121,7 @@ endif
 PUPY_LOAD_DEPS := \
 	pupy_load.c \
 	resources/$(ARCH)/library.c \
-	resources/$(ARCH)/msvcr90.c \
+	resources/$(ARCH)/vcruntime140.c \
 	resources/$(ARCH)/python$(PYMAJ)$(PYMIN).c \
 	resources/$(ARCH)/libssl.c \
 	resources/$(ARCH)/libcrypto.c \
@@ -152,19 +158,19 @@ resources/$(ARCH)/library.zip: ../build_library_zip.py
 resources/$(ARCH)/library.c: ../gen_resource_header.py resources/$(ARCH)/library.txt resources/$(ARCH)/library.zip
 	$(HOST_PYTHON) ../gen_resource_header.py resources/$(ARCH)/library.txt $@ $(COMPRESSED) $(SECARGS)
 
-resources/$(ARCH)/$(LIBCRYPTO): $(BUILDENV)/$(ARCH)/drive_c/Python$(PYMAJ)$(PYMIN)/$(LIBCRYPTO)
+resources/$(ARCH)/$(LIBCRYPTO): $(BUILDENV)/win/drive_c/Python$(PYMAJ)-$(ARCH)/$(LIBCRYPTO)
 	@mkdir -p resources/$(ARCH)
 	cp $< $@
 
-resources/$(ARCH)/$(LIBSSL): $(BUILDENV)/$(ARCH)/drive_c/Python$(PYMAJ)$(PYMIN)/$(LIBSSL)
+resources/$(ARCH)/$(LIBSSL): $(BUILDENV)/win/drive_c/Python$(PYMAJ)-$(ARCH)/$(LIBSSL)
 	@mkdir -p resources/$(ARCH)
 	cp $< $@
 
-resources/$(ARCH)/python$(PYMAJ)$(PYMIN).dll: $(BUILDENV)/$(ARCH)/drive_c/Python$(PYMAJ)$(PYMIN)/python$(PYMAJ)$(PYMIN).dll
+resources/$(ARCH)/python$(PYMAJ)$(PYMIN).dll: $(BUILDENV)/win/drive_c/Python$(PYMAJ)-$(ARCH)/python$(PYMAJ)$(PYMIN).dll
 	@mkdir -p resources/$(ARCH)
 	cp $< $@
 
-resources/$(ARCH)/msvcr90.dll: $(BUILDENV)/$(ARCH)/drive_c/Python$(PYMAJ)$(PYMIN)/msvcr90.dll
+resources/$(ARCH)/vcruntime140.dll: $(BUILDENV)/win/drive_c/Python$(PYMAJ)-$(ARCH)/vcruntime140.dll
 	@mkdir -p resources/$(ARCH)
 	cp $< $@
 
@@ -177,7 +183,7 @@ resources/$(ARCH)/libssl.c: resources/$(ARCH)/$(LIBSSL) ../gen_resource_header.p
 resources/$(ARCH)/python$(PYMAJ)$(PYMIN).c: resources/$(ARCH)/python$(PYMAJ)$(PYMIN).dll ../gen_resource_header.py
 	$(HOST_PYTHON) ../gen_resource_header.py $< $@ $(COMPRESSED) $(SECARGS)
 
-resources/$(ARCH)/msvcr90.c: resources/$(ARCH)/msvcr90.dll ../gen_resource_header.py
+resources/$(ARCH)/vcruntime140.c: resources/$(ARCH)/vcruntime140.dll ../gen_resource_header.py
 	$(HOST_PYTHON) ../gen_resource_header.py $< $@ $(COMPRESSED) $(SECARGS)
 
 resources/$(ARCH)/$(PUPY_PYD_C): \

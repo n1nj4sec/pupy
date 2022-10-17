@@ -1,9 +1,9 @@
 #!/bin/sh
 
-PACKAGES_BUILD="netifaces msgpack-python u-msgpack-python construct bcrypt watchdog dukpy impacket zeroconf==0.19.1 ushlex"
+PACKAGES_BUILD="netifaces msgpack-python u-msgpack-python construct bcrypt watchdog dukpy impacket zeroconf ushlex"
 PACKAGES_BUILD="$PACKAGES_BUILD pycryptodomex pycryptodome cryptography pyOpenSSL paramiko"
 
-PACKAGES="rsa pefile win_inet_pton netaddr==0.7.19 pywin32 win_inet_pton dnslib"
+PACKAGES="rsa pefile win_inet_pton netaddr pywin32 win_inet_pton dnslib"
 PACKAGES="$PACKAGES pyaudio https://github.com/secdev/scapy/archive/master.zip colorama pyaudio"
 PACKAGES="$PACKAGES https://github.com/alxchk/pypykatz/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/warner/python-ed25519/archive/master.zip"
@@ -11,7 +11,7 @@ PACKAGES="$PACKAGES https://github.com/alxchk/tinyec/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/alxchk/urllib-auth/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/alxchk/winkerberos/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/alxchk/pyuv/archive/v1.x.zip"
-PACKAGES="$PACKAGES idna http-parser pyodbc wmi==1.4.9"
+PACKAGES="$PACKAGES idna http-parser pyodbc wmi"
 
 SELF=$(readlink -f "$0")
 SELFPWD=$(dirname "$SELF")
@@ -35,7 +35,7 @@ for PYTHON in $PYTHON32 $PYTHON64; do
     $PYTHON -m pip install -q --upgrade pynacl
 
     $PYTHON -m pip install --upgrade pycryptodome
-    $PYTHON -m pip install --upgrade --no-binary :all: $PACKAGES_BUILD
+    $PYTHON -m pip install --upgrade $PACKAGES_BUILD
 
     NO_JAVA=1 \
         $PYTHON -m pip install --upgrade --force-reinstall \
@@ -58,23 +58,23 @@ for PYTHON in $PYTHON32 $PYTHON64; do
 done
 
 echo "[+] Install psutil"
-$PYTHON32 -m pip install --no-binary :all: psutil==4.3.1
-$PYTHON64 -m pip install --upgrade --no-binary :all: psutil
+$PYTHON32 -m pip install psutil
+$PYTHON64 -m pip install --upgrade psutil
 
 for PYTHON in $PYTHON32 $PYTHON64; do
-    $PYTHON -m pip install -q --force pycparser==2.17
+    $PYTHON -m pip install -q --force pycparser
 done
 
 cd $PYOPUS
 echo "[+] Compile opus /32"
 git clean -fdx
 make -f Makefile.msvc CL=$CL32
-mv opus.pyd ${WINE32}/drive_c/Python27/Lib/site-packages/
+mv opus.pyd ${PYTHONPATH32}/Lib/site-packages/
 
 echo "[+] Compile opus /64"
 git clean -fdx
 make -f Makefile.msvc CL=$CL64
-mv -f opus.pyd ${WINE64}/drive_c/Python27/Lib/site-packages/
+mv -f opus.pyd ${PYTHONPATH64}/Lib/site-packages/
 
 echo "[+] Compile winpty /32"
 rm -f $WINPTY/build/winpty.dll
@@ -85,7 +85,7 @@ if [ ! -f $WINPTY/build/winpty.dll ]; then
     exit 1
 fi
 
-mv $WINPTY/build/winpty.dll ${WINE32}/drive_c/Python27/DLLs/
+mv $WINPTY/build/winpty.dll ${PYTHONPATH32}/DLLs/
 
 echo "[+] Compile winpty /64"
 rm -f $WINPTY/build/winpty.dll
@@ -96,10 +96,10 @@ if [ ! -f $WINPTY/build/winpty.dll ]; then
     exit 1
 fi
 
-mv ${WINPTY}/build/winpty.dll ${WINE64}/drive_c/Python27/DLLs/
+mv ${WINPTY}/build/winpty.dll ${PYTHONPATH64}/DLLs/
 
 echo "[+] Build templates /32"
-cd $WINE32/drive_c/Python27
+cd ${PYTHONPATH32}
 rm -f ${TEMPLATES}/windows-x86.zip
 for dir in Lib DLLs; do
     cd $dir
@@ -112,7 +112,7 @@ for dir in Lib DLLs; do
     cd -
 done
 
-cd $WINE64/drive_c/Python27
+cd ${PYTHONPATH64}
 rm -f ${TEMPLATES}/windows-amd64.zip
 
 echo "[+] Build templates /64"
