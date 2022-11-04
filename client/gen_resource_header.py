@@ -1,11 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import sys
 import binascii
+#import lzma
 import pylzma
 import struct
 import os
@@ -78,17 +76,26 @@ if __name__ == "__main__":
             ])
 
     payload_len = len(file_bytes)
-    payload = struct.pack('>I', payload_len) + (
-        pylzma.compress(
-            file_bytes, dictionary=24, fastBytes=255
-        ) if compressed else file_bytes
-    )
+
+    payload=file_bytes
+    if compressed:
+        #     lzc = lzma.LZMACompressor()
+        #     compressed_fb = lzc.compress(file_bytes)
+        #     compressed_fb += lzc.flush()
+        #     payload = compressed_fb
+        payload = struct.pack('>I', payload_len) + (
+            pylzma.compress(
+                file_bytes, dictionary=24, fastBytes=255
+            ) if compressed else file_bytes
+        )
+    else:
+        payload = struct.pack('>I', payload_len) + payload
 
     if reflective_loader:
         h_file += "static const size_t %s_loader = 0x%x;\n" % (
             output, reflective_loader)
 
-        with open(sys.argv[2].rsplit('.', 1)[0] + '.loader', 'w') as w:
+        with open(sys.argv[2].rsplit('.', 1)[0] + '.loader', 'wb') as w:
             w.write(struct.pack('>I', reflective_loader))
 
     h_file += "static const int %s_size = %s;" % (output, len(payload))
@@ -100,7 +107,7 @@ if __name__ == "__main__":
         w.write(h_file)
 
         for c in payload:
-            w.write("'\\x%s'," % binascii.hexlify(c))
+            w.write("'\\x%02x'," % c)
             current_size += 1
             if current_size > MAX_CHAR_PER_LINE:
                 current_size = 0

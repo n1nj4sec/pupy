@@ -26,6 +26,13 @@ WINPTY=$EXTERNAL/winpty
 PYKCP=$EXTERNAL/pykcp
 PYOPUS=$EXTERNAL/pyopus/src
 
+$PYTHON32 -m pip install -q --upgrade pylzma
+$PYTHON64 -m pip install -q --upgrade pylzma
+
+
+SKIP_TO_BUILD=1
+if [ ! "$SKIP_TO_BUILD" -eq "1" ]; then
+
 echo "[+] Install python packages"
 for PYTHON in $PYTHON32 $PYTHON64; do
     $PYTHON -m pip install -q --upgrade pip
@@ -65,16 +72,16 @@ for PYTHON in $PYTHON32 $PYTHON64; do
     $PYTHON -m pip install -q --force pycparser
 done
 
-cd $PYOPUS
-echo "[+] Compile opus /32"
-git clean -fdx
-make -f Makefile.msvc CL=$CL32
-mv opus.pyd ${PYTHONPATH32}/Lib/site-packages/
+#cd $PYOPUS
+#echo "[+] Compile opus /32"
+#git clean -fdx
+#make -f Makefile.msvc CL=$CL32
+#mv opus.pyd ${PYTHONPATH32}/Lib/site-packages/
 
-echo "[+] Compile opus /64"
-git clean -fdx
-make -f Makefile.msvc CL=$CL64
-mv -f opus.pyd ${PYTHONPATH64}/Lib/site-packages/
+#echo "[+] Compile opus /64"
+#git clean -fdx
+#make -f Makefile.msvc CL=$CL64
+#mv -f opus.pyd ${PYTHONPATH64}/Lib/site-packages/
 
 echo "[+] Compile winpty /32"
 rm -f $WINPTY/build/winpty.dll
@@ -108,10 +115,9 @@ for dir in Lib DLLs; do
         -x "*test/*" -x "*tests/*" -x "*examples/*" -x "pythonwin/*" \
         -x "idlelib/*" -x "lib-tk/*" -x "tk*" -x "tcl*" \
         -x "*.egg-info/*" -x "*.dist-info/*" -x "*.exe" \
-        -r9 ${TEMPLATES}/windows-x86-27.zip .
+        -r9 ${TEMPLATES}/windows-x86.zip .
     cd -
 done
-
 cd ${PYTHONPATH64}
 rm -f ${TEMPLATES}/windows-amd64.zip
 
@@ -123,14 +129,16 @@ for dir in Lib DLLs; do
         -x "*test/*" -x "*tests/*" -x "*examples/*" -x "pythonwin/*" \
         -x "idlelib/*" -x "lib-tk/*" -x "tk*" -x "tcl*" \
         -x "*.egg-info/*" -x "*.dist-info/*" -x "*.exe" \
-        -r9 ${TEMPLATES}/windows-amd64-27.zip .
+        -r9 ${TEMPLATES}/windows-amd64.zip .
     cd -
 done
 
+fi
+
 echo "[+] Build pupy"
 
-TARGETS="pupyx64d-27.dll pupyx64d-27.exe pupyx64-27.dll pupyx64-27.exe"
-TARGETS="$TARGETS pupyx86d-27.dll pupyx86d-27.exe pupyx86-27.dll pupyx86-27.exe"
+TARGETS="pupyx64d.dll pupyx64d.exe pupyx64.dll pupyx64.exe"
+TARGETS="$TARGETS pupyx86d.dll pupyx86d.exe pupyx86.dll pupyx86.exe"
 TARGETS="$TARGETS "
 
 cd ${SRC}
@@ -139,16 +147,15 @@ for target in $TARGETS; do rm -f $TEMPLATES/$target; done
 
 set -e
 
-#make -f Makefile -j BUILDENV=/build ARCH=win32 distclean
-#make -f Makefile -j BUILDENV=/build ARCH=win32
-#make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win32 clean
-#make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win32
-#make -f Makefile -j BUILDENV=/build ARCH=win64 clean
-#make -f Makefile -j BUILDENV=/build ARCH=win64
-#make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win64 clean
-#make -f Makefile -j BUILDENV=/build DEBUG=1 ARCH=win64
-#make -f Makefile -j BUILDENV=/opt DEBUG=1 ARCH=win64 clean
+make -f Makefile -j BUILDENV=/opt FEATURE_DYNLOAD=1 ARCH=32 clean
+make -f Makefile -j BUILDENV=/opt FEATURE_DYNLOAD=1 ARCH=32
+
+make -f Makefile -j BUILDENV=/opt DEBUG=1 FEATURE_DYNLOAD=1 ARCH=64 clean
 make -f Makefile -j BUILDENV=/opt DEBUG=1 FEATURE_DYNLOAD=1 ARCH=64
+
+make -f Makefile -j BUILDENV=/opt FEATURE_DYNLOAD=1 ARCH=64 clean
+make -f Makefile -j BUILDENV=/opt FEATURE_DYNLOAD=1 ARCH=64
+
 
 for object in $TARGETS; do
     if [ -z "$object" ]; then

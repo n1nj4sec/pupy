@@ -94,6 +94,7 @@ class PupyService(Service):
             'allow_getattr': False,
             'allow_setattr': False,
             'allow_delattr': False,
+            'allow_all_attrs': False,
             'import_custom_exceptions': False,
             'instantiate_custom_exceptions': False,
             'instantiate_oldstyle_exceptions': False,

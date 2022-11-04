@@ -11,7 +11,7 @@
 #include "Python-dynload.h"
 #include "jni_on_load.c"
 
-extern HINSTANCE hAppInstance;
+HINSTANCE hAppInstance;
 
 #define REFLECTIVE_SPECIAL 5
 

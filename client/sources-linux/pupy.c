@@ -78,7 +78,7 @@ const char *__pathmap_callback(const char *path, char *buf, size_t buf_size)
         return NULL;
     }
 
-    c_result = PyString_AsString(result);
+    c_result = PyBytes_AsString(result);
     if (!c_result) {
         dprint("__pathmap_callback: Not a string object\n");
         PyErr_Clear();
@@ -390,7 +390,7 @@ static PyObject *Py_mexec(PyObject *self, PyObject *args)
         PyObject *arg = NULL;
         arg = PySequence_GetItem(argv_obj, i);
         if (arg)
-            argv[i] = PyString_AsString(arg);
+            argv[i] = PyBytes_AsString(arg);
     }
     argv[argc] = NULL;
 

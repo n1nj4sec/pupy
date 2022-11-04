@@ -16,7 +16,7 @@ setattr(sys, '__pupy_main__', True)
 root = os.path.dirname(os.path.dirname(__file__))
 
 sys.path.extend((
-    root, os.path.join(root, 'library_patches')
+    root, os.path.join(root, 'library_patches_py3')
 ))
 
 sys.tracebacklimit = 50

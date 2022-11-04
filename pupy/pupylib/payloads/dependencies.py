@@ -129,7 +129,7 @@ LIBS_AUTHORIZED_PATHS = [
 PATCHES_PATHS = [
     os.path.abspath(os.path.join(getcwd(), 'packages', 'patches')),
     os.path.abspath(os.path.join(ROOT, 'packages', 'patches')),
-    os.path.abspath(os.path.join(ROOT, 'library_patches'))
+    os.path.abspath(os.path.join(ROOT, 'library_patches_py3'))
 ]
 
 # ../libs - for windows bundles, to use simple zip command
@@ -437,10 +437,6 @@ def get_content(target, prefix, filepath, archive=None, honor_ignore=True):
             content = filedata.read()
 
     if not target.native:
-        logger.debug(
-            'Modify natve content for %s (native=%s)',
-            filepath, target.native
-        )
 
         content = modify_native_content(target, filepath, content)
 

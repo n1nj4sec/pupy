@@ -30,7 +30,7 @@ def get_encoded_library_string(filepath, out):
         content = modules[module]
 
         out.write(struct.pack('>II', len(module), len(content)))
-        out.write(module)
+        out.write(module.encode('utf8'))
         out.write(content)
 
 

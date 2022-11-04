@@ -7,6 +7,7 @@ import sys
 import sysconfig
 import os
 import imp
+import importlib
 import marshal
 
 import shutil
@@ -22,9 +23,13 @@ ROOT = os.path.dirname(os.path.dirname(THIS))
 print("THIS:", THIS)
 print("ROOT: ", ROOT)
 
-PATCHES = os.path.join(ROOT, 'pupy', 'library_patches')
-
+PATCHES=None
+if sys.version_info[0]==2 :
+    PATCHES = os.path.join(ROOT, 'pupy', 'library_patches_py2')
+else:
+    PATCHES = os.path.join(ROOT, 'pupy', 'library_patches_py3')
 sys.path.insert(0, PATCHES)
+
 sys.path.append(os.path.join(ROOT, 'pupy'))
 sys.path.append(os.path.join(ROOT, 'pupy', 'pupylib'))
 
@@ -94,9 +99,11 @@ all_dependencies = set(
 
 all_dependencies.add('site')
 all_dependencies.add('sysconfig')
+all_dependencies.add('re')
 
 exceptions = (
     'pupy', 'network', 'pupyimporter', 'additional_imports'
+    #'network', 'pupyimporter', 'additional_imports'
 )
 
 all_dependencies = sorted(list(set(all_dependencies)))
@@ -172,17 +179,28 @@ zf.writestr(
     )
 )
 
+#TODO: update if needed
 if 'win' in sys.platform:
     for root, _, files in os.walk('C:\\Python27\\Lib\\site-packages'):
         for file in files:
+            if file.lower().endswith((".dll",".pyd")):
+                print("interesting file :", file)
             if file.lower() in ('pywintypes27.dll', '_win32sysloader.pyd'):
                 zf.write(os.path.join(root, file), file)
 
 try:
     content = set(ignore)
     for dep in all_dependencies:
+        #spec=importlib.util.find_spec(dep)
+        #print(spec)
+        #print(dir(spec))
+        print(dep)
+        if dep.startswith("_cython_") or dep in ["cython_runtime", "pywin32_system32"]:
+            continue
         _, mpath, info = imp.find_module(dep)
-
+        #print("mpath", mpath, "info", info)
+        if mpath == None:
+            continue
         print("DEPENDENCY: ", dep, mpath)
         if info[2] == imp.PKG_DIRECTORY:
             print('adding package %s / %s' % (dep, mpath))

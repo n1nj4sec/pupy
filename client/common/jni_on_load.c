@@ -553,9 +553,9 @@ static PyObject* Py_JString_to_PyString(JNIEnv *env, jobject jstr) {
     }
 
     if (utfchars == NULL) {
-        result = PyString_FromString("");
+        result = PyUnicode_FromString("");
     } else {
-        result = PyString_FromString(utfchars);
+        result = PyUnicode_FromString(utfchars);
     }
 
     (*env)->ReleaseStringUTFChars(env, jstr, utfchars);
@@ -586,7 +586,7 @@ static jint __thread_name_and_classloader_to_dict(JNIEnv *env, jobject thread, v
         return err;
     }
 
-    Py_classLoaderName = PyString_FromString(classLoaderName);
+    Py_classLoaderName = PyUnicode_FromString(classLoaderName);
     free(classLoaderName);
 
     if (Py_classLoaderName == NULL) {
@@ -667,7 +667,7 @@ PyObject *Py_set_preferred_classloader_name(PyObject *self, PyObject *args) {
     }
 
     if (__preferred_classloader_name)
-        return PyString_FromString(__preferred_classloader_name);
+        return PyUnicode_FromString(__preferred_classloader_name);
 
     return Py_BuildValue("");
 }
@@ -699,7 +699,7 @@ PyObject *Py_set_preferred_loadable_class(PyObject *self, PyObject *args) {
     }
 
     if (__preferred_loadable_class)
-        return PyString_FromString(__preferred_loadable_class);
+        return PyUnicode_FromString(__preferred_loadable_class);
 
     return Py_BuildValue("");
 }
@@ -707,7 +707,7 @@ PyObject *Py_set_preferred_loadable_class(PyObject *self, PyObject *args) {
 static
 PyObject *Py_get_preferred_classloader_name(PyObject *self, PyObject *args) {
     if (__preferred_classloader_name != NULL)
-        return PyString_FromString(__preferred_classloader_name);
+        return PyUnicode_FromString(__preferred_classloader_name);
 
     return Py_BuildValue("");
 }
@@ -715,7 +715,7 @@ PyObject *Py_get_preferred_classloader_name(PyObject *self, PyObject *args) {
 static
 PyObject *Py_get_preferred_loadable_class(PyObject *self, PyObject *args) {
     if (__preferred_loadable_class != NULL)
-        return PyString_FromString(__preferred_loadable_class);
+        return PyUnicode_FromString(__preferred_loadable_class);
 
     return Py_BuildValue("");
 }
@@ -886,9 +886,18 @@ static PyMethodDef JVM_Methods[] = {
       DOC("initializer thread's ClassLoader to current thread") },
     { NULL, NULL },		/* Sentinel */
 };
-
+/*
+static struct PyModuleDef JvmModuleDef =
+{
+    PyModuleDef_HEAD_INIT,
+    "jvm", 
+    jvm_module_doc, 
+    -1,   
+    JVM_Methods
+};
+*/
 void setup_jvm_class(void) {
-    PyObject *jvm_klass = Py_InitModule3("jvm", JVM_Methods, jvm_module_doc);
+    /*PyObject *jvm_klass = PyModule_Create(&JvmModuleDef);
     if (!jvm_klass) {
         return NULL;
     }
@@ -896,6 +905,9 @@ void setup_jvm_class(void) {
     jvm_error = PyErr_NewException("jvm.error", NULL, NULL);
     Py_INCREF(jvm_error);
     PyModule_AddObject(jvm_klass, "error", jvm_error);
+    */
+    dprint("NOT IMPLEMENTED: broken jvm setup\n");
+    return NULL;
 }
 
 static

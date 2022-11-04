@@ -654,3 +654,7 @@ def run(config):
     pupy.client.run()
 
     logger.debug('Exited')
+
+    # sometimes the client does not exit properly
+    time.sleep(10)
+    sys.exit(0)

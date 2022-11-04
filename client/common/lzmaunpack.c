@@ -135,10 +135,10 @@ static PyObject *PyDict_lzmaunpack(const char *data, size_t size) {
 
         offset += 8;
 
-        k = PyString_FromStringAndSize((char *) uncompressed + offset, ksize);
+        k = PyUnicode_FromStringAndSize((char *) uncompressed + offset, ksize);
         offset += ksize;
 
-        v = PyString_FromStringAndSize((char *) uncompressed + offset, vsize);
+        v = PyBytes_FromStringAndSize((char *) uncompressed + offset, vsize);
         offset += vsize;
 
         if (!k || !v) {

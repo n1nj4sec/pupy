@@ -1,6 +1,7 @@
 # Temporary files
 *.pyc
 *.pyo
+*.swp
 .#*
 
 # Generated sources
@@ -31,7 +32,7 @@ pupy/payload_templates/*.zip
 pupy/payload_templates/*.exe
 pupy/payload_templates/*.lin
 pupy/payload_templates/*.lin.so
-pupy/payload_templates/*.pyr
+pupy/payload_templates/*.pyd
 
 # pupy
 pupy/.pupy_history

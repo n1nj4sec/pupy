@@ -44,6 +44,14 @@ import http_parser
 import unicodedata
 import getpass
 
+import importlib
+import importlib.util
+import contextlib
+import warnings
+import abc
+import _py_abc
+import keyword
+
 try:
     import psutil
 except Exception as e:
@@ -66,7 +74,7 @@ try:
 except ImportError:
     print("uidle not found")
 
-import poster
+#import poster
 
 if 'win' in sys.platform:
     import ctypes.wintypes

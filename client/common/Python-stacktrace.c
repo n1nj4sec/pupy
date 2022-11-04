@@ -124,8 +124,8 @@ int Py_GetCurrentThreadStackTrace(Py_GetStackTraceCb_t cb, void *cbdata) {
 
             while (frame) {
                 int line = pCode_Addr2Line(frame->f_code, frame->f_lasti);
-                const char *funcname = PyString_AsString(frame->f_code->co_name);
-                const char *filename = PyString_AsString(frame->f_code->co_filename);
+                const char *funcname = PyBytes_AsString(frame->f_code->co_name);
+                const char *filename = PyBytes_AsString(frame->f_code->co_filename);
 
                 dprint(
                     "Py_GetCurrentThreadStackTrace: func=%s file=%s line=%d\n",

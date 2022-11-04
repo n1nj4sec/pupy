@@ -470,6 +470,7 @@ class PupyClient(object):
         if dll:
             if self.new_dlls:
                 logger.debug('Request new dlls for %s', modules)
+                #TODO push dll here
                 return self.new_dlls(tuple(modules))
             else:
                 return tuple(
@@ -544,7 +545,8 @@ class PupyClient(object):
             forced = None
             if force:
                 forced = set()
-
+            logger.debug("target: %s", self.target)
+            logger.debug("requirements: %s", requirements)
             packages, contents, dlls = dependencies.package(
                 self.target, requirements,
                 remote=remote,
