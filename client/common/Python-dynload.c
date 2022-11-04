@@ -1002,14 +1002,8 @@ void run_pupy() {
     
     //mandatory !!
     py_clear_sys_dict("path_importer_cache");
-
-    int res = PyRun_SimpleString(
-        "import sys;"
-        "print('Run Python code', "
-               "file=sys.stderr)");
-    if (res < 0) {
-        exit(1);
-    }
+    
+    /*
     res = PyRun_SimpleString(
         "import _pupy;"
         "print(_pupy, "
@@ -1017,6 +1011,7 @@ void run_pupy() {
     if (res < 0) {
         exit(1);
     }
+    */
 
     dprint("Loading pupy\n");
     pupy = py_module_from_stdlib(py_stdlib, "pupy", 1);

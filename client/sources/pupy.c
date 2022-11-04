@@ -283,6 +283,12 @@ static PyObject *Py_reflective_inject_dll(PyObject *self, PyObject *args)
         }else{
                 is64bits=PROCESS_ARCH_X86;
         }
+        if(dwPid == 0) {
+            return PyErr_Format(
+                    PyExc_Exception,
+                    "Cannot inject in pid %d", dwPid
+            );
+        }
         if(inject_dll( dwPid, lpDllBuffer, dwDllLenght, NULL, is64bits) != ERROR_SUCCESS)
                 return NULL;
         return PyBool_FromLong(1);

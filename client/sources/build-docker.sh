@@ -32,7 +32,7 @@ $PYTHON64 -m pip install -q --upgrade pylzma
 
 
 
-SKIP_TO_BUILD=0
+SKIP_TO_BUILD=1
 if [ ! "$SKIP_TO_BUILD" -eq "1" ]; then
 
 echo "[+] Install python packages"

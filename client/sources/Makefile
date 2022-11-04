@@ -86,7 +86,7 @@ APP_OBJS := \
 ifneq ($(FEATURE_DYNLOAD),)
 #CFLAGS += /D_PUPY_DYNLOAD /D_PUPY_PRIVATE_NT
 CFLAGS += /D_PUPY_DYNLOAD
-#SHARED_OBJS += ReflectiveLoader.obj
+SHARED_OBJS += ReflectiveLoader.obj
 LIBPYTHON_LIBS := $(PYTHONPATH)\\libs\\python$(PYMAJ)$(PYMIN).lib advapi32.lib
 LIBPYTHON_INC := /I$(PYTHONPATH)\\include
 
@@ -252,7 +252,10 @@ clean:
 		$(TARGETS) \
 		*.exp \
 		*.lib \
-		*.map
+		*.map \
+		$(TEMPLATE_OUTPUT_PATH)/*.lib \
+		$(TEMPLATE_OUTPUT_PATH)/*.exp \
+		$(TEMPLATE_OUTPUT_PATH)/*.map
 
 distclean: clean
 	rm -f revision.h

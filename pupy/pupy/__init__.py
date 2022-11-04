@@ -853,12 +853,14 @@ def load_pupyimporter(stdlib=None):
     sys.path_importer_cache.clear()
 
     PupyPackageFinder.init_search_lock()
-
-    del sys.modules["collections"]
-    del sys.modules["collections.abc"]
-    dprint("\n".join([x for x in sys.modules.keys()]))
-    import collections.abc
-    import collections
+    
+    if is_native():
+        # fixup some modules that were not imported correctly during bootstrap
+        # TODO: investigate a cleaner way
+        del sys.modules["collections"]
+        del sys.modules["collections.abc"]
+        import collections.abc
+        import collections
 
     if sys.platform == 'win32':
         initialize_basic_windows_modules()
