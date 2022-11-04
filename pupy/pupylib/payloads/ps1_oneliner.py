@@ -9,7 +9,7 @@ from base64 import b64encode
 from time import sleep
 
 import sys
-import pupygen
+from pupylib.cli import pupygen
 import socket
 import errno
 

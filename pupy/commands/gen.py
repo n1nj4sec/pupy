@@ -11,7 +11,7 @@ from pupylib.PupyOutput import Info, Warn, Success, Error
 from pupylib.utils.listener import get_listener_ip, get_listener_port
 from pupylib.utils.listener import get_listener_ip_with_local
 
-import pupygen
+from pupylib.cli import pupygen
 
 usage  = 'Generate payload'
 
@@ -20,12 +20,14 @@ def parser(server, handler, config):
 
 def do(server, handler, config, args):
     handler.display(Info("Raw user arguments given for generation: {0}".format(str(args.launcher_args))))
+
     if not args.launcher:
         handler.display(Info("Launcher/connection method not given. It is set to 'connect' now"))
         args.launcher = 'connect'
+
     #launcher method 'connect' or 'auto_proxy'
     if args.launcher and args.launcher in ('connect', 'auto_proxy'):
-        transport      = None #For saving the transport method (default or given by user)
+        transport      = config.get("pupyd", "listen") #For saving the transport method (default or given by user)
         transport_idx  = None
         host           = None #Host for listening point (not for launcher args)
         port           = None #Port for listening point (not for launcher args)

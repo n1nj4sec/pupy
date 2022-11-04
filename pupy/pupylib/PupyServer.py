@@ -1234,6 +1234,7 @@ class PupyServer(object):
 
         if error:
             del self.listeners[name]
+            self.handler.display_error(error)
 
         self.display(message, error, motd)
 

@@ -21,12 +21,6 @@ import tempfile
 import shutil
 import subprocess
 
-if __name__ == '__main__':
-    sys.path.insert(0, os.path.join(
-        os.path.abspath(os.path.join(os.path.dirname(__file__))),
-        'library_patches'
-    ))
-
 import marshal
 import base64
 import os
@@ -62,7 +56,7 @@ from pupylib.PupyCredentials import Credentials, EncryptionError
 logger = getLogger('gen')
 
 HARDCODED_CONF_SIZE = 500000
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__)))
+from pupylib import ROOT
 
 if sys.version_info.major > 2:
     unicode = str
@@ -777,6 +771,7 @@ def pupygen(args, config, pupsrv, display):
     scriptlets = load_scriptlets(args.os, args.arch)
 
     if args.list:
+        print("ok")
         display(MultiPart([
             Table(
                 [{

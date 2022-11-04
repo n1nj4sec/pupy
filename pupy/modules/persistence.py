@@ -26,7 +26,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from pupylib.PupyCompleter import remote_path_completer
-import pupygen
+from pupylib.cli import pupygen
 
 __class_name__ = "Persistence"
 

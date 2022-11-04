@@ -12,7 +12,7 @@ from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from modules.lib.windows.memory_exec import exec_pe
 from modules.lib.linux.exec_elf import mexec
 
-import pupygen
+from pupylib.cli import pupygen
 
 __class_name__ = 'MemoryDuplicate'
 

@@ -8,7 +8,7 @@ from __future__ import unicode_literals
 import sys
 import time
 
-import pupygen
+from pupylib.cli import pupygen
 
 from pupylib.payloads.dependencies import Target
 

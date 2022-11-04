@@ -29,12 +29,15 @@ import random
 import string
 import datetime
 import errno
+import shutil
+import os
 
 from network.lib.convcompat import (
     as_unicode_string, as_native_string
 )
 
 from .PupyLogger import getLogger
+from pupylib import ROOT
 logger = getLogger('config')
 
 if sys.version_info.major > 2:
@@ -100,16 +103,17 @@ class Tags(object):
 class PupyConfig(RawConfigParser):
 
     def __init__(self, config='pupy.conf'):
-        self.root = path.abspath(path.join(path.dirname(__file__), '..'))
+        self.root = path.abspath(ROOT)
         self.user_root = path.expanduser(path.join('~', '.config', 'pupy'))
-        self.project_path = path.join('config', config)
+        self.default_file = path.join(self.root, config+'.default')
         self.user_path = path.join(self.user_root, config)
+        if not os.path.exists(self.user_path):
+            shutil.copyfile(self.default_file, self.user_path)
+            logger.info("No default pupy config file, creating one in {}".format(self.user_path))
+
         self.files = [
-            path.join(self.root, config+'.default'),
-            path.join(self.root, config),
-            self.user_path,
-            self.project_path,
-            config
+            self.default_file,
+            self.user_path
         ]
         self.randoms = {}
         self.command_line = {}
@@ -121,7 +125,7 @@ class PupyConfig(RawConfigParser):
                 self.read_file(open(file, 'r'))
 
                 logger.info(
-                    'Loaded config data from %s', self.files
+                    'Loaded config data from %s', file
                 )
             except (IOError, OSError) as e:
                 if e.errno == errno.EEXIST:

@@ -5,7 +5,7 @@ rsa
 netaddr
 ecdsa==0.13
 paramiko==2.0.2
-https://github.com/alxchk/tinyec/archive/master.zip
+tinyec @ https://github.com/alxchk/tinyec/archive/master.zip
 psutil
 netifaces
 pylzma
@@ -19,8 +19,8 @@ http-parser
 cerberus
 logutils
 secretstorage==2.3.1
-https://github.com/AlessandroZ/pypykatz/archive/master.zip
-https://github.com/warner/python-ed25519/archive/master.zip
+pypykatz @ https://github.com/AlessandroZ/pypykatz/archive/master.zip
+ed25519==1.5
 pygments
 requests
 tornado
@@ -40,10 +40,10 @@ xattr
 dukpy
 pyaes
 chardet
-https://github.com/alxchk/urllib-auth/archive/master.zip
+urllib-auth @ https://github.com/alxchk/urllib-auth/archive/master.zip
 http_request
--e external/pykcp
+kcp @ git+https://github.com/n1nj4sec/pykcp
 flake8
 flake8-per-file-ignores
 ushlex; python_version<'3'
-git+https://github.com/n1nj4sec/pyuv@fix-building-against-python311
+pyuv @ git+https://github.com/n1nj4sec/pyuv@fix-building-against-python311

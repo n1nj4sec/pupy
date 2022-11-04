@@ -45,12 +45,7 @@ import argparse
 
 args = None
 
-
-if __name__ == '__main__':
-    ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__)))
-    sys.path.insert(0, os.path.join(ROOT, 'library_patches_py3'))
-    sys.path.append(os.path.join(ROOT, 'packages', 'all'))
-
+def parse_args():
     parser = argparse.ArgumentParser(prog='pupysh', description="Pupy console")
     parser.add_argument(
         '--loglevel', '-d',
@@ -72,8 +67,21 @@ if __name__ == '__main__':
                         help='Do not encrypt configuration', action='store_true')
     parser.add_argument('--sound', dest='sounds',
                         help='Play a sound when a session connects', action='store_true')
-    args = parser.parse_args()
+    return parser
 
+try:
+    import pupylib.PupySignalHandler
+    assert pupylib.PupySignalHandler
+except ImportError:
+    pass
+
+from pupylib import (
+    PupyServer, PupyCmdLoop, PupyCredentials, PupyConfig
+)
+
+def main():
+    parser = parse_args()
+    args = parser.parse_args()
     if args.workdir:
         os.chdir(args.workdir)
 
@@ -99,18 +107,6 @@ if __name__ == '__main__':
 
     root_logger.addHandler(logging_stream)
     root_logger.setLevel(args.loglevel)
-
-try:
-    import pupylib.PupySignalHandler
-    assert pupylib.PupySignalHandler
-except ImportError:
-    pass
-
-from pupylib import (
-    PupyServer, PupyCmdLoop, PupyCredentials, PupyConfig
-)
-
-if __name__ == "__main__":
     PupyCredentials.DEFAULT_ROLE = 'CONTROL'
     if args.not_encrypt:
         PupyCredentials.ENCRYPTOR = None
@@ -143,3 +139,5 @@ if __name__ == "__main__":
     pupyServer.stop()
     pupyServer.finished.wait()
 
+if __name__ == "__main__":
+    main()
