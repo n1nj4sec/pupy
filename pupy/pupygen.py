@@ -86,7 +86,7 @@ def get_pyver(pyver, config):
             return '27'
         elif pyver == 3:
             # Here will be some default supported Py3 version
-            return '37'
+            return '310'
     elif default:
         return default
     else:
@@ -481,7 +481,7 @@ def generate_ps1(
 def generate_binary_from_template(
         display, config, target, shared=False, fmt=None):
 
-    TEMPLATE_FMT = fmt or 'pupy{arch}{debug}.{ext}'
+    TEMPLATE_FMT = fmt or 'pupy{arch}{debug}-{pyver}.{ext}'
 
     CLIENTS = {
         'android': (get_edit_apk, 'pupy.apk', False),
@@ -942,7 +942,7 @@ def pupygen(args, config, pupsrv, display):
     )
 
     target = dependencies.Target(
-        (int(pyver[0]), int(pyver[1])),
+        (int(pyver[0]), int(pyver[1:])),
         (args.os, args.arch),
         args.debug
     )

@@ -470,7 +470,6 @@ class PupyClient(object):
         if dll:
             if self.new_dlls:
                 logger.debug('Request new dlls for %s', modules)
-                #TODO push dll here
                 return self.new_dlls(tuple(modules))
             else:
                 return tuple(

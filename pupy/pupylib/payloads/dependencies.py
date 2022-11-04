@@ -840,7 +840,7 @@ def package(
 def bundle(target):
     if not target.os or not target.arch:
         return None
-
+    
     bundle_name = '{}-{}-{}{}.zip'.format(
         target.os, target.arch, target.pymaj, target.pymin
     )

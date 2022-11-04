@@ -13,6 +13,7 @@ PACKAGES="$PACKAGES https://github.com/alxchk/winkerberos/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/alxchk/pyuv/archive/v1.x.zip"
 PACKAGES="$PACKAGES idna http-parser pyodbc wmi"
 
+SUFFIX="-310"
 SELF=$(readlink -f "$0")
 SELFPWD=$(dirname "$SELF")
 SRC=${SELFPWD:-$(pwd)}
@@ -30,7 +31,8 @@ $PYTHON32 -m pip install -q --upgrade pylzma
 $PYTHON64 -m pip install -q --upgrade pylzma
 
 
-SKIP_TO_BUILD=1
+
+SKIP_TO_BUILD=0
 if [ ! "$SKIP_TO_BUILD" -eq "1" ]; then
 
 echo "[+] Install python packages"
@@ -107,7 +109,7 @@ mv ${WINPTY}/build/winpty.dll ${PYTHONPATH64}/DLLs/
 
 echo "[+] Build templates /32"
 cd ${PYTHONPATH32}
-rm -f ${TEMPLATES}/windows-x86.zip
+rm -f ${TEMPLATES}/windows-x86${SUFFIX}.zip
 for dir in Lib DLLs; do
     cd $dir
     zip -q -y \
@@ -115,11 +117,11 @@ for dir in Lib DLLs; do
         -x "*test/*" -x "*tests/*" -x "*examples/*" -x "pythonwin/*" \
         -x "idlelib/*" -x "lib-tk/*" -x "tk*" -x "tcl*" \
         -x "*.egg-info/*" -x "*.dist-info/*" -x "*.exe" \
-        -r9 ${TEMPLATES}/windows-x86.zip .
+        -r9 ${TEMPLATES}/windows-x86${SUFFIX}.zip .
     cd -
 done
 cd ${PYTHONPATH64}
-rm -f ${TEMPLATES}/windows-amd64.zip
+rm -f ${TEMPLATES}/windows-amd64${SUFFIX}.zip
 
 echo "[+] Build templates /64"
 for dir in Lib DLLs; do
@@ -129,7 +131,7 @@ for dir in Lib DLLs; do
         -x "*test/*" -x "*tests/*" -x "*examples/*" -x "pythonwin/*" \
         -x "idlelib/*" -x "lib-tk/*" -x "tk*" -x "tcl*" \
         -x "*.egg-info/*" -x "*.dist-info/*" -x "*.exe" \
-        -r9 ${TEMPLATES}/windows-amd64.zip .
+        -r9 ${TEMPLATES}/windows-amd64${SUFFIX}.zip .
     cd -
 done
 

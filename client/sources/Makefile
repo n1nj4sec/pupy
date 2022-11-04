@@ -2,7 +2,7 @@ BUILDENV ?= $(PWD)/buildenv
 
 PYMAJ ?= 3
 PYMIN ?= 10
-SUFFIX ?= .
+SUFFIX ?= -$(PYMAJ)$(PYMIN).
 BITS ?= 32
 
 
@@ -115,7 +115,7 @@ COMMON_OBJS += LzmaDec.obj
 COMPRESSED = 1
 else
 CFLAGS += /DUNCOMPRESSED
-SUFFIX := unc$(SUFFIX)
+SUFFIX := unc-$(SUFFIX)
 COMPRESSED = 0
 endif
 
