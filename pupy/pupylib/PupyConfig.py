@@ -103,10 +103,11 @@ class Tags(object):
 class PupyConfig(RawConfigParser):
 
     def __init__(self, config='pupy.conf'):
-        self.root = path.abspath(os.path.join(ROOT, ".."))
+        self.root = path.abspath(ROOT)
         self.user_root = path.expanduser(path.join('~', '.config', 'pupy'))
-        self.default_file = path.join(self.root, config+'.default')
+        self.default_file = path.join(self.root, "conf", config+'.default')
         self.user_path = path.join(self.user_root, config)
+
         if not os.path.exists(self.user_path):
             shutil.copyfile(self.default_file, self.user_path)
             logger.info("No default pupy config file, creating one in {}".format(self.user_path))

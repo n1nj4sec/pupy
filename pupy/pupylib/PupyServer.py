@@ -81,7 +81,7 @@ from pupy.pupylib.PupyOffload import PupyOffloadManager, OffloadProxyCommonError
 from pupy.pupylib import PupyService
 from pupy.pupylib import PupyClient
 from pupy.pupylib import Credentials
-from pupy.pupylib import PUPYLIB_DIR
+from pupy.pupylib import ROOT
 
 from .utils.rpyc_utils import obtain
 from .utils.listener import get_listener_ip_with_local
@@ -658,7 +658,8 @@ class PupyServer(object):
                 reprb(
                     pupycompile(
                         path.join(
-                            PUPYLIB_DIR,
+                            ROOT,
+                            "pupylib",
                             'PupyClientInitializer.py'
                         ),
                         path=True, raw=True,
@@ -900,7 +901,7 @@ class PupyServer(object):
 
         paths = set([
             path.abspath(x) for x in [
-                self.config.root, '.', path.join(PUPYLIB_DIR, '..')
+                self.config.root, '.', ROOT
             ]
         ])
 

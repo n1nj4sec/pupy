@@ -40,3 +40,6 @@ pupy/config
 pupy/crypto
 pupy/data
 pupy/proxy/proxy
+
+build
+pupy.egg-info
