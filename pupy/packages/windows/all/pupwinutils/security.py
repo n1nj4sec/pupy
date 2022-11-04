@@ -22,7 +22,7 @@ from ctypes.wintypes import (
     LPCSTR, LPCWSTR, USHORT, HANDLE
 )
 
-from network.lib.convcompat import (
+from pupy.network.lib.convcompat import (
     as_native_string, try_as_unicode_string
 )
 

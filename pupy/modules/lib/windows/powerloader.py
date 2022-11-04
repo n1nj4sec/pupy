@@ -13,8 +13,8 @@ from io import open
 from os import unlink
 from threading import Event
 
-from pupylib.cli.pupygen import generate_binary_from_template
-from pupylib.payloads.dotnet import DotNetPayload
+from pupy.cli.pupygen import generate_binary_from_template
+from pupy.pupylib.payloads.dotnet import DotNetPayload
 
 DEFAULT_TIMEOUT = 90
 

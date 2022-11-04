@@ -7,8 +7,8 @@ from __future__ import unicode_literals
 
 import sys
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.PupyOutput import Table
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.PupyOutput import Table
 
 if sys.version_info.major > 2:
     unicode = str

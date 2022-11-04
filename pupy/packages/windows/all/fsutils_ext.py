@@ -23,7 +23,7 @@ from pupwinutils.security import (
     POINTER, HANDLE, BYTE, ULONG
 )
 
-from network.lib.convcompat import fix_exception_encoding
+from pupy.network.lib.convcompat import fix_exception_encoding
 
 if sys.version_info.major > 2:
     xrange = range

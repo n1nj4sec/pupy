@@ -8,8 +8,8 @@ from __future__ import unicode_literals
 import os
 from io import open
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.utils.rpyc_utils import obtain
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.utils.rpyc_utils import obtain
 
 __class_name__="MemStrings"
 

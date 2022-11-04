@@ -9,10 +9,10 @@ import threading
 import zlib
 
 from select import select
-from pupy import mexec
+from pupy.agent import mexec
 from fcntl import fcntl, F_GETFL, F_SETFL
 from os import O_NONBLOCK
-from network.lib.pupyrpc import nowait
+from pupy.network.lib.pupyrpc import nowait
 
 
 class MExec(object):

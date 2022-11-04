@@ -32,12 +32,12 @@ import errno
 import shutil
 import os
 
-from network.lib.convcompat import (
+from pupy.network.lib.convcompat import (
     as_unicode_string, as_native_string
 )
 
 from .PupyLogger import getLogger
-from pupylib import ROOT
+from pupy.pupylib import ROOT
 logger = getLogger('config')
 
 if sys.version_info.major > 2:
@@ -103,7 +103,7 @@ class Tags(object):
 class PupyConfig(RawConfigParser):
 
     def __init__(self, config='pupy.conf'):
-        self.root = path.abspath(ROOT)
+        self.root = path.abspath(os.path.join(ROOT, ".."))
         self.user_root = path.expanduser(path.join('~', '.config', 'pupy'))
         self.default_file = path.join(self.root, config+'.default')
         self.user_path = path.join(self.user_root, config)

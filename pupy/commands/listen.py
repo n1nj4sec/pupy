@@ -4,10 +4,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from pupylib.PupyModule import PupyArgumentParser
-from pupylib.PupyOutput import Success, Color, Table
+from pupy.pupylib.PupyModule import PupyArgumentParser
+from pupy.pupylib.PupyOutput import Success, Color, Table
 
-from network.conf import transports
+from pupy.network.conf import transports
 
 usage = 'start/stop/show current listeners'
 parser = PupyArgumentParser(prog='listen', description=usage)

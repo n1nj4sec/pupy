@@ -9,7 +9,7 @@ import threading
 import time
 
 from png import bmp_to_png
-from network.lib.pupyrpc import nowait
+from pupy.network.lib.pupyrpc import nowait
 
 try:
     import keyboard

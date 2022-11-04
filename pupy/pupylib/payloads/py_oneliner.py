@@ -12,10 +12,10 @@ from __future__ import unicode_literals
 import os.path
 from io import open
 
-from pupylib.PupyOutput import Success, Warn, Error, List
-from pupylib.utils.obfuscate import compress_encode_obfs
-from pupylib.payloads import dependencies
-from pupylib import ROOT
+from pupy.pupylib.PupyOutput import Success, Warn, Error, List
+from pupy.pupylib.utils.obfuscate import compress_encode_obfs
+from pupy.pupylib.payloads import dependencies
+from pupy.pupylib import ROOT
 
 
 def getLinuxImportedModules():
@@ -43,9 +43,8 @@ def pack_py_payload(target, display, conf, autostart=True):
     stdlib.update(
         dependencies.importer(
             target, (
-                'network', 'pupy'
-            ),
-            path=ROOT, as_dict=True
+                'pupy.network', 'pupy.agent'
+            ), as_dict=True
         )
     )
 

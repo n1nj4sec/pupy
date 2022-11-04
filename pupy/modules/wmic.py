@@ -8,8 +8,8 @@ from __future__ import unicode_literals
 import sys
 from argparse import REMAINDER
 
-from pupylib.PupyOutput import Table, List
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.PupyOutput import Table, List
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 
 if sys.version_info.major > 2:
     basestring = str

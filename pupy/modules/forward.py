@@ -6,9 +6,9 @@ from __future__ import print_function
 from __future__ import unicode_literals
 import traceback
 
-from pupylib import getLogger
+from pupy.pupylib import getLogger
 
-from pupylib.PupyModule import (
+from pupy.pupylib.PupyModule import (
     PupyModule, config, PupyArgumentParser
 )
 

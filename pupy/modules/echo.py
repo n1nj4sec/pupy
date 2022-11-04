@@ -6,7 +6,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 from threading import Event
 
-from pupylib.PupyModule import PupyModule, PupyArgumentParser
+from pupy.pupylib.PupyModule import PupyModule, PupyArgumentParser
 
 
 __class_name__ = 'Echo'

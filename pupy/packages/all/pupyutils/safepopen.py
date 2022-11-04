@@ -20,7 +20,7 @@ else:
     from Queue import Queue, Empty
 
 from io import open
-from network.lib.pupyrpc import nowait
+from pupy.network.lib.pupyrpc import nowait
 
 ON_POSIX = 'posix' in sys.builtin_module_names
 DETACHED_PROCESS = 0x00000008

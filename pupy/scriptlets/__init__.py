@@ -24,9 +24,9 @@ from ast import (
     Load, Param, NodeTransformer
 )
 
-from pupylib import getLogger
-from pupylib.payloads  import dependencies
-from pupylib.PupyCompile import Compiler
+from pupy.pupylib import getLogger
+from pupy.pupylib.payloads  import dependencies
+from pupy.pupylib.PupyCompile import Compiler
 
 from collections import OrderedDict
 

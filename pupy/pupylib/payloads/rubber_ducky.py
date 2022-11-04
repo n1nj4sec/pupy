@@ -10,7 +10,7 @@ from __future__ import unicode_literals
 import subprocess
 from io import open
 
-from pupylib.PupyOutput import Success, Error
+from pupy.pupylib.PupyOutput import Success, Error
 
 
 class rubber_ducky():

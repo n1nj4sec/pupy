@@ -17,7 +17,7 @@ from imp import load_dynamic
 from os import path
 from tempfile import gettempdir
 
-import pupy
+import pupy.agent as pupy
 
 INITIALIZER = ctypes.PYFUNCTYPE(None)
 _Py_PackageContext = None

@@ -24,12 +24,12 @@ import string
 import re
 
 from hashlib import sha1
-from network.lib.buffer import Buffer
+from pupy.network.lib.buffer import Buffer
 
 from ..base import BasePupyTransport
 
-from network.lib import getLogger
-from network.lib.transports.cryptoutils import XOR
+from pupy.network.lib import getLogger
+from pupy.network.lib.transports.cryptoutils import XOR
 
 logger = getLogger('ws')
 

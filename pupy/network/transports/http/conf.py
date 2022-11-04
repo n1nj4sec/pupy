@@ -6,11 +6,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
-from network.transports import Transport, LAUNCHER_TYPE_BIND
-from network.lib import PupyTCPServer, PupyTCPClient, PupySocketStream
-from network.lib import PupyHTTPClient, RSA_AESClient
-from network.lib import PupyHTTPServer, RSA_AESServer
-from network.lib import chain_transports
+from pupy.network.transports import Transport, LAUNCHER_TYPE_BIND
+from pupy.network.lib import PupyTCPServer, PupyTCPClient, PupySocketStream
+from pupy.network.lib import PupyHTTPClient, RSA_AESClient
+from pupy.network.lib import PupyHTTPServer, RSA_AESServer
+from pupy.network.lib import chain_transports
 
 class TransportConf(Transport):
     info = "TCP transport using HTTP with RSA+AES"
@@ -34,7 +34,7 @@ class TransportConf(Transport):
             RSA_PRIV_KEY = pupy_credentials.SIMPLE_RSA_PRIV_KEY
 
         except ImportError:
-            from pupylib.PupyCredentials import Credentials
+            from pupy.pupylib.PupyCredentials import Credentials
             credentials = Credentials()
             RSA_PUB_KEY = credentials['SIMPLE_RSA_PUB_KEY']
             RSA_PRIV_KEY = credentials['SIMPLE_RSA_PRIV_KEY']

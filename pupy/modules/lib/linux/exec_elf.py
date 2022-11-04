@@ -11,7 +11,7 @@ from io import open
 import zlib
 import threading
 
-from modules.lib.utils.cmdrepl import CmdRepl
+from pupy.modules.lib.utils.cmdrepl import CmdRepl
 
 def mexec(module, path, argv, argv0=None, interactive=False, raw=False, codepage=None):
     data = zlib.compress(path if raw else open(path, 'rb').read())

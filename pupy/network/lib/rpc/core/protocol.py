@@ -13,7 +13,7 @@ import socket
 import time
 
 from threading import Lock, RLock, Event, Thread
-from network.lib.compat import (
+from pupy.network.lib.compat import (
     pickle, next, is_py3k, maxint, select_error, as_native_string
 )
 from ..lib.colls import WeakValueDict, RefCountingColl

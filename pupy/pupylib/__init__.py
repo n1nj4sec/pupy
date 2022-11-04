@@ -4,7 +4,7 @@ __all__ = [
     'getLogger', 'PupyCmdLoop', 'PupyService',
     'PupyConfig', 'PupyServer', 'PupyModule',
     'Credentials', 'PupyClient',
-    'ROOT',
+    'ROOT', 'PUPYLIB_DIR',
     'HOST_SYSTEM', 'HOST_CPU_ARCH', 'HOST_OS_ARCH'
 ]
 
@@ -14,6 +14,7 @@ import platform
 import re
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+PUPYLIB_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 HOST_SYSTEM = platform.system()
 HOST_CPU_ARCH = platform.architecture()[0]
 HOST_OS_ARCH = platform.machine()
@@ -23,17 +24,12 @@ USE_PIPX = False
 if "/pipx/venv" in ROOT:
     res = re.findall("(.*/pipx/venvs/[^/]+)", ROOT)
     if len(res) == 1:
-        ROOT = os.path.join(res[0], "data")
+        ROOT = os.path.join(res[0], "data", "pupy")
         USE_PIPX = True
 
-if USE_PIPX:
-    LIBDIR = os.path.join(ROOT, "pupy")
-else:
-    LIBDIR = ROOT
-
 DEPS = [
-        os.path.abspath(os.path.join(LIBDIR, 'library_patches_py3')),
-        os.path.abspath(os.path.join(LIBDIR, 'packages', 'all')),
+        os.path.abspath(os.path.join(ROOT, 'library_patches_py3')),
+        os.path.abspath(os.path.join(ROOT, 'packages', 'all')),
         ]
 
 for dep in DEPS:
@@ -51,7 +47,7 @@ if not getattr(sys, '__from_build_library_zip_compiler__', False):
     from .PupyConfig import PupyConfig
     from .PupyCredentials import Credentials
 
-    from network.conf import load_network_modules
+    from pupy.network.conf import load_network_modules
 
     load_network_modules()
 
@@ -61,3 +57,4 @@ if not getattr(sys, '__from_build_library_zip_compiler__', False):
         from .PupyModule import PupyModule
         from .PupyClient import PupyClient
         from .PupyServer import PupyServer
+

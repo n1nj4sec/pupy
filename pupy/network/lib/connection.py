@@ -23,13 +23,13 @@ if sys.version_info.major > 2:
 else:
     from Queue import Queue, Full, Empty
 
-from network.lib import getLogger
+from pupy.network.lib import getLogger
 
-from network.lib.ack import Ack
-from network.lib.buffer import Buffer
+from pupy.network.lib.ack import Ack
+from pupy.network.lib.buffer import Buffer
 
-from network.lib.rpc.core import Connection, consts, brine, netref
-from network.lib.rpc.core.consts import (
+from pupy.network.lib.rpc.core import Connection, consts, brine, netref
+from pupy.network.lib.rpc.core.consts import (
     HANDLE_PING, HANDLE_CLOSE, HANDLE_GETROOT,
     HANDLE_DIR, HANDLE_HASH, HANDLE_DEL
 )

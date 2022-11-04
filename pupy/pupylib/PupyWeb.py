@@ -30,8 +30,8 @@ from tornado.web import StaticFileHandler as TornadoStaticFileHandler
 from tornado.web import ErrorHandler as TornadoErrorHandler
 from tornado.web import Application as TornadoApplication
 
-from pupylib.PupyOutput import Error
-from pupylib.PupyOutput import Success
+from pupy.pupylib.PupyOutput import Error
+from pupy.pupylib.PupyOutput import Success
 
 from socket import getaddrinfo
 from socket import error as socket_error

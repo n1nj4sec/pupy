@@ -6,12 +6,12 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.PupyOutput import Color, NewLine, Section, Hex
-from pupylib.utils.credentials import Credentials
-from pupylib.utils.rpyc_utils import obtain
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.PupyOutput import Color, NewLine, Section, Hex
+from pupy.pupylib.utils.credentials import Credentials
+from pupy.pupylib.utils.rpyc_utils import obtain
 
-from network.lib.convcompat import as_unicode_string_deep, is_binary
+from pupy.network.lib.convcompat import as_unicode_string_deep, is_binary
 
 import codecs
 import ntpath

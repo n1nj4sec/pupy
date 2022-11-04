@@ -12,24 +12,24 @@ __all__ = ['AutoProxyLauncher']
 
 import argparse
 
-from network.lib.utils import (
+from pupy.network.lib.utils import (
     parse_transports_args,
     create_client_transport_info_for_addr,
     parse_host
 )
 
-from network.lib.base_launcher import (
+from pupy.network.lib.base_launcher import (
     BaseLauncher, LauncherArgumentParser, LauncherError
 )
 
-from network.lib.proxies import (
+from pupy.network.lib.proxies import (
     find_proxies_for_transport, connect_client_with_proxy_info
 )
 
-from network.lib.socks import ProxyError
-from network.lib.netcreds import add_cred
+from pupy.network.lib.socks import ProxyError
+from pupy.network.lib.netcreds import add_cred
 
-from network.conf import transports
+from pupy.network.conf import transports
 
 from . import getLogger
 

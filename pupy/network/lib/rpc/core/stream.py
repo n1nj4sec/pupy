@@ -11,7 +11,7 @@ import sys
 import socket
 import errno
 
-from network.lib.compat import (
+from pupy.network.lib.compat import (
     poll, select_error, get_exc_errno
 )
 

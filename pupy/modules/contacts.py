@@ -12,8 +12,8 @@ import copy
 
 from io import open
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.utils.common import getLocalAndroidPath
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.utils.common import getLocalAndroidPath
 
 __class_name__="contacts"
 

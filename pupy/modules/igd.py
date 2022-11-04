@@ -7,9 +7,9 @@ from __future__ import unicode_literals
 
 import json
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.utils.term import colorize
-from network.lib.convcompat import as_unicode_string_deep
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.utils.term import colorize
+from pupy.network.lib.convcompat import as_unicode_string_deep
 from defusedxml import minidom
 
 __class_name__ = "IGDClient"

@@ -5,13 +5,13 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.PupyCompleter import remote_path_completer
-from pupylib.PupyOutput import Color
-from modules.lib import size_human_readable, file_timestamp
-from pupylib.utils.term import symbol_len
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.PupyCompleter import remote_path_completer
+from pupy.pupylib.PupyOutput import Color
+from pupy.modules.lib import size_human_readable, file_timestamp
+from pupy.pupylib.utils.term import symbol_len
 
-from network.lib.convcompat import as_unicode_string
+from pupy.network.lib.convcompat import as_unicode_string
 
 import sys
 from argparse import REMAINDER

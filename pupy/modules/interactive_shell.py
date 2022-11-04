@@ -6,10 +6,10 @@ from __future__ import print_function
 from __future__ import unicode_literals
 import sys
 import os
-from network.lib.rpc import nowait
+from pupy.network.lib.rpc import nowait
 from argparse import REMAINDER
 
-from pupylib.PupyModule import (
+from pupy.pupylib.PupyModule import (
     config, PupyModule, PupyArgumentParser,
     REQUIRE_TERMINAL
 )

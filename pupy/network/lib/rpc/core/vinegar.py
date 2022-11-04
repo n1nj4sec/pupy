@@ -26,9 +26,9 @@ try:
 except ImportError:
     ClassType = type
 
-from network.lib.rpc.core import brine
-from network.lib.rpc.core import consts
-from network.lib.compat import is_py3k, as_native_string
+from pupy.network.lib.rpc.core import brine
+from pupy.network.lib.rpc.core import consts
+from pupy.network.lib.compat import is_py3k, as_native_string
 
 
 try:

@@ -25,7 +25,7 @@ from collections import OrderedDict
 import copy
 import re
 
-import pupy
+import pupy.agent
 
 # Unintentional code contributors:
 #     Laurent Gaffie

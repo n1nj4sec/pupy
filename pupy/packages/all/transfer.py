@@ -16,9 +16,9 @@ if sys.version_info.major > 2:
 else:
     from Queue import Queue, Empty
 
-from network.lib.buffer import Buffer
-from network.lib.pupyrpc import nowait, brine
-from network.lib.convcompat import as_unicode_string
+from pupy.network.lib.buffer import Buffer
+from pupy.network.lib.pupyrpc import nowait, brine
+from pupy.network.lib.convcompat import as_unicode_string
 
 from zipfile import ZipFile, is_zipfile
 from tarfile import is_tarfile
@@ -50,7 +50,7 @@ import umsgpack
 
 import re
 
-from network.lib import getLogger
+from pupy.network.lib import getLogger
 logger = getLogger('transfer')
 
 FIELDS_MAP = {

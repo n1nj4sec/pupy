@@ -5,10 +5,10 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.PupyOutput import Color, Line, Table
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.PupyOutput import Color, Line, Table
 
-from network.lib.compat import as_native_string
+from pupy.network.lib.compat import as_native_string
 
 import logging
 

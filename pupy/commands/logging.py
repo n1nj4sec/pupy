@@ -6,8 +6,8 @@ from __future__ import print_function
 
 import logging
 
-from pupylib.PupyModule import PupyArgumentParser
-from pupylib.PupyOutput import Success, Color, Table
+from pupy.pupylib.PupyModule import PupyArgumentParser
+from pupy.pupylib.PupyOutput import Success, Color, Table
 
 levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR']
 levels += [

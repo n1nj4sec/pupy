@@ -4,13 +4,13 @@
 
 ## Installation
 
-Installation instructions are on the wiki, in addition to all other documentation. For maximum compatibility, it is recommended to use Docker Compose.
+pipx install
 
-[Refer to the wiki](https://github.com/n1nj4sec/pupy/wiki/Installation)
+If you want more detailed information [Refer to the wiki](https://github.com/n1nj4sec/pupy/wiki/Installation)
 
 ## Description
 
-Pupy is a cross-platform, multi function RAT and post-exploitation tool mainly written in python. It features an all-in-memory execution guideline and leaves a very low footprint. Pupy can communicate using multiple transports, migrate into processes using reflective injection, and load remote python code, python packages and python C-extensions from memory.
+Pupy is a cross-platform, multi function C2 and post-exploitation tool mainly written in python. It features an all-in-memory execution guideline and leaves a very low footprint. Pupy can communicate using multiple transports, migrate into processes using reflective injection, and load remote python code, python packages and python C-extensions from memory.
 
 ## Features
 
@@ -53,7 +53,7 @@ Pupy is a cross-platform, multi function RAT and post-exploitation tool mainly w
 
 | Format | Architecture | Short Name |
 |---|---|---|
-Android Package | x86 & ARMv7 | apk
+~~ Android Package | x86 & ARMv7 | apk ~~
 Linux Binary | x86 | lin_x86
 Linux Binary | x64 | lin_x64
 Linux Shared Object | x86 | so_x86
@@ -63,11 +63,9 @@ Windows PE Executable | x64 | exe_x64
 Windows DLL | x86 | dll_x86
 Windows DLL | x64 | dll_x64
 Python Script | x86 & x64 | py
-PyInstaller | x86 & x64 | pyinst
 Python Oneliner | x86 & x64 | py_oneliner
 Powershell | x86 & x64 | ps1
 Powershell Oneliner | x86 & x64 | ps1_oneliner
-Ducky Script | N/A | rubber_ducky
 
 - Deploy in memory from a single command line using python or powershell one-liners.
 
@@ -77,8 +75,8 @@ Ducky Script | N/A | rubber_ducky
 
 | Platform | Support Status |
 |---|---|
-Windows XP | Supported
-Windows 7 | Supported
+~~ Windows XP | Supported ~~ python dropped support
+~~ Windows 7 | Supported ~~ python dropped support
 Windows 8 | Supported
 Windows 10 | Supported
 Linux | Supported
@@ -126,4 +124,4 @@ This project is a [personal development](https://en.wikipedia.org/wiki/Personal_
 
 ## Special thanks
 
-Special thanks to all contributors that help improve pupy and make it a better tool! :)
+Special thanks to all contributors & supporters that help improve pupy and make it a better tool! :)

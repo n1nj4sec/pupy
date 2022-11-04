@@ -51,8 +51,8 @@ from .payloads import dependencies
 from .utils.rpyc_utils import obtain
 from .utils.arch import make_os_arch, make_proc_arch
 
-from network.lib.rpc import nowait
-from network.lib.convcompat import (
+from pupy.network.lib.rpc import nowait
+from pupy.network.lib.convcompat import (
     as_native_string, as_unicode_string_deep,
     reprb
 )

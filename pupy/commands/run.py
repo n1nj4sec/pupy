@@ -9,13 +9,13 @@ from __future__ import unicode_literals
 
 import sys
 
-from pupylib.PupyModule import PupyArgumentParser, PupyModuleUsageError
-from pupylib.PupyCompleter import (
+from pupy.pupylib.PupyModule import PupyArgumentParser, PupyModuleUsageError
+from pupy.pupylib.PupyCompleter import (
     module_name_completer, module_args_completer, path_completer
 )
 
-from pupylib.PupyOutput import Error, Line, Color
-from pupylib.PupyJob import PupyJob
+from pupy.pupylib.PupyOutput import Error, Line, Color
+from pupy.pupylib.PupyJob import PupyJob
 
 from argparse import REMAINDER
 

@@ -5,7 +5,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import sys
-from pupylib.PupyModule import config, PupyArgumentParser, PupyModule
+from pupy.pupylib.PupyModule import config, PupyArgumentParser, PupyModule
 
 if sys.version_info.major > 2:
     basestring = str

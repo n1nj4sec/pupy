@@ -9,7 +9,7 @@ __all__ = ('Task', 'Manager')
 
 from threading import Thread, Event
 
-import pupy
+import pupy.agent as pupy
 import sys
 
 if sys.version_info.major > 2:

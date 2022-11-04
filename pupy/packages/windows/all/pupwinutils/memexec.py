@@ -41,9 +41,9 @@ import threading
 from ctypes.wintypes import DWORD, HANDLE, BOOL, LPVOID, UINT
 from ctypes import byref, create_string_buffer, POINTER, WinError
 
-from pupy import is_supported, mexec
-from network.lib.pupyrpc import nowait
-from network.lib.convcompat import as_native_string
+from pupy.agent import is_supported, mexec
+from pupy.network.lib.pupyrpc import nowait
+from pupy.network.lib.convcompat import as_native_string
 
 if not is_supported(mexec):
     import pupymemexec

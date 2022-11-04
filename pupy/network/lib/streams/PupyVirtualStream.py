@@ -4,14 +4,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
-from network.lib import getLogger
+from pupy.network.lib import getLogger
 logger = getLogger('pvs')
 
 __all__ = [
     'PupyVirtualStream'
 ]
 
-from network.lib.buffer import Buffer
+from pupy.network.lib.buffer import Buffer
 import threading
 
 import traceback

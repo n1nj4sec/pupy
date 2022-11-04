@@ -5,11 +5,11 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 
-from modules.lib.windows.migrate import migrate as win_migrate
-from modules.lib.linux.migrate import migrate as lin_migrate
-from modules.lib.linux.migrate import ld_preload
+from pupy.modules.lib.windows.migrate import migrate as win_migrate
+from pupy.modules.lib.linux.migrate import migrate as lin_migrate
+from pupy.modules.lib.linux.migrate import ld_preload
 
 __class_name__ = 'MigrateModule'
 

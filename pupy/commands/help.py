@@ -3,9 +3,9 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-from pupylib.PupyModule import PupyArgumentParser
-from pupylib.PupyOutput import MultiPart, Table, Color, Line, TruncateToTerm
-from pupylib.PupyCompleter import commands_completer
+from pupy.pupylib.PupyModule import PupyArgumentParser
+from pupy.pupylib.PupyOutput import MultiPart, Table, Color, Line, TruncateToTerm
+from pupy.pupylib.PupyCompleter import commands_completer
 
 usage  = 'Show help'
 parser = PupyArgumentParser(prog='help', description=usage)

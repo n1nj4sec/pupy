@@ -13,7 +13,7 @@ from tempfile import mkstemp
 from os import unlink, fdopen
 from errno import EACCES
 
-import pupy
+import pupy.agent as pupy
 
 from .utils import load_library_common, find_writable_folder
 

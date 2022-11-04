@@ -31,32 +31,32 @@ import errno
 
 from io import open, BytesIO
 
-from pupylib.utils.listener import get_listener_ip, get_listener_port
-from pupylib.utils.jarsigner import jarsigner
-from pupylib.payloads import dependencies
-from pupylib.utils.arch import make_template_arch
-from pupylib.payloads.dotnet import dotnet_serve_payload, DotNetPayload
-from pupylib.payloads.py_oneliner import (
+from pupy.pupylib.utils.listener import get_listener_ip, get_listener_port
+from pupy.pupylib.utils.jarsigner import jarsigner
+from pupy.pupylib.payloads import dependencies
+from pupy.pupylib.utils.arch import make_template_arch
+from pupy.pupylib.payloads.dotnet import dotnet_serve_payload, DotNetPayload
+from pupy.pupylib.payloads.py_oneliner import (
     serve_payload, pack_py_payload, getLinuxImportedModules
 )
-from pupylib.PupyCompile import pupycompile
-from pupylib.PupyConfig import PupyConfig
-from pupylib.PupyLogger import getLogger
-from pupylib.PupyOutput import (
+from pupy.pupylib.PupyCompile import pupycompile
+from pupy.pupylib.PupyConfig import PupyConfig
+from pupy.pupylib.PupyLogger import getLogger
+from pupy.pupylib.PupyOutput import (
     Success, Warn, Error, List, Table, MultiPart, Color
 )
-from network.conf import transports, launchers
-from network.lib.base_launcher import LauncherError
-from scriptlets import (
+from pupy.network.conf import transports, launchers
+from pupy.network.lib.base_launcher import LauncherError
+from pupy.scriptlets import (
     load_scriptlets, ScriptletsPacker, ScriptletArgumentError
 )
-from modules.lib.windows.powershell import obfuscatePowershellScript
-from pupylib.PupyCredentials import Credentials, EncryptionError
+from pupy.modules.lib.windows.powershell import obfuscatePowershellScript
+from pupy.pupylib.PupyCredentials import Credentials, EncryptionError
 
 logger = getLogger('gen')
 
 HARDCODED_CONF_SIZE = 500000
-from pupylib import ROOT
+from pupy.pupylib import ROOT
 
 if sys.version_info.major > 2:
     unicode = str
@@ -118,8 +118,8 @@ def get_edit_binary(target, display, path, conf):
     config = get_raw_conf(display, conf)
     pupylib = dependencies.importer(
         target, (
-            'network', 'pupy'
-        ), path=ROOT, ignore_native=True, as_dict=True
+            'pupy.network', 'pupy.agent'
+        ), ignore_native=True, as_dict=True
     )
 
     new_conf = marshal.dumps([config, pupylib], 2)
@@ -1114,7 +1114,7 @@ def pupygen(args, config, pupsrv, display):
 
     elif args.format == 'ps1_oneliner':
         if conf['launcher'] in ['connect', 'auto_proxy']:
-            from pupylib.payloads.ps1_oneliner import serve_ps1_payload
+            from pupy.pupylib.payloads.ps1_oneliner import serve_ps1_payload
 
             link_ip = conf["launcher_args"][
                 conf["launcher_args"].index("--host")+1].split(":", 1)[0]
@@ -1133,7 +1133,7 @@ def pupygen(args, config, pupsrv, display):
             raise NoOutput()
 
         elif conf['launcher'] == 'bind':
-            from pupylib.payloads.ps1_oneliner import send_ps1_payload
+            from pupy.pupylib.payloads.ps1_oneliner import send_ps1_payload
 
             outpath, target_ip, bind_port = "", None, None
             bind_port = conf["launcher_args"][
@@ -1178,7 +1178,7 @@ def pupygen(args, config, pupsrv, display):
 
 
 def main():
-    from pupylib.utils.term import as_term_bytes
+    from pupy.pupylib.utils.term import as_term_bytes
     from traceback import print_exc
 
     def display(data):

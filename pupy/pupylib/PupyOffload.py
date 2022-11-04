@@ -15,7 +15,7 @@ import time
 import errno
 import ssl
 
-from network.lib import socks
+from pupy.network.lib import socks
 from dnslib import QTYPE
 
 if sys.version_info.major > 2:

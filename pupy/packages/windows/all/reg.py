@@ -28,8 +28,8 @@ from ctypes.wintypes import (
     DWORD, LPCWSTR
 )
 
-from network.lib.pupyrpc import nowait
-from network.lib.convcompat import (
+from pupy.network.lib.pupyrpc import nowait
+from pupy.network.lib.convcompat import (
     try_as_unicode_string, as_native_string
 )
 

@@ -22,7 +22,7 @@ from select import select, error as select_error
 from threading import Thread, Event
 from psutil import net_if_addrs
 from time import time
-from network.lib.pupyrpc import nowait
+from pupy.network.lib.pupyrpc import nowait
 
 
 def isniff(count=0, prn=None, lfilter=None,

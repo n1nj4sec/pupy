@@ -9,11 +9,11 @@ from base64 import b64encode
 from time import sleep
 
 import sys
-from pupylib.cli import pupygen
+from pupy.cli import pupygen
 import socket
 import errno
 
-from pupylib.PupyOutput import List, Success, Warn, Error
+from pupy.pupylib.PupyOutput import List, Success, Warn, Error
 
 
 CONNECTION_RETRY_SLEEP_TIME = 3

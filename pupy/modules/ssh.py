@@ -5,9 +5,9 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser, REQUIRE_STREAM
-from pupylib.PupyCompleter import path_completer
-from pupylib.PupyOutput import Table, Color
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser, REQUIRE_STREAM
+from pupy.pupylib.PupyCompleter import path_completer
+from pupy.pupylib.PupyOutput import Table, Color
 
 from io import open
 from os import path, makedirs, unlink, walk, stat

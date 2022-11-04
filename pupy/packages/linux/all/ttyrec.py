@@ -20,17 +20,17 @@ import zlib
 from io import open
 from threading import Lock
 
-from pupy import manager, Task
+from pupy.agent import manager, Task
 
 try:
-    from network.lib.transports.cryptoutils import get_random
+    from pupy.network.lib.transports.cryptoutils import get_random
 except ImportError:
     def get_random(cnt):
         with open('/dev/urandom', 'rb') as urandom:
             return urandom.read(cnt)
 
 if not __name__ == '__main__':
-    from network.lib.buffer import Buffer
+    from pupy.network.lib.buffer import Buffer
 
 DEBUGFS='/sys/kernel/debug'
 

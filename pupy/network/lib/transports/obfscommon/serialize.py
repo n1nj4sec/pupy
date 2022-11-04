@@ -18,7 +18,7 @@ def htonl(n):
 
 def ntohl(bs):
     """
-    Convert integer in 'n' from network-byte order to host-byte order.
+    Convert integer in 'n' from pupy.network-byte order to host-byte order.
     """
     return struct.unpack('!I', bs)[0]
 
@@ -32,7 +32,7 @@ def htons(n):
 
 def ntohs(bs):
     """
-    Convert integer in 'n' from network-byte order to host-byte order.
+    Convert integer in 'n' from pupy.network-byte order to host-byte order.
     """
     return struct.unpack('!h', bs)[0]
 

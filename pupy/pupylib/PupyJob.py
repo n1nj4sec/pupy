@@ -28,7 +28,7 @@ from .PupyConfig import PupyConfig
 from .PupyOutput import Info, Warn
 from .PupyTriggers import ON_JOB_EXIT, event
 
-from network.lib.rpc import AsyncResultTimeout
+from pupy.network.lib.rpc import AsyncResultTimeout
 
 
 #original code for interruptable threads from http://tomerfiliba.com/recipes/Thread2/

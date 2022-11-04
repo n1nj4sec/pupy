@@ -21,8 +21,8 @@ from io import open
 
 from .cryptoutils import get_random, NewAESCipher
 
-from network.lib.buffer import Buffer
-from network.lib import getLogger
+from pupy.network.lib.buffer import Buffer
+from pupy.network.lib import getLogger
 
 BLOCK_SIZE = 16
 CHUNK_SIZE = 4096

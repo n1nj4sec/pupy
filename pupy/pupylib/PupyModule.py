@@ -54,14 +54,14 @@ from .PupyOutput import (
     Info, Table, TruncateToTerm
 )
 
-from pupylib.utils.term import (
+from pupy.pupylib.utils.term import (
     as_term_bytes, deep_as_bytes, remove_esc,
     DEFAULT_MULTIBYTE_CP
 )
 
-from pupylib import getLogger
+from pupy.pupylib import getLogger
 
-from network.lib.compat import with_metaclass
+from pupy.network.lib.compat import with_metaclass
 
 if sys.version_info.major > 2:
     unicode = str

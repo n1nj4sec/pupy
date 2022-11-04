@@ -6,8 +6,8 @@ from __future__ import print_function
 from __future__ import unicode_literals
 import threading
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.PupyOutput import Table
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.PupyOutput import Table
 
 from netaddr import IPAddress
 from netaddr.core import AddrFormatError

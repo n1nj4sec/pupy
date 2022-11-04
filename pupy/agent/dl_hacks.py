@@ -5,7 +5,7 @@ __all__ = ('apply_dl_hacks',)
 import os
 import sys
 import ctypes
-import pupy
+import pupy.agent as pupy
 
 try:
     import ctypes.util

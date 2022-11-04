@@ -21,8 +21,8 @@ from pupyutils.psexec import ConnectionInfo
 from impacket.dcerpc.v5.dcom.wmi import ENCODED_STRING
 from impacket.structure import Structure
 
-from network.lib.pupyrpc import nowait
-from network.lib.convcompat import as_unicode_string
+from pupy.network.lib.pupyrpc import nowait
+from pupy.network.lib.convcompat import as_unicode_string
 
 if sys.version_info.major > 2:
     unicode = str

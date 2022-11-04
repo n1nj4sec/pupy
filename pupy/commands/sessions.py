@@ -4,8 +4,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from pupylib.PupyModule import PupyArgumentParser
-from pupylib.PupyOutput import Color, Success, Table
+from pupy.pupylib.PupyModule import PupyArgumentParser
+from pupy.pupylib.PupyOutput import Color, Success, Table
 
 usage  = 'list/interact with established sessions'
 parser = PupyArgumentParser(prog='sessions', description=usage)

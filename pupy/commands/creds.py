@@ -3,13 +3,13 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-from pupylib.PupyModule import PupyArgumentParser
-from pupylib.PupyOutput import (
+from pupy.pupylib.PupyModule import PupyArgumentParser
+from pupy.pupylib.PupyOutput import (
     Color, Error, Success, Table,
     TruncateToTerm, NewLine, Line, MultiPart
 )
 
-from pupylib.utils.credentials import Credentials
+from pupy.pupylib.utils.credentials import Credentials
 
 usage = 'Credentials manager'
 parser = PupyArgumentParser(prog='creds', description=usage)

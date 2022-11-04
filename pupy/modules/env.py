@@ -5,10 +5,10 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.PupyOutput import Table, TruncateToTerm
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.PupyOutput import Table, TruncateToTerm
 
-from network.lib.convcompat import as_escaped_string
+from pupy.network.lib.convcompat import as_escaped_string
 
 
 __class_name__='Env'

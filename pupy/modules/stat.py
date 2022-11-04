@@ -7,18 +7,18 @@ from __future__ import unicode_literals
 
 import sys
 
-from modules.lib import size_human_readable, file_timestamp
+from pupy.modules.lib import size_human_readable, file_timestamp
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.PupyCompleter import remote_path_completer
-from pupylib.PupyOutput import Table, Line, List, MultiPart
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.PupyCompleter import remote_path_completer
+from pupy.pupylib.PupyOutput import Table, Line, List, MultiPart
 
 from magic import Magic
 
 from M2Crypto.X509 import load_cert_string, FORMAT_DER
 from argparse import REMAINDER
 
-from network.lib.convcompat import as_unicode_string
+from pupy.network.lib.convcompat import as_unicode_string
 
 if sys.version_info.major > 2:
     basestring = str

@@ -4,9 +4,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import network.conf
+import pupy.network.conf as conf
 
-launcher = network.conf.launchers['connect'](
+launcher = conf.launchers['connect'](
     connect_on_bind_payload=True
 )
 

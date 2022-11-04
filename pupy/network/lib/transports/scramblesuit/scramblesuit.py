@@ -32,7 +32,7 @@ from . import uniformdh
 from . import ticket
 from . import state
 
-from network.lib.buffer import Buffer
+from pupy.network.lib.buffer import Buffer
 
 log = logging
 

@@ -26,7 +26,7 @@ from __future__ import unicode_literals
 
 import logging
 
-from network.lib.compat import (
+from pupy.network.lib.compat import (
     Struct, BytesIO, is_py3k, as_byte, xrange
 )
 

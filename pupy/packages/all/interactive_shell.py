@@ -23,7 +23,7 @@ if sys.version_info.major > 2:
 else:
     from Queue import Queue, Empty
 
-from network.lib.pupyrpc import nowait
+from pupy.network.lib.pupyrpc import nowait
 
 
 ON_POSIX = 'posix' in sys.builtin_module_names

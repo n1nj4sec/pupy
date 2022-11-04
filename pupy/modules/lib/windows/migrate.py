@@ -8,9 +8,9 @@ from __future__ import unicode_literals
 import sys
 import time
 
-from pupylib.cli import pupygen
+from pupy.cli import pupygen
 
-from pupylib.payloads.dependencies import Target
+from pupy.pupylib.payloads.dependencies import Target
 
 if sys.version_info.major > 2:
     xrange = range

@@ -19,7 +19,7 @@ except ImportError:
     import ctypes
     import platform
 
-    import pupy
+    import agent as pupy
 
     SELF = ctypes.CDLL(None)
     syscall = SELF.syscall

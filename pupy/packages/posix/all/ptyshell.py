@@ -26,10 +26,10 @@ from io import open
 
 from collections import deque
 
-from network.lib.pupyrpc import nowait
-from network.lib.convcompat import shlex
+from pupy.network.lib.pupyrpc import nowait
+from pupy.network.lib.convcompat import shlex
 
-from pupy import manager, Task
+from pupy.agent import manager, Task
 
 if sys.version_info.major > 2:
     basestring = str

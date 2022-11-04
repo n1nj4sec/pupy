@@ -13,7 +13,7 @@ try:
 except ImportError:
     keyword = None
 
-from network.lib.convcompat import as_native_string
+from pupy.network.lib.convcompat import as_native_string
 
 
 class PythonCompleter(object):

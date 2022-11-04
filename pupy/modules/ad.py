@@ -10,9 +10,9 @@ import sys
 from ldap3.protocol.formatters.formatters import format_sid
 from impacket.ldap.ldaptypes import SR_SECURITY_DESCRIPTOR
 
-from pupylib.PupyConfig import PupyConfig
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.PupyOutput import Pygment, List, Table, MultiPart
+from pupy.pupylib.PupyConfig import PupyConfig
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.PupyOutput import Pygment, List, Table, MultiPart
 
 from pygments import lexers
 

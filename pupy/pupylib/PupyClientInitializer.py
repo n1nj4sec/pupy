@@ -13,7 +13,7 @@ import os
 import locale
 import logging
 import socket
-import pupy
+import pupy.agent as pupy
 
 import encodings
 
@@ -466,7 +466,7 @@ def get_uuid():
 
     proxy = None
     try:
-        from network.lib.proxies import LAST_PROXY, has_wpad
+        from pupy.network.lib.proxies import LAST_PROXY, has_wpad
         if hasattr(pupy, 'client') and pupy.client.connection_info.get(
                 'proxies', []):
             try:
@@ -495,7 +495,7 @@ def get_uuid():
     try:
         external_ip = None
 
-        from network.lib.online import LAST_EXTERNAL_IP
+        from pupy.network.lib.online import LAST_EXTERNAL_IP
         if LAST_EXTERNAL_IP:
             external_ip = str(LAST_EXTERNAL_IP)
     except ImportError:

@@ -15,7 +15,7 @@ from io import open
 from time import sleep, time
 from ctypes.util import find_library
 
-import pupy
+import pupy.agent
 
 if sys.version_info.major > 2:
     xrange = range

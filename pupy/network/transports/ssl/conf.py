@@ -11,10 +11,10 @@ import os
 import tempfile
 import ssl
 
-from network.lib import PupyTCPServer, PupySocketStream
-from network.lib import DummyPupyTransport, PupySSLClient
-from network.lib.rpc.utils.server import AuthenticationError
-from network.transports import Transport
+from pupy.network.lib import PupyTCPServer, PupySocketStream
+from pupy.network.lib import DummyPupyTransport, PupySSLClient
+from pupy.network.lib.rpc.utils.server import AuthenticationError
+from pupy.network.transports import Transport
 
 
 class PupySSLAuthenticator(object):
@@ -90,8 +90,8 @@ def ssl_authenticator():
         role = 'CLIENT'
 
     except ImportError:
-        from pupylib.PupyConfig import PupyConfig
-        from pupylib.PupyCredentials import Credentials
+        from pupy.pupylib.PupyConfig import PupyConfig
+        from pupy.pupylib.PupyCredentials import Credentials
 
         config = PupyConfig()
         credentials = Credentials()

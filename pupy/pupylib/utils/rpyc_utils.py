@@ -26,7 +26,7 @@ import umsgpack
 
 from contextlib import contextmanager
 
-from network.lib.rpc.utils.helpers import restricted
+from pupy.network.lib.rpc.utils.helpers import restricted
 
 
 def safe_obtain(proxy):

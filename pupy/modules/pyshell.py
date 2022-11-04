@@ -8,13 +8,13 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from pupylib.PupyModule import (
+from pupy.pupylib.PupyModule import (
     config, PupyModule, PupyArgumentParser,
     REQUIRE_REPL
 )
 
-from pupylib.utils.rpyc_utils import redirected_stdo
-from network.lib.convcompat import as_native_string
+from pupy.pupylib.utils.rpyc_utils import redirected_stdo
+from pupy.network.lib.convcompat import as_native_string
 
 import sys
 import readline

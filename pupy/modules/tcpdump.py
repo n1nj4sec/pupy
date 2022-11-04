@@ -14,7 +14,7 @@ logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 from scapy.all import Ether, PcapWriter
 from threading import Event
 
-from pupylib.PupyModule import (
+from pupy.pupylib.PupyModule import (
     config, PupyModule, PupyArgumentParser
 )
 

@@ -6,9 +6,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
-from network.lib import PupyTCPServer, PupyTCPClient, PupySocketStream
-from network.lib import DummyPupyTransport
-from network.transports import Transport
+from pupy.network.lib import PupyTCPServer, PupyTCPClient, PupySocketStream
+from pupy.network.lib import DummyPupyTransport
+from pupy.network.transports import Transport
 
 class TransportConf(Transport):
     info = "Simple TCP transport transmitting in cleartext"

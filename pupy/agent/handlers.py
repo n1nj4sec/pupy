@@ -9,7 +9,7 @@ __all__ = ('set_sighandlers',)
 import os
 import signal
 
-import pupy
+import pupy.agent as pupy
 
 
 logger = pupy.get_logger('signals')

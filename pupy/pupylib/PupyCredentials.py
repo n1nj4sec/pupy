@@ -17,7 +17,7 @@ import hashlib
 
 from datetime import datetime
 
-from network.lib.transports.cryptoutils import ECPV
+from pupy.network.lib.transports.cryptoutils import ECPV
 from getpass import getpass
 
 from M2Crypto import X509, EVP, RSA, ASN1

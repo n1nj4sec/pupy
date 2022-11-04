@@ -5,10 +5,10 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.PupyOutput import Table, MultiPart
-from pupylib.utils.term import colorize
-from modules.lib import size_human_readable
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.PupyOutput import Table, MultiPart
+from pupy.pupylib.utils.term import colorize
+from pupy.modules.lib import size_human_readable
 
 __class_name__="Drives"
 

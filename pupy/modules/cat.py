@@ -7,11 +7,11 @@ from __future__ import unicode_literals
 
 import sys
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.PupyOutput import Pygment, Hex
-from pupylib.PupyCompleter import remote_path_completer
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.PupyOutput import Pygment, Hex
+from pupy.pupylib.PupyCompleter import remote_path_completer
 from pygments.lexers import guess_lexer, guess_lexer_for_filename
-from network.lib.convcompat import is_binary, DEFAULT_MB_ENCODING
+from pupy.network.lib.convcompat import is_binary, DEFAULT_MB_ENCODING
 
 if sys.version_info.major > 2:
     basestring = str

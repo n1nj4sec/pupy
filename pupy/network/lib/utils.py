@@ -21,7 +21,7 @@ import shlex
 import netaddr
 
 from collections import namedtuple
-from network.conf import transports
+from pupy.network.conf import transports
 
 if sys.version_info.major > 2:
     basestring = str

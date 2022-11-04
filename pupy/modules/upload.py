@@ -5,10 +5,10 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.PupyCompleter import path_completer, remote_dirs_completer
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.PupyCompleter import path_completer, remote_dirs_completer
 
-from network.lib.rpc.utils.classic import upload
+from pupy.network.lib.rpc.utils.classic import upload
 
 import sys
 import os

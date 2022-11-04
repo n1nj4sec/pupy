@@ -21,7 +21,7 @@ __all__ = (
 import sys
 import time
 
-from network.lib.convcompat import as_native_string
+from pupy.network.lib.convcompat import as_native_string
 
 is_py3k = (sys.version_info[0] >= 3)
 

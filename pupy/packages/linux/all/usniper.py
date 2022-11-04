@@ -10,7 +10,7 @@ import random
 import string
 import re
 import os
-import pupy
+import pupy.agent
 import builtins
 import fcntl
 import select

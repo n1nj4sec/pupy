@@ -125,7 +125,7 @@ class PluggableTransportError(Exception):
 from .buffer import Buffer
 from .streams.PupySocketStream import addGetPeer
 
-from network.lib import getLogger
+from pupy.network.lib import getLogger
 logger = getLogger('chain')
 
 

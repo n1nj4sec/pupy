@@ -8,7 +8,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 from ..lib import safe_import
-from network.lib.compat import Struct
+from pupy.network.lib.compat import Struct
 
 zlib = safe_import("zlib")
 

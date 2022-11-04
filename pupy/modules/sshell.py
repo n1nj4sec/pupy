@@ -17,10 +17,10 @@ if sys.version_info.major > 2:
 else:
     from urlparse import urlparse
 
-from network.lib.rpc import nowait
+from pupy.network.lib.rpc import nowait
 
-from pupylib.PupyCompleter import path_completer
-from pupylib.PupyModule import (
+from pupy.pupylib.PupyCompleter import path_completer
+from pupy.pupylib.PupyModule import (
     config, PupyModule, PupyArgumentParser,
     REQUIRE_TERMINAL
 )

@@ -18,5 +18,5 @@ if 'rpyc' in sys.modules:
     netref = rpyc.core.netref
 
 else:
-    from network.lib.rpc import nowait
-    from network.lib.rpc.core import brine
+    from pupy.network.lib.rpc import nowait
+    from pupy.network.lib.rpc.core import brine

@@ -20,8 +20,8 @@ from ..cryptoutils import (
     get_random, hmac_sha256_digest
 )
 
-from network.lib.buffer import Buffer
-from network.lib import getLogger
+from pupy.network.lib.buffer import Buffer
+from pupy.network.lib import getLogger
 logger = getLogger('obfs3')
 
 MAX_PADDING = 8194

@@ -13,11 +13,11 @@ import os
 if sys.version_info.major > 2:
     xrange = range
 
-from modules.lib.windows import powerloader
+from pupy.modules.lib.windows import powerloader
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from network.lib.rpc.utils.classic import upload
-from network.lib.convcompat import shlex
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.network.lib.rpc.utils.classic import upload
+from pupy.network.lib.convcompat import shlex
 
 import random
 import string

@@ -9,16 +9,16 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from pupylib.PupyModule import (
+from pupy.pupylib.PupyModule import (
     config, PupyArgumentParser,
     REQUIRE_NOTHING
 )
 
-from pupylib.PupyOutput import Error, Table
+from pupy.pupylib.PupyOutput import Error, Table
 
-from modules.memory_exec import MemoryExec
-from modules.lib.windows.memory_exec import exec_pe
-from pupylib.utils.credentials import Credentials
+from pupy.modules.memory_exec import MemoryExec
+from pupy.modules.lib.windows.memory_exec import exec_pe
+from pupy.pupylib.utils.credentials import Credentials
 
 import sys
 import os.path

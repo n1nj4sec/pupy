@@ -7,8 +7,8 @@ from __future__ import unicode_literals
 
 import sys
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.PupyCompleter import remote_path_completer
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.PupyCompleter import remote_path_completer
 from argparse import REMAINDER
 
 if sys.version_info.major > 2:

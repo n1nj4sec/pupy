@@ -3,9 +3,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
-from network.transports import Transport, LAUNCHER_TYPE_BIND
-from network.lib import PupyUDPServer, PupyUDPClient, PupyUDPSocketStream
-from network.lib import EC4TransportClient, EC4TransportServer
+from pupy.network.transports import Transport, LAUNCHER_TYPE_BIND
+from pupy.network.lib import PupyUDPServer, PupyUDPClient, PupyUDPSocketStream
+from pupy.network.lib import EC4TransportClient, EC4TransportServer
 
 class TransportConf(Transport):
     info = "UDP(KCP) + ECPV + RC4"
@@ -26,7 +26,7 @@ class TransportConf(Transport):
             PRIV_KEY = pupy_credentials.ECPV_RC4_PRIVATE_KEY
 
         except ImportError:
-            from pupylib.PupyCredentials import Credentials
+            from pupy.pupylib.PupyCredentials import Credentials
             credentials = Credentials()
             PUB_KEY = credentials['ECPV_RC4_PUBLIC_KEY']
             PRIV_KEY = credentials['ECPV_RC4_PRIVATE_KEY']

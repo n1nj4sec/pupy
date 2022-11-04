@@ -5,13 +5,13 @@ from __future__ import division
 from __future__ import print_function
 import os
 
-from pupylib.PupyModule import PupyArgumentParser
-from pupylib.PupyOutput import Info, Warn, Success, Error
+from pupy.pupylib.PupyModule import PupyArgumentParser
+from pupy.pupylib.PupyOutput import Info, Warn, Success, Error
 
-from pupylib.utils.listener import get_listener_ip, get_listener_port
-from pupylib.utils.listener import get_listener_ip_with_local
+from pupy.pupylib.utils.listener import get_listener_ip, get_listener_port
+from pupy.pupylib.utils.listener import get_listener_ip_with_local
 
-from pupylib.cli import pupygen
+from pupy.cli import pupygen
 
 usage  = 'Generate payload'
 

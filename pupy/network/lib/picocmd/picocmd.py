@@ -42,7 +42,7 @@ import platform
 import uuid
 import socket
 
-from network.lib.picocmd import (
+from pupy.network.lib.picocmd import (
     baseconv, dns_encoder, dns_encoder_table
 )
 
@@ -67,7 +67,7 @@ except ImportError:
     uidle = None
 
 try:
-    from network.lib import online
+    from pupy.network.lib import online
 except ImportError:
     online = None
 

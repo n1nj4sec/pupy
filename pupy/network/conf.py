@@ -26,7 +26,7 @@ launchers = {}
 def add_transport(module_name):
     try:
         confmodule = importlib.import_module(
-            'network.transports.{}.conf'.format(module_name))
+            'pupy.network.transports.{}.conf'.format(module_name))
 
         if not confmodule:
             logging.warning('Import failed: %s', module_name)

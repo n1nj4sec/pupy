@@ -8,10 +8,10 @@ from __future__ import unicode_literals
 import argparse
 import sys
 
-import pupy
+import pupy.agent
 
-from network import conf
-from network.lib.convcompat import shlex
+from pupy.network import conf
+from pupy.network.lib.convcompat import shlex
 
 
 def update_config_from_argv():
@@ -42,9 +42,9 @@ def update_config_from_argv():
     args = parser.parse_args()
 
     if args.debug:
-        pupy.config['debug'] = bool(args.debug)
+        agent.config['debug'] = bool(args.debug)
 
-    pupy.config.update({
+    agent.config.update({
         'launcher': args.launcher,
         'launcher_args': shlex.split(' '.join(args.launcher_args))
     })

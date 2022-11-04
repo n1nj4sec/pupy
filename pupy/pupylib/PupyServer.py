@@ -61,47 +61,48 @@ import socket
 import errno
 import traceback
 
-from pupylib.PupyErrors import PupyModuleError
-from pupylib.PupyErrors import PupyModuleDisabled, PupyModuleNotFound
-from pupylib.PupyCategories import PupyCategories
-from pupylib.PupyConfig import PupyConfig
-from pupylib.PupyService import PupyBindService
-from pupylib.PupyCompile import pupycompile
-from pupylib.PupyOutput import Error, Line, Color
-from pupylib.PupyModule import QA_STABLE, IgnoreModule, PupyModule
-from pupylib.PupyDnsCnc import PupyDnsCnc
-from pupylib.PupyTriggers import (
+from pupy.pupylib.PupyErrors import PupyModuleError
+from pupy.pupylib.PupyErrors import PupyModuleDisabled, PupyModuleNotFound
+from pupy.pupylib.PupyCategories import PupyCategories
+from pupy.pupylib.PupyConfig import PupyConfig
+from pupy.pupylib.PupyService import PupyBindService
+from pupy.pupylib.PupyCompile import pupycompile
+from pupy.pupylib.PupyOutput import Error, Line, Color
+from pupy.pupylib.PupyModule import QA_STABLE, IgnoreModule, PupyModule
+from pupy.pupylib.PupyDnsCnc import PupyDnsCnc
+from pupy.pupylib.PupyTriggers import (
     event, event_to_string, register_event_id, CUSTOM
 )
-from pupylib.PupyTriggers import ON_CONNECT, ON_DISCONNECT, ON_START, ON_EXIT
-from pupylib.PupyTriggers import RegistrationNotAllowed, UnregisteredEventId
-from pupylib.PupyWeb import PupyWebServer
-from pupylib.PupyOffload import PupyOffloadManager, OffloadProxyCommonError
+from pupy.pupylib.PupyTriggers import ON_CONNECT, ON_DISCONNECT, ON_START, ON_EXIT
+from pupy.pupylib.PupyTriggers import RegistrationNotAllowed, UnregisteredEventId
+from pupy.pupylib.PupyWeb import PupyWebServer
+from pupy.pupylib.PupyOffload import PupyOffloadManager, OffloadProxyCommonError
 
-from pupylib import PupyService
-from pupylib import PupyClient
-from pupylib import Credentials
+from pupy.pupylib import PupyService
+from pupy.pupylib import PupyClient
+from pupy.pupylib import Credentials
+from pupy.pupylib import PUPYLIB_DIR
 
 from .utils.rpyc_utils import obtain
 from .utils.listener import get_listener_ip_with_local
 
-from network.conf import transports
-from network.transports.ssl.conf import PupySSLAuthenticator
-from network.lib.connection import PupyConnectionThread
-from network.lib.servers import PupyTCPServer
-from network.lib.streams.PupySocketStream import (
+from pupy.network.conf import transports
+from pupy.network.transports.ssl.conf import PupySSLAuthenticator
+from pupy.network.lib.connection import PupyConnectionThread
+from pupy.network.lib.servers import PupyTCPServer
+from pupy.network.lib.streams.PupySocketStream import (
     PupySocketStream, PupyUDPSocketStream
 )
-from network.lib.streams.PupyVirtualStream import PupyVirtualStream
+from pupy.network.lib.streams.PupyVirtualStream import PupyVirtualStream
 
-from network.lib.utils import parse_transports_args
-from network.lib.base import chain_transports
-from network.lib.transports.httpwrap import PupyHTTPWrapperServer
-from network.lib.igd import IGDClient, UPNPError
-from network.lib.streams.PupySocketStream import PupyChannel
-from network.lib.convcompat import reprb
+from pupy.network.lib.utils import parse_transports_args
+from pupy.network.lib.base import chain_transports
+from pupy.network.lib.transports.httpwrap import PupyHTTPWrapperServer
+from pupy.network.lib.igd import IGDClient, UPNPError
+from pupy.network.lib.streams.PupySocketStream import PupyChannel
+from pupy.network.lib.convcompat import reprb
 
-from triggers import Triggers
+from pupy.triggers import Triggers
 
 from . import getLogger
 
@@ -657,7 +658,7 @@ class PupyServer(object):
                 reprb(
                     pupycompile(
                         path.join(
-                            self.config.root, 'pupylib',
+                            PUPYLIB_DIR,
                             'PupyClientInitializer.py'
                         ),
                         path=True, raw=True,
@@ -899,7 +900,7 @@ class PupyServer(object):
 
         paths = set([
             path.abspath(x) for x in [
-                self.config.root, '.',
+                self.config.root, '.', path.join(PUPYLIB_DIR, '..')
             ]
         ])
 

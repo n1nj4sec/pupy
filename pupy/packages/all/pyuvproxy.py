@@ -39,8 +39,8 @@ import socket
 import errno
 import uuid
 
-from network.lib.pupyrpc import nowait
-from network.lib import getLogger
+from pupy.network.lib.pupyrpc import nowait
+from pupy.network.lib import getLogger
 
 logger = getLogger('pyuvproxy')
 

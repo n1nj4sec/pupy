@@ -7,7 +7,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import unicode_literals
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from time import sleep
 
 import os
@@ -15,8 +15,8 @@ import csv
 
 from io import open
 
-from network.lib.rpc.utils.classic import download
-from pupylib.utils.common import getLocalAndroidPath
+from pupy.network.lib.rpc.utils.classic import download
+from pupy.pupylib.utils.common import getLocalAndroidPath
 
 __class_name__="gpstracker"
 

@@ -94,7 +94,7 @@ from . import getLogger
 
 if os.name == 'nt':
     try:
-        from network.lib.ntop import ensure_ntop
+        from pupy.network.lib.ntop import ensure_ntop
         ensure_ntop()
 
         import socket

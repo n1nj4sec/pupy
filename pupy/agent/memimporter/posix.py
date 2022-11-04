@@ -14,7 +14,7 @@ from os import unlink, fdopen
 from tempfile import mkstemp
 from mmap import mmap, PROT_WRITE, PROT_EXEC
 
-import pupy
+import pupy.agent as pupy
 
 from .utils import load_library_common, find_writable_folder
 

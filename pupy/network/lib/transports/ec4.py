@@ -11,7 +11,7 @@ __all__ = ['EC4TransportServer', 'EC4TransportClient']
 from ..base import BasePupyTransport
 from .cryptoutils import RC4, SHA384, ECPV
 
-from network.lib.buffer import Buffer
+from pupy.network.lib.buffer import Buffer
 
 import struct
 import time

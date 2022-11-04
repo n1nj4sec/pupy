@@ -14,7 +14,7 @@ from __future__ import print_function
 # Wrong conversions
 # from __future__ import unicode_literals
 
-from network.lib.compat import execute, is_py3k
+from pupy.network.lib.compat import execute, is_py3k
 
 
 class Service(object):

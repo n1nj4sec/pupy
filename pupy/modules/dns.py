@@ -5,8 +5,8 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.PupyOutput import Table, NewLine
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.PupyOutput import Table, NewLine
 
 from netaddr import IPNetwork, IPAddress
 from netaddr.core import AddrFormatError

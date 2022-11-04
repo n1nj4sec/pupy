@@ -70,12 +70,12 @@ def parse_args():
     return parser
 
 try:
-    import pupylib.PupySignalHandler
-    assert pupylib.PupySignalHandler
+    import pupy.pupylib.PupySignalHandler
+    assert pupy.pupylib.PupySignalHandler
 except ImportError:
     pass
 
-from pupylib import (
+from pupy.pupylib import (
     PupyServer, PupyCmdLoop, PupyCredentials, PupyConfig
 )
 

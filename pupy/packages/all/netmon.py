@@ -9,7 +9,7 @@ from socket import SOCK_DGRAM, SOCK_STREAM
 
 from psutil import net_connections, Process, Error
 
-import pupy
+import pupy.agent
 
 
 INTERVAL = 1

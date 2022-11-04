@@ -13,7 +13,7 @@ import sys
 import time
 import re
 import psutil
-import pupy
+import pupy.agent
 import crypt
 
 if sys.version_info.major > 2:

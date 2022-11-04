@@ -11,8 +11,8 @@ import os
 
 from io import open
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from network.lib.rpc.utils.classic import download
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.network.lib.rpc.utils.classic import download
 
 __class_name__="Outlook"
 

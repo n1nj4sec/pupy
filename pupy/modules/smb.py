@@ -11,9 +11,9 @@ import ntpath
 
 from io import open
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.PupyOutput import Table
-from pupylib.utils.rpyc_utils import obtain
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.PupyOutput import Table
+from pupy.pupylib.utils.rpyc_utils import obtain
 
 
 if sys.version_info.major > 2:

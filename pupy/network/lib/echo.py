@@ -22,8 +22,8 @@ from urllib2 import (
     OpenerDirector, HTTPHandler, Request
 )
 
-from network.lib.scan import scan, TOP1000
-from network.lib.tinyhttp import NullHandler
+from pupy.network.lib.scan import scan, TOP1000
+from pupy.network.lib.tinyhttp import NullHandler
 
 if sys.version_info.major > 2:
     xrange = range

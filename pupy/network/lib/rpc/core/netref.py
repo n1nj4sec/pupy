@@ -12,7 +12,7 @@ import sys
 import inspect
 import types
 
-from network.lib.compat import (
+from pupy.network.lib.compat import (
     pickle, is_py3k, maxint, as_native_string
 )
 

@@ -9,7 +9,7 @@ from __future__ import unicode_literals
 
 import sys
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from argparse import REMAINDER
 
 if sys.version_info.major > 2:

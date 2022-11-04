@@ -51,12 +51,12 @@ except ImportError:
 
 from netaddr import IPAddress
 
-from network.lib.dnsinfo import dnsinfo
-from network.lib.scan import scan
+from pupy.network.lib.dnsinfo import dnsinfo
+from pupy.network.lib.scan import scan
 
 try:
-    import pupy
-    from network.lib.netcreds import find_creds
+    import pupy.agent
+    from pupy.network.lib.netcreds import find_creds
 
     logger = pupy.get_logger('ad')
 except ImportError:

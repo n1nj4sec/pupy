@@ -17,7 +17,7 @@ import socket
 
 __version__ = '0.1.0'
 
-from network.lib import getLogger
+from pupy.network.lib import getLogger
 log = getLogger("pystun")
 
 STUN_SERVERS = (

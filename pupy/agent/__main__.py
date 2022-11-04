@@ -10,7 +10,6 @@ import sys
 import os
 
 from . import main
-
 setattr(sys, '__pupy_main__', True)
 
 root = os.path.dirname(os.path.dirname(__file__))
@@ -21,10 +20,10 @@ sys.path.extend((
 
 sys.tracebacklimit = 50
 
-import pupylib
-assert(pupylib)
+import pupy.pupylib
+assert(pupy.pupylib)
 
-from network.conf import launchers
+from pupy.network.conf import launchers
 
 parser = argparse.ArgumentParser('pupy')
 parser.add_argument(

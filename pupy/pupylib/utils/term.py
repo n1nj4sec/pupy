@@ -24,7 +24,7 @@ from pygments import highlight
 from pygments.formatters import TerminalFormatter
 from pygments.lexers.hexdump import HexdumpLexer
 
-from pupylib.PupyOutput import (
+from pupy.pupylib.PupyOutput import (
     Hint, Text, NewLine, Title, MultiPart, Indent, Color,
     TruncateToTerm, Error, Log, Warn, Success, Info,
     ServiceInfo, Section, Line, List, Table, Hex, Pygment

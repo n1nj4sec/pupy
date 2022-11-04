@@ -3,7 +3,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-from pupylib.PupyModule import PupyArgumentParser
+from pupy.pupylib.PupyModule import PupyArgumentParser
 
 usage = 'Exit Shell'
 parser = PupyArgumentParser(prog='exit', description=usage)

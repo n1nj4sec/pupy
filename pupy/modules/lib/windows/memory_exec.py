@@ -10,8 +10,8 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from pupylib.utils.pe import get_pe_arch, is_dotnet_bin
-from modules.lib.utils.cmdrepl import CmdRepl
+from pupy.pupylib.utils.pe import get_pe_arch, is_dotnet_bin
+from pupy.modules.lib.utils.cmdrepl import CmdRepl
 
 import threading
 

@@ -16,11 +16,11 @@ from zipfile import ZipFile
 from elftools.elf.elffile import ELFFile
 from io import BytesIO
 
-from pupylib.PupyCompile import pupycompile
-from pupylib.utils.arch import is_native
-from pupylib import ROOT, getLogger
+from pupy.pupylib.PupyCompile import pupycompile
+from pupy.pupylib.utils.arch import is_native
+from pupy.pupylib import ROOT, getLogger
 
-from network.lib.convcompat import reprb
+from pupy.network.lib.convcompat import reprb
 
 
 if sys.version_info.major > 2:
@@ -281,21 +281,21 @@ def bootstrap(stdlib, config, autostart=True):
 
         'stdlib = marshal.loads({stdlib})',
         'config = marshal.loads({config})',
-        'spec = importlib.util.spec_from_loader("pupy", loader=None)',
-        'pupy = importlib.util.module_from_spec(spec)',
-        'pupy.__file__ = str("pupy://pupy/__init__.pyo")',
-        'pupy.__package__ = str("pupy")',
-        'pupy.__path__ = [str("pupy://pupy/")]',
-        'sys.modules[str("pupy")] = pupy',
+        'spec = importlib.util.spec_from_loader("pupy.agent", loader=None)',
+        'agent = importlib.util.module_from_spec(spec)',
+        'agent.__file__ = str("pupy://pupy/agent/__init__.pyo")',
+        'agent.__package__ = str("pupy.agent")',
+        'agent.__path__ = [str("pupy://pupy/agent/")]',
+        '#sys.modules[str("pupy.agent")] = agent',
 
-        'exec(marshal.loads(stdlib["pupy/__init__.pyo"][8:]), pupy.__dict__)',
+        'exec(marshal.loads(stdlib["pupy/agent/__init__.pyo"][8:]), agent.__dict__)',
     ]
 
     if autostart:
-        actions.append('pupy.main(stdlib=stdlib, config=config)')
+        actions.append('agent.main(stdlib=stdlib, config=config)')
     else:
         actions.append('def main():')
-        actions.append('    pupy.main(stdlib=stdlib, config=config)')
+        actions.append('    agent.main(stdlib=stdlib, config=config)')
 
     loader = '\n'.join(actions)
 
@@ -591,7 +591,7 @@ def paths(target):
 
     path = [
         os.path.join('packages', target.os),
-        os.path.abspath(os.path.join(ROOT, 'library_patches'))
+        os.path.abspath(os.path.join(ROOT, 'library_patches_py3'))
     ]
 
     if target.arch:
@@ -820,7 +820,7 @@ def package(
                 remote=remote, honor_ignore=honor_ignore,
                 ignore_native=ignore_native
             )
-
+        add_missing_init(target, modules)
         if not as_dict:
             payload = zlib.compress(
                 pickle.dumps(modules, 2), 9
@@ -836,6 +836,17 @@ def package(
 
     return payload, contents, dlls
 
+def add_missing_init(target, modules):
+    toadd={}
+    for k in modules.keys():
+        tab=k.split("/")
+        for i in range(1, len(tab)-1):
+            pathname="/".join(tab[0:i])
+            f=pathname+"/__init__.pyo"
+            if f not in modules and f not in toadd and f[:-1] not in modules:
+                logger.debug("adding missing {}".format(f))
+                toadd[f] = pupycompile("", pathname , target=target.pyver)
+    modules.update(toadd)
 
 def bundle(target):
     if not target.os or not target.arch:

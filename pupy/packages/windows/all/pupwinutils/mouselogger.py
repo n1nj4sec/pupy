@@ -25,7 +25,7 @@ from .hookfuncs import (
     get_current_process, CallNextHookEx, CreateCompatibleBitmap
 )
 
-import pupy
+import pupy.agent
 
 current_window = None
 

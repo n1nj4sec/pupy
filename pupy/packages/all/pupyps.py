@@ -16,7 +16,7 @@ import time
 
 from io import open
 
-from network.lib.convcompat import (
+from pupy.network.lib.convcompat import (
     as_unicode_string, as_unicode_string_deep
 )
 

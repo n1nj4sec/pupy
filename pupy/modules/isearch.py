@@ -7,8 +7,8 @@ from __future__ import unicode_literals
 
 import sys
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.PupyOutput import Table, TruncateToTerm
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.PupyOutput import Table, TruncateToTerm
 from argparse import REMAINDER
 
 from datetime import datetime

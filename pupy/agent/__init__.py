@@ -175,7 +175,7 @@ pupy = None
 remote_load_package = None
 remote_print_error = None
 import_module = None
-logger = None
+LOGGER = None
 
 creds_cache = {}
 namespace = None
@@ -223,7 +223,11 @@ def broadcast_event(eventid, *args, **kwargs):
 
 
 def get_logger(name):
-    return logger.getChild(name)
+    global LOGGER
+    if LOGGER is None:
+        from .logger import create_root_logger
+        LOGGER = create_root_logger()
+    return LOGGER.getChild(name)
 
 
 def set_stdio(null=False):
@@ -642,8 +646,8 @@ class PupyPackageFinder(_bootstrap_external._LoaderBasics):
 
         if self._is_already_loaded(fullname):
             return None
-
-        from .utils import pupy_add_package, safe_obtain
+        
+        from pupy.agent.utils import pupy_add_package, safe_obtain
 
         if PupyPackageFinder.search_lock is not None:
             with PupyPackageFinder.search_lock:
@@ -867,14 +871,16 @@ def load_pupyimporter(stdlib=None):
 
 
 def init_pupy(argv, stdlib, debug=False):
-    global logger
     global pupy
+    global LOGGER
     global modules
     global __dprint_method
     global __debug_file
 
     set_stdio(null=not debug)
     set_debug(debug)
+
+
     dprint(
         'init_pupy: argv={} sys.argv={}',
         repr(argv), repr(sys.argv)
@@ -889,21 +895,21 @@ def init_pupy(argv, stdlib, debug=False):
 
     load_pupyimporter(stdlib)
 
-    from .logger import create_root_logger, enable_debug_logger
-    logger = create_root_logger()
 
     if debug:
-        __debug_file = enable_debug_logger(logger)
+        from .logger import enable_debug_logger
+        LOGGER = get_logger('pupy')
+        __debug_file = enable_debug_logger(LOGGER)
 
         for pending in __debug_pending:
             if isinstance(pending, Exception):
-                logger.exception(pending)
+                LOGGER.exception(pending)
             else:
-                logger.error(pending)
+                LOGGER.error(pending)
 
         del __debug_pending[:]
 
-    __dprint_method = logger.debug
+    __dprint_method = LOGGER.debug
 
     import platform
 
@@ -955,7 +961,7 @@ def setup_manager():
 
 
 def setup_network():
-    from network.conf import load_modules
+    from pupy.network.conf import load_modules
     load_modules()
 
 
@@ -991,7 +997,7 @@ def prepare(argv=sys.argv, debug=False, config={}, stdlib=None):
     from .ssl_hacks import apply_ssl_hacks
     from .psutil_hacks import apply_psutil_hacks
 
-    from network.conf import load_network_modules
+    from pupy.network.conf import load_network_modules
 
     set_sighandlers()
     apply_ssl_hacks()

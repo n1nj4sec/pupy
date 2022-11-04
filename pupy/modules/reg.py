@@ -11,12 +11,12 @@ import sys
 
 from threading import Event
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.PupyOutput import (
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.PupyOutput import (
     Color, List, Table, Line, MultiPart, TruncateToTerm
 )
 
-from network.lib.convcompat import as_unicode_string
+from pupy.network.lib.convcompat import as_unicode_string
 
 
 if sys.version_info.major > 2:

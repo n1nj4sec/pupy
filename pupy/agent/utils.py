@@ -24,7 +24,7 @@ if sys.version_info.major > 2:
 else:
     import cPickle as pickle
 
-import pupy
+import pupy.agent as pupy
 
 logger = pupy.get_logger('utils')
 
@@ -139,7 +139,7 @@ def register_package_request_hook(hook):
 def register_package_error_hook(hook):
     # Must be importer at low level, because
     # may not be possible to load network.* at early phase
-    from network.lib.rpc import nowait
+    from pupy.network.lib.rpc import nowait
     pupy.remote_print_error = nowait(hook)
 
 

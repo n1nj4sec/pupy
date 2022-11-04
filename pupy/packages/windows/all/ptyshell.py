@@ -12,8 +12,8 @@ except ImportError:
     from winpty import WinPTY as PTY
 
 from collections import deque
-from pupy import manager, Task
-from network.lib.pupyrpc import nowait
+from pupy.agent import manager, Task
+from pupy.network.lib.pupyrpc import nowait
 
 from pupwinutils.security import (
     sidbyname, getSidToken, get_thread_token,

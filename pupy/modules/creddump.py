@@ -17,11 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.utils.credentials import Credentials
-from modules.lib.utils.shell_exec import shell_exec
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.utils.credentials import Credentials
+from pupy.modules.lib.utils.shell_exec import shell_exec
 
-from network.lib.rpc.utils.classic import download
+from pupy.network.lib.rpc.utils.classic import download
 
 import os
 import os.path
@@ -30,12 +30,12 @@ import ntpath
 from io import open
 
 # CredDump imports
-from modules.lib.windows.creddump.win32.domcachedump import dump_hashes
-from modules.lib.windows.creddump.addrspace import HiveFileAddressSpace
-from modules.lib.windows.creddump.win32.hashdump import get_bootkey, get_hbootkey
-from modules.lib.windows.creddump.win32.hashdump import get_user_hashes, get_user_keys, get_user_name
-from modules.lib.windows.creddump.win32.hashdump import empty_lm, empty_nt
-from modules.lib.windows.creddump.win32.lsasecrets import get_file_secrets
+from pupy.modules.lib.windows.creddump.win32.domcachedump import dump_hashes
+from pupy.modules.lib.windows.creddump.addrspace import HiveFileAddressSpace
+from pupy.modules.lib.windows.creddump.win32.hashdump import get_bootkey, get_hbootkey
+from pupy.modules.lib.windows.creddump.win32.hashdump import get_user_hashes, get_user_keys, get_user_name
+from pupy.modules.lib.windows.creddump.win32.hashdump import empty_lm, empty_nt
+from pupy.modules.lib.windows.creddump.win32.lsasecrets import get_file_secrets
 
 __class_name__="CredDump"
 

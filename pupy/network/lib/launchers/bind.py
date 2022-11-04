@@ -11,8 +11,8 @@ __all__ = ['BindLauncher']
 import logging
 import argparse
 
-from network.lib import utils
-from network.conf import transports
+from pupy.network.lib import utils
+from pupy.network.conf import transports
 
 from ..base_launcher import BaseLauncher, LauncherArgumentParser, LauncherError
 

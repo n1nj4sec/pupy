@@ -20,9 +20,9 @@ if sys.version_info.major > 2:
 else:
     import Queue
 
-from network.lib.rpc.core import SocketStream, Channel, Connection
-from network.lib.rpc.lib import safe_import
-from network.lib.compat import poll, get_exc_errno
+from pupy.network.lib.rpc.core import SocketStream, Channel, Connection
+from pupy.network.lib.rpc.lib import safe_import
+from pupy.network.lib.compat import poll, get_exc_errno
 
 signal = safe_import("signal")
 

@@ -18,11 +18,11 @@ if sys.version_info.major > 2:
 else:
     import cPickle as pickle
 
-import pupy
+import pupy.agent
 
 from io import open
 
-from network.lib.transports.cryptoutils import (
+from pupy.network.lib.transports.cryptoutils import (
     NewAESCipher, append_PKCS7_padding,
     strip_PKCS7_padding
 )
@@ -101,7 +101,7 @@ class PStore(object):
             try:
                 os.unlink(self._pstore_path)
             except:
-                pupy.remote_error('Pstore (load)')
+                agent.remote_error('Pstore (load)')
 
             if not data:
                 return
@@ -110,7 +110,7 @@ class PStore(object):
             data = strip_PKCS7_padding(data)
             data = pickle.loads(data)
         except:
-            pupy.remote_error('Pstore (load)')
+            agent.remote_error('Pstore (load)')
             return
 
         if type(data) == dict:
@@ -132,5 +132,5 @@ class PStore(object):
                 pstore.write(data)
 
         except:
-            pupy.remote_error('Pstore (store)')
+            agent.remote_error('Pstore (store)')
             return

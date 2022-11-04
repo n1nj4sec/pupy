@@ -21,7 +21,7 @@ from ctypes.wintypes import (
     HANDLE, DWORD, LPCWSTR, HWND,
 )
 
-import pupy
+import pupy.agent
 
 if hasattr(pupy, 'get_logger'):
     logger = pupy.get_logger('winpty')

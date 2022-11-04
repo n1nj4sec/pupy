@@ -41,8 +41,8 @@ from impacket.smb3structs import (
 
 from sys import getdefaultencoding, version_info
 
-from network.lib.netcreds import add_cred, find_first_cred
-from network.lib.convcompat import (
+from pupy.network.lib.netcreds import add_cred, find_first_cred
+from pupy.network.lib.convcompat import (
     try_as_unicode_string, as_unicode_string
 )
 

@@ -10,9 +10,9 @@ from __future__ import unicode_literals
 import sys
 import readline
 
-from modules.lib.windows.winpcap import init_winpcap
-from pupylib.utils.rpyc_utils import redirected_stdo
-from pupylib.PupyModule import (
+from pupy.modules.lib.windows.winpcap import init_winpcap
+from pupy.pupylib.utils.rpyc_utils import redirected_stdo
+from pupy.pupylib.PupyModule import (
     config, PupyModule, PupyArgumentParser, QA_DANGEROUS
 )
 

@@ -68,17 +68,17 @@ from socket import error as socket_error, gaierror
 from hashlib import md5
 from base64 import b64encode
 
-from network.lib.scan import scanthread_parse
-from network.lib.netcreds import add_cred, find_creds
-from network.lib.pupyrpc import nowait
-from network.lib.convcompat import (
+from pupy.network.lib.scan import scanthread_parse
+from pupy.network.lib.netcreds import add_cred, find_creds
+from pupy.network.lib.pupyrpc import nowait
+from pupy.network.lib.convcompat import (
     as_unicode_string, as_native_string
 )
 
 Transport._CLIENT_ID = 'OpenSSH'
 
 try:
-    from pupy import obtain
+    from pupy.agent import obtain
 
 except ImportError:
     def obtain(x):

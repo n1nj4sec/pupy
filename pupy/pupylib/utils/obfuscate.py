@@ -11,7 +11,7 @@ from __future__ import unicode_literals
 
 import zlib
 
-from pupylib.PupyCompile import pupycompile
+from pupy.pupylib.PupyCompile import pupycompile
 
 
 # FIXME

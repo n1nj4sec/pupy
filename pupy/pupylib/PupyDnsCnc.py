@@ -8,18 +8,18 @@ import sys
 import logging
 
 from .PupyCredentials import Credentials
-from network.lib.picocmd.server import (
+from pupy.network.lib.picocmd.server import (
     DnsCommandServerHandler, DnsCommandServer, SessionDependedCommand
 )
-from network.lib.picocmd.picocmd import (
+from pupy.network.lib.picocmd.picocmd import (
     OnlineStatusRequest, CheckConnect, Connect, ConnectEx,
     RegisterHostnameId, Disconnect,
     Reexec, Sleep, Exit, SetProxy, DownloadExec, PasteLink,
     UnregisteredTargetId
 )
 
-from pupylib.PupyConfig import PupyConfig
-from pupylib.utils.listener import get_listener_ip_with_local, get_listener_port
+from pupy.pupylib.PupyConfig import PupyConfig
+from pupy.pupylib.utils.listener import get_listener_ip_with_local, get_listener_port
 
 import requests
 import netaddr

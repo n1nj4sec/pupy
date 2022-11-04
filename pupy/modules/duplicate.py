@@ -8,11 +8,11 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from modules.lib.windows.memory_exec import exec_pe
-from modules.lib.linux.exec_elf import mexec
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.modules.lib.windows.memory_exec import exec_pe
+from pupy.modules.lib.linux.exec_elf import mexec
 
-from pupylib.cli import pupygen
+from pupy.cli import pupygen
 
 __class_name__ = 'MemoryDuplicate'
 

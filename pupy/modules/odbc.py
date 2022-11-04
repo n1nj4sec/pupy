@@ -16,8 +16,8 @@ from hashlib import md5
 from datetime import datetime
 from io import open
 
-from pupylib.PupyOutput import Table, List, NewLine
-from pupylib.PupyModule import (
+from pupy.pupylib.PupyOutput import Table, List, NewLine
+from pupy.pupylib.PupyModule import (
     config, PupyModule, PupyArgumentParser, PupyConfig
 )
 

@@ -4,8 +4,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
-from pupylib.PupyModule import PupyModule, PupyArgumentParser
-from pupylib.PupyErrors import PupyModuleError
+from pupy.pupylib.PupyModule import PupyModule, PupyArgumentParser
+from pupy.pupylib.PupyErrors import PupyModuleError
 
 __class_name__="ExitModule"
 

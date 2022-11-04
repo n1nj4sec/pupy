@@ -6,13 +6,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
-from pupylib.PupyModule import (
+from pupy.pupylib.PupyModule import (
     config, PupyModule, PupyArgumentParser,
     REQUIRE_STREAM
 )
 from netaddr import IPNetwork
 from threading import Event
-from modules.lib.windows import powerloader
+from pupy.modules.lib.windows import powerloader
 
 __class_name__ = "PSExec"
 

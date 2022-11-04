@@ -13,9 +13,9 @@ except ImportError:
 import readline
 import code
 
-from pupylib.PupyModule import PupyArgumentParser
-from pupylib.PythonCompleter import PythonCompleter
-from pupylib.PupyOutput import Error
+from pupy.pupylib.PupyModule import PupyArgumentParser
+from pupy.pupylib.PythonCompleter import PythonCompleter
+from pupy.pupylib.PupyOutput import Error
 
 usage = 'Start the local python interpreter (for debugging purposes)'
 parser = PupyArgumentParser(prog='python', description=usage)

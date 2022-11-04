@@ -4,8 +4,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
-from pupylib.PupyOutput import Table
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.PupyOutput import Table
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 from netaddr import IPNetwork
 
 __class_name__="Shares"

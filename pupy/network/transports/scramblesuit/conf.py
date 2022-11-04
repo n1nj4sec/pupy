@@ -7,11 +7,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
-from network.transports import Transport, LAUNCHER_TYPE_BIND
-from network.lib import PupyTCPServer, PupyTCPClient, PupySocketStream
-from network.lib import RSA_AESClient, RSA_AESServer
-from network.lib import chain_transports
-from network.lib.transports.scramblesuit.scramblesuit import ScrambleSuitClient, ScrambleSuitServer
+from pupy.network.transports import Transport, LAUNCHER_TYPE_BIND
+from pupy.network.lib import PupyTCPServer, PupyTCPClient, PupySocketStream
+from pupy.network.lib import RSA_AESClient, RSA_AESServer
+from pupy.network.lib import chain_transports
+from pupy.network.lib.transports.scramblesuit.scramblesuit import ScrambleSuitClient, ScrambleSuitServer
 
 
 class TransportConf(Transport):
@@ -31,7 +31,7 @@ class TransportConf(Transport):
             SCRAMBLESUIT_PASSWD = pupy_credentials.SCRAMBLESUIT_PASSWD
 
         except ImportError:
-            from pupylib.PupyCredentials import Credentials
+            from pupy.pupylib.PupyCredentials import Credentials
             credentials = Credentials()
             RSA_PUB_KEY = credentials['SIMPLE_RSA_PUB_KEY']
             RSA_PRIV_KEY = credentials['SIMPLE_RSA_PRIV_KEY']

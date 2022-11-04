@@ -12,17 +12,17 @@ __all__ = ['ConnectLauncher']
 
 import argparse
 
-from network.lib.utils import (
+from pupy.network.lib.utils import (
     parse_transports_args,
     create_client_transport_info_for_addr,
     parse_host
 )
 
-from network.lib.base_launcher import (
+from pupy.network.lib.base_launcher import (
     LauncherError, LauncherArgumentParser, BaseLauncher
 )
 
-from network.conf import transports
+from pupy.network.conf import transports
 
 
 from . import getLogger

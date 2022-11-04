@@ -5,8 +5,8 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from network.lib.convcompat import as_unicode_string
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.network.lib.convcompat import as_unicode_string
 
 from io import open
 

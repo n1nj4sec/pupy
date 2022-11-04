@@ -9,8 +9,8 @@ import os
 
 from io import open
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib import ROOT
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib import ROOT
 
 __class_name__="Inveigh"
 

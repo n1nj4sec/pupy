@@ -9,10 +9,10 @@ from __future__ import unicode_literals
 import time
 import threading
 
-from network.lib.rpc.lib.colls import WeakValueDict
-from network.lib.compat import callable
-from network.lib.rpc.core.consts import HANDLE_BUFFITER, HANDLE_CALL
-from network.lib.rpc.core.netref import syncreq, asyncreq
+from pupy.network.lib.rpc.lib.colls import WeakValueDict
+from pupy.network.lib.compat import callable
+from pupy.network.lib.rpc.core.consts import HANDLE_BUFFITER, HANDLE_CALL
+from pupy.network.lib.rpc.core.netref import syncreq, asyncreq
 
 
 def buffiter(obj, chunk = 10, max_chunk = 1000, factor = 2):

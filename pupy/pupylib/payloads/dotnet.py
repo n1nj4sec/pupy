@@ -17,10 +17,10 @@ from string import ascii_uppercase, ascii_lowercase
 from os.path import join, splitext, isfile
 from base64 import b64encode
 
-from pupylib.PupyOutput import Success, Error, List
-from pupylib import ROOT
+from pupy.pupylib.PupyOutput import Success, Error, List
+from pupy.pupylib import ROOT
 
-from network.lib.convcompat import shlex
+from pupy.network.lib.convcompat import shlex
 
 TEMPLATE = join(ROOT, 'payload_templates', 'PupyLoaderTemplate.cs')
 
@@ -90,7 +90,7 @@ class DotNetPayload(object):
             if self.server:
                 config = self.server.config
             else:
-                from pupylib import PupyConfig
+                from pupy.pupylib import PupyConfig
                 config = PupyConfig()
 
             sdk = config.get('gen', 'mcs_sdk', fallback=4)

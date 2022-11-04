@@ -32,7 +32,7 @@ from binascii import a2b_hex
 from Crypto.Cipher import ARC4
 from impacket import ntlm
 
-from network.lib.scan import scanthread_parse
+from pupy.network.lib.scan import scanthread_parse
 
 TDPU_CONNECTION_REQUEST  = 0xe0
 TPDU_CONNECTION_CONFIRM  = 0xd0

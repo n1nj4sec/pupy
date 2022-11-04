@@ -50,7 +50,7 @@ import logging
 from threading import Thread, Event, Lock
 from subprocess import Popen, PIPE, STDOUT
 
-from network.lib.base_launcher import LauncherError
+from pupy.network.lib.base_launcher import LauncherError
 
 from .PupyErrors import PupyModuleExit, PupyModuleError, PupyModuleUsageError
 from .PupyModule import (
@@ -72,7 +72,7 @@ from .utils.term import (
 
 from .PupySignalHandler import set_signal_winch
 
-from commands import Commands, InvalidCommand
+from pupy.commands import Commands, InvalidCommand
 
 from termios import TCSANOW
 

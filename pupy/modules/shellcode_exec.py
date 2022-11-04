@@ -10,7 +10,7 @@ from __future__ import unicode_literals
 
 from io import open
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 
 __class_name__="ShellcodeExec"
 

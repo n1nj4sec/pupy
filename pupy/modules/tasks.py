@@ -6,9 +6,9 @@ from __future__ import print_function
 from __future__ import unicode_literals
 __class_name__="Tasks"
 
-from pupylib.PupyModule import PupyArgumentParser, PupyModule, config
-from pupylib.PupyOutput import Table, Color
-from pupylib.utils.rpyc_utils import obtain
+from pupy.pupylib.PupyModule import PupyArgumentParser, PupyModule, config
+from pupy.pupylib.PupyOutput import Table, Color
+from pupy.pupylib.utils.rpyc_utils import obtain
 
 @config(cat='manage')
 class Tasks(PupyModule):

@@ -28,7 +28,7 @@ import subprocess
 
 from io import open
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 
 __class_name__="WebcamSnapModule"
 

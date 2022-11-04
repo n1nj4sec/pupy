@@ -7,7 +7,7 @@ import os
 import json
 import codecs
 
-from network.lib.convcompat import (
+from pupy.network.lib.convcompat import (
     ExtendedJsonEncoder, ExtendedJsonDecoder,
     as_unicode_string, as_unicode_string_deep
 )

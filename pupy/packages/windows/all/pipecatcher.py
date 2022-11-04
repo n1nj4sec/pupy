@@ -22,7 +22,7 @@ from pupwinutils.security import (
     TOKEN_ALL_ACCESS, IMPERSONATION_TOKENS
 )
 
-from pupy import Task, manager
+from pupy.agent import Task, manager
 
 CreateNamedPipe = kernel32.CreateNamedPipeA
 CreateNamedPipe.restype = HANDLE

@@ -7,7 +7,7 @@ import netifaces
 import logging
 
 from netaddr import IPAddress, AddrFormatError
-from network.lib.online import external_ip
+from pupy.network.lib.online import external_ip
 
 LISTENER_IP_EXTERNAL = None
 LISTENER_IP_LOCAL = None

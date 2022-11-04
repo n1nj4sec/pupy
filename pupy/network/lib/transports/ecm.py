@@ -11,7 +11,7 @@ __all__ = ('ECMTransportServer', 'ECMTransportClient')
 from ..base import BasePupyTransport
 from .cryptoutils import ECPV
 
-from network.lib.buffer import Buffer
+from pupy.network.lib.buffer import Buffer
 
 import struct
 import time

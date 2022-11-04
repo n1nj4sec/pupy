@@ -15,7 +15,7 @@ __all__ = (
 from os import readlink, lstat
 from sys import platform
 
-from network.lib.convcompat import as_unicode_string
+from pupy.network.lib.convcompat import as_unicode_string
 
 
 def _has_xattrs(filepath):

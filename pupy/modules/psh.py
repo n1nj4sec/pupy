@@ -9,9 +9,9 @@ from os import path
 from io import open
 from argparse import REMAINDER
 
-from network.lib.rpc import GenericException
+from pupy.network.lib.rpc import GenericException
 
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
 
 __class_name__ = 'PowershellManager'
 

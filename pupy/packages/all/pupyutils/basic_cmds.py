@@ -26,7 +26,7 @@ from scandir import scandir
 if scandir is None:
     from scandir import scandir_generic as scandir
 
-from network.lib.convcompat import (
+from pupy.network.lib.convcompat import (
     as_native_string, as_unicode_string,
     fix_exception_encoding, try_as_unicode_string,
     DEFAULT_MB_ENCODING

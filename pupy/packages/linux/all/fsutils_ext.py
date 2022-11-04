@@ -28,7 +28,7 @@ from pupyutils.basic_cmds import (
     mode_to_letter, special_to_letter
 )
 
-from network.lib.convcompat import (
+from pupy.network.lib.convcompat import (
     as_unicode_string, try_as_unicode_string,
     fs_as_native_string, as_unicode_string_deep
 )

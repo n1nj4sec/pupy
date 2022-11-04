@@ -16,7 +16,7 @@ import threading
 import random
 
 from netaddr import IPNetwork
-from network.lib.rpc import nowait
+from pupy.network.lib.rpc import nowait
 
 from . import getLogger
 logger = getLogger('scan')

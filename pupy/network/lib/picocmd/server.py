@@ -31,7 +31,7 @@ import functools
 import logging
 
 try:
-    from pupylib import getLogger
+    from pupy.pupylib import getLogger
     logger = getLogger('dnscnc')
 except ImportError:
     logger = logging.getLogger('dnscnc')
@@ -62,8 +62,8 @@ from .picocmd import (
     from_bytes
 )
 
-from network.lib.transports.cryptoutils import ECPV
-from network.lib.compat import (
+from pupy.network.lib.transports.cryptoutils import ECPV
+from pupy.network.lib.compat import (
     as_byte, is_int, is_str, xrange
 )
 

@@ -43,11 +43,11 @@ import json
 import zlib
 import umsgpack
 
-from pupylib.PupyCredentials import Credentials
+from pupy.pupylib.PupyCredentials import Credentials
 
-from network.lib.msgtypes import msgpack_exthook
-from network.lib.rpc import Service, timed, nowait
-from network.lib.convcompat import as_native_string
+from pupy.network.lib.msgtypes import msgpack_exthook
+from pupy.network.lib.rpc import Service, timed, nowait
+from pupy.network.lib.convcompat import as_native_string
 
 from . import getLogger
 logger = getLogger('service')

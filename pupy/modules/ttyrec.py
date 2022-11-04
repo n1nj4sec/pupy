@@ -50,8 +50,8 @@ if sys.version_info.major > 2:
 else:
     from StringIO import StringIO as BytesIO
 
-from pupylib.PupyModule import PupyModule, PupyArgumentParser
-from pupylib.PupyModule import config
+from pupy.pupylib.PupyModule import PupyModule, PupyArgumentParser
+from pupy.pupylib.PupyModule import config
 
 TTYREC_EVENT = 0x14000001
 

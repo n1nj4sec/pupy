@@ -5,7 +5,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
-from pupylib.PupyErrors import PupyModuleError
+from pupy.pupylib.PupyErrors import PupyModuleError
 
 NPCAP_NOT_FOUND = '''
 WinPCAP is not installed. You should install NPcap driver.

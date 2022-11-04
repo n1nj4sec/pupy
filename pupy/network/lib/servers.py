@@ -23,10 +23,10 @@ from threading import Thread
 from netaddr import IPAddress, AddrFormatError
 
 from .streams.PupySocketStream import PupyChannel
-from network.lib.connection import PupyConnection, PupyConnectionThread
-from network.lib.rpc.utils.server import ThreadedServer, AuthenticationError
+from pupy.network.lib.connection import PupyConnection, PupyConnectionThread
+from pupy.network.lib.rpc.utils.server import ThreadedServer, AuthenticationError
 
-from network.lib.igd import UPNPError
+from pupy.network.lib.igd import UPNPError
 
 
 class PupyTCPServer(ThreadedServer):

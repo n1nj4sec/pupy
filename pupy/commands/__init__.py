@@ -9,10 +9,10 @@ __all__ = ('InvalidCommand', 'Commands')
 import os
 import imp
 
-from pupylib.PupyCompleter import commands_completer
-from pupylib.PupyModule import PupyArgumentParser
+from pupy.pupylib.PupyCompleter import commands_completer
+from pupy.pupylib.PupyModule import PupyArgumentParser
 
-from network.lib.convcompat import shlex
+from pupy.network.lib.convcompat import shlex
 
 
 class InvalidCommand(Exception):

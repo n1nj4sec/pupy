@@ -9,14 +9,14 @@ from __future__ import unicode_literals
 
 from io import open
 
-from pupylib.PupyModule import (
+from pupy.pupylib.PupyModule import (
     config, PupyModule, PupyArgumentParser,
     REQUIRE_STREAM
 )
 
-from pupylib.PupyErrors import PupyModuleError
-from pupylib.PupyCompleter import path_completer
-from pupylib.utils.rpyc_utils import redirected_stdio
+from pupy.pupylib.PupyErrors import PupyModuleError
+from pupy.pupylib.PupyCompleter import path_completer
+from pupy.pupylib.utils.rpyc_utils import redirected_stdio
 
 __class_name__="PythonExec"
 

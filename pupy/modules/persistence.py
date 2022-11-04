@@ -24,9 +24,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
-from pupylib.PupyModule import config, PupyModule, PupyArgumentParser
-from pupylib.PupyCompleter import remote_path_completer
-from pupylib.cli import pupygen
+from pupy.pupylib.PupyModule import config, PupyModule, PupyArgumentParser
+from pupy.pupylib.PupyCompleter import remote_path_completer
+from pupy.cli import pupygen
 
 __class_name__ = "Persistence"
 

@@ -34,7 +34,7 @@ import tempfile
 import platform
 
 import pupy
-from network.lib import getLogger
+from pupy.network.lib import getLogger
 
 logger = getLogger('dnscnc')
 
@@ -53,7 +53,7 @@ class DNSCommandClientLauncher(DnsCommandsClient):
             import pupy_credentials
             key = pupy_credentials.DNSCNC_PUB_KEY_V2
         except ImportError:
-            from pupylib.PupyCredentials import Credentials
+            from pupy.pupylib.PupyCredentials import Credentials
             credentials = Credentials()
             key = credentials['DNSCNC_PUB_KEY_V2']
 

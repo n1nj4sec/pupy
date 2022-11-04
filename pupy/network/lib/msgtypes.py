@@ -12,13 +12,13 @@ __all__ = (
 
 from collections import namedtuple
 
-from network.conf import transports
+from pupy.network.conf import transports
 
-from network.lib import Proxy
-from network.lib.proxies import ProxyInfo
-from network.lib.utils import HostInfo, TransportInfo
-from network.lib.convcompat import as_unicode_string_deep
-from network.lib.rpc.core.brine import (
+from pupy.network.lib import Proxy
+from pupy.network.lib.proxies import ProxyInfo
+from pupy.network.lib.utils import HostInfo, TransportInfo
+from pupy.network.lib.convcompat import as_unicode_string_deep
+from pupy.network.lib.rpc.core.brine import (
     register_named_tuple as brine_register_named_tuple
 )
 
