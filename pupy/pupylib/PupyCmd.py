@@ -602,6 +602,7 @@ class PupyCmd(cmd.Cmd):
                 closed = True
 
             except KeyboardInterrupt:
+                self.intro=""
                 self.stdout.write(b'\n')
 
             except Exception as e:
