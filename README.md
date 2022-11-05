@@ -2,11 +2,33 @@
 
 [![Build Status](https://api.travis-ci.org/n1nj4sec/pupy.svg?branch=unstable)](https://travis-ci.org/n1nj4sec/pupy)
 
-## Installation
+## Simple Installation
 
-pipx install
+```
+pip3 install pipx
+pipx ensurepath
+pipx install git+https://github.com/n1nj4sec/pupy@nextgen
 
-If you want more detailed information [Refer to the wiki](https://github.com/n1nj4sec/pupy/wiki/Installation)
+pupysh
+```
+~~If you want more detailed information [Refer to the wiki](https://github.com/n1nj4sec/pupy/wiki/Installation)~~
+
+## Development Install
+
+```
+git clone https://github.com/n1nj4sec/pupy
+cd pupy
+git checkout nextgen
+git submodule init
+git submodule update
+
+pip install venv
+python3 -m venv pupyvenv
+source pupyvenv/bin/activate
+pip install -r requirements.txt
+
+python3 -m pupy.cli.pupysh
+```
 
 ## Description
 
@@ -53,7 +75,7 @@ Pupy is a cross-platform, multi function C2 and post-exploitation tool mainly wr
 
 | Format | Architecture | Short Name |
 |---|---|---|
-~~ Android Package | x86 & ARMv7 | apk ~~
+~~ Android Package ~~ | x86 & ARMv7 | apk
 Linux Binary | x86 | lin_x86
 Linux Binary | x64 | lin_x64
 Linux Shared Object | x86 | so_x86
@@ -75,8 +97,8 @@ Powershell Oneliner | x86 & x64 | ps1_oneliner
 
 | Platform | Support Status |
 |---|---|
-~~ Windows XP | Supported ~~ python dropped support
-~~ Windows 7 | Supported ~~ python dropped support
+Windows XP | ~~ Supported ~~ python dropped support
+Windows 7 | ~~ Supported ~~ python dropped support
 Windows 8 | Supported
 Windows 10 | Supported
 Linux | Supported
