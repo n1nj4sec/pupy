@@ -109,6 +109,7 @@ class PupyConfig(RawConfigParser):
         self.user_path = path.join(self.user_root, config)
 
         if not os.path.exists(self.user_path):
+            os.makedirs(self.user_root)
             shutil.copyfile(self.default_file, self.user_path)
             logger.info("No default pupy config file, creating one in {}".format(self.user_path))
 

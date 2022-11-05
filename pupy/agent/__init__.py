@@ -880,6 +880,8 @@ def init_pupy(argv, stdlib, debug=False):
     set_stdio(null=not debug)
     set_debug(debug)
 
+    
+    LOGGER = get_logger('pupy')
 
     dprint(
         'init_pupy: argv={} sys.argv={}',
@@ -898,7 +900,6 @@ def init_pupy(argv, stdlib, debug=False):
 
     if debug:
         from .logger import enable_debug_logger
-        LOGGER = get_logger('pupy')
         __debug_file = enable_debug_logger(LOGGER)
 
         for pending in __debug_pending:
@@ -1011,8 +1012,6 @@ def prepare(argv=sys.argv, debug=False, config={}, stdlib=None):
 
 
 def main(argv=sys.argv, debug=False, config={}, stdlib=None):
-    #import builtins
-    #builtins.open(2, 'w').write("here from python\n")
     prepare(argv, debug, config, stdlib)
 
     from .service import run
