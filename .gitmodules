@@ -45,3 +45,6 @@
 	url = https://github.com/kubo/injector
 [submodule "pykcp"]
 	url = https://github.com/n1nj4sec/pykcp
+[submodule "pupy/external/pykcp"]
+	path = pupy/external/pykcp
+	url = https://github.com/n1nj4sec/pykcp
