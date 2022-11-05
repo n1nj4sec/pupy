@@ -22,9 +22,6 @@
 [submodule "pupy/external/Inveigh"]
 	path = pupy/external/Inveigh
 	url = https://github.com/Kevin-Robertson/Inveigh.git
-[submodule "pupy/external/pykcp"]
-	path = pupy/external/pykcp
-	url = https://github.com/alxchk/pykcp
 [submodule "pupy/pupy/external/BeRoot"]
 	path = pupy/external/BeRoot
 	url = https://github.com/AlessandroZ/BeRoot
@@ -46,3 +43,5 @@
 [submodule "client/sources-linux/injector"]
 	path = client/sources-linux/injector
 	url = https://github.com/kubo/injector
+[submodule "pykcp"]
+	url = https://github.com/n1nj4sec/pykcp
