@@ -159,6 +159,10 @@ make -f Makefile -j BUILDENV=/opt FEATURE_DYNLOAD=1 ARCH=64 clean
 make -f Makefile -j BUILDENV=/opt FEATURE_DYNLOAD=1 ARCH=64
 
 
+make -f Makefile -j BUILDENV=/opt FEATURE_DYNLOAD=1 ARCH=64 clean
+make -f Makefile -j BUILDENV=/opt FEATURE_DYNLOAD=1 ARCH=32 clean
+make -f Makefile -j BUILDENV=/opt DEBUG=1 FEATURE_DYNLOAD=1 ARCH=64 clean
+
 for object in $TARGETS; do
     if [ -z "$object" ]; then
         continue
