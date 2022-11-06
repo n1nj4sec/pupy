@@ -18,6 +18,7 @@ import sys
 
 if sys.version_info.major > 2:
     xrange = range
+    long = int
 
     def to_byte(x):
         return bytes((x,))

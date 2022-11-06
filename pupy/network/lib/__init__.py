@@ -93,9 +93,3 @@ except Exception as e:
     ECMTransportServer = None
     ECMTransportClient = None
 
-try:
-    from .transports.scramblesuit.scramblesuit import ScrambleSuitClient, ScrambleSuitServer
-except Exception as e:
-    logger.exception('Transport scramblesuit disabled: %s', e)
-    ScrambleSuitClient = None
-    ScrambleSuitServer = None
