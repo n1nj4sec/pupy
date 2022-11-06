@@ -11,7 +11,6 @@ import sys
 import logging
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 
-from scapy.all import Ether, PcapWriter
 from threading import Event
 
 from pupy.pupylib.PupyModule import (
@@ -53,6 +52,7 @@ class TcpdumpModule(PupyModule):
         # cls.arg_parser.add_argument("command", choices=["start", "stop"])
 
     def printer(self, pcap_writer=None, print_summary=True):
+        from scapy.all import Ether
         def pkt_callback(pkt):
             try:
                 pkt = Ether(pkt)
@@ -85,6 +85,7 @@ class TcpdumpModule(PupyModule):
         pktwriter = None
 
         if args.save_pcap:
+            from scapy.all import PcapWriter
             config = self.client.pupsrv.config
             filepath = config.get_file('pcaps', {'%c': self.client.short_name()})
             pktwriter = PcapWriter(filepath, append=True, sync=True)
