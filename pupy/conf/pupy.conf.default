@@ -122,6 +122,7 @@ shadow_screen = no
 
 [paths]
 prefer_workdir = no
+history = .pupy_history
 downloads = data/downloads/%c
 memstrings = data/memstrings/%c
 searches = data/searches/%c
