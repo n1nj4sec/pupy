@@ -498,7 +498,8 @@ class PupyServer(object):
                     available=igd_enabled,
                     ctrlURL=igd_url
                 )
-                self.motd['ok'].append('IGDClient enabled')
+                if self.igd.available:
+                    self.motd['ok'].append('IGDClient enabled')
             except UPNPError as e:
                 self.motd['fail'].append('IGDClient failed: {}'.format(e))
 
@@ -1148,9 +1149,9 @@ class PupyServer(object):
             if name in transports:
                 self.add_listener(name, motd=True)
             else:
-                self.motd['fail'].append('Unknown transport: {}'.format(name))
+                self.display("Transport not found", error=True)
 
-        self.handler.add_motd(self.motd)
+        self.handler.print_motd(self.motd)
 
     def add_listener(self, name, config=None, motd=False, ignore_pproxy=False):
         if self.listeners and name in self.listeners:
@@ -1162,12 +1163,7 @@ class PupyServer(object):
         if name not in transports:
             error = 'Transport {} is not registered. ' \
                 'To show available: listen -L'.format(repr(name))
-
-            if motd:
-                self.motd['fail'].append(error)
-            else:
-                self.handler.display_error(error)
-
+            self.display(error, error=True, motd=motd)
             return
 
         listener_config = config or self.config.get('listeners', name)
@@ -1175,10 +1171,7 @@ class PupyServer(object):
             error = 'Transport {} does not have default settings. ' \
                 'Specfiy args (at least port)'.format(repr(name))
 
-            if motd:
-                self.motd['fail'].append(error)
-            else:
-                self.handler.display_error(error)
+            self.display(error, error=True, motd=motd)
             return
 
         try:
@@ -1218,37 +1211,34 @@ class PupyServer(object):
 
         except socket.error as e:
             if e.errno == errno.EACCES:
-                error = 'Listen: {}: ' \
+                message = 'Listen: {}: ' \
                     'Insufficient privileges to bind'.format(listener)
             elif e.errno == errno.EADDRINUSE:
-                error = 'Listen: {}: ' \
+                message = 'Listen: {}: ' \
                     'Address/Port already used'.format(listener)
             elif e.errno == errno.EADDRNOTAVAIL:
-                error = 'Listen: {}: ' \
+                message = 'Listen: {}: ' \
                     'No network interface with addresss {}'.format(
                         listener, listener.address)
             else:
-                error = 'Listen: {}: {}'.format(listener, e)
+                message = 'Listen: {}: {}'.format(listener, e)
 
         except Exception as e:
             error = '{}: {}'.format(listener, e)
-            logger.exception(e)
-
         if error:
             del self.listeners[name]
-            self.handler.display_error(error)
 
-        self.display(message, error, motd)
+        self.display(message, error=error, motd=motd)
 
     def display(self, message, error=False, motd=False):
         if motd or not self.handler:
             if error:
-                self.motd['fail'].append(error)
+                self.motd['fail'].append(message)
             else:
                 self.motd['ok'].append(message)
         else:
             if error:
-                self.handler.display_error(error)
+                self.handler.display_error(message)
             else:
                 self.handler.display_success(message)
 

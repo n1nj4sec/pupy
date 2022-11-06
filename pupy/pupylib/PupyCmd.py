@@ -485,7 +485,6 @@ class PupyCmd(cmd.Cmd):
                 self._intro = []
         except Exception:
             pass
-        self.intro=self._make_intro().decode('utf8')
 
         self.aliases = {}
 
@@ -504,21 +503,22 @@ class PupyCmd(cmd.Cmd):
 
         self.pupsrv.register_handler(self)
 
+        # display banner before potential error messages
+        self.display(self._make_intro().decode('utf8'))
+
+        self.intro=""
+
     def _make_intro(self):
         return b'\n'.join(
             as_term_bytes(x) for x in self._intro
         )
 
-    def add_motd(self, motd={}):
+    def print_motd(self, motd={}):
         for ok in motd.get('ok', []):
-            self._intro.append(ServiceInfo(ok + '\n'))
+            self.display_srvinfo(ok)
 
         for fail in motd.get('fail', []):
-            self._intro.append(
-                Error(fail + '\n') if not issubclass(
-                    type(fail), Text
-                ) else fail
-            )
+            self.display_error(fail)
 
     def default(self, line):
         return self.execute(line)
