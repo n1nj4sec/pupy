@@ -18,11 +18,9 @@ __all__ = (
     'PupyHTTPClient', 'PupyHTTPServer',
     'PupyWebSocketClient', 'PupyWebSocketServer',
     'EC4TransportServer', 'EC4TransportClient',
-    'ECMTransportServer', 'ECMTransportClient',
-    'ScrambleSuitClient', 'ScrambleSuitServer'
+    'ECMTransportServer', 'ECMTransportClient'
 )
 
-import sys
 import logging
 
 from collections import namedtuple

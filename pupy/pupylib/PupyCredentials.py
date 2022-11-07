@@ -350,11 +350,10 @@ def _generate_rsa_keypair_4096():
     return priv, pub
 
 
-def _generate_scramblesuit_passwd():
+def _generate_path_secret():
     return {
-        'SCRAMBLESUIT_PASSWD': _generate_password(20)
+        'PATH_GEN_SECRET': _generate_password(20)
     }
-
 
 def _generate_bind_payloads_password():
     return {
@@ -498,7 +497,8 @@ def _generate_pki_ssl_keys():
 
 class Credentials(object):
     GENERATORS = {
-        'SCRAMBLESUIT_PASSWD': _generate_scramblesuit_passwd,
+        # path secret used to generate random path that do not change between each pupysh run
+        'PATH_GEN_SECRET': _generate_path_secret,
         'BIND_PAYLOADS_PASSWORD': _generate_bind_payloads_password,
         'CONTROL_ECPV_RC4_PRIVATE_KEY': _generate_ecpv_rc4,
         'CONTROL_ECPV_RC4_PUBLIC_KEY': _generate_ecpv_rc4,
