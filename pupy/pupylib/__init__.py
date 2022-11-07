@@ -11,7 +11,6 @@ __all__ = [
 import os
 import sys
 import platform
-import re
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 HOST_SYSTEM = platform.system()
@@ -49,4 +48,3 @@ if not getattr(sys, '__from_build_library_zip_compiler__', False):
         from .PupyModule import PupyModule
         from .PupyClient import PupyClient
         from .PupyServer import PupyServer
-

@@ -47,6 +47,7 @@ if sys.version_info.major > 2:
     from itertools import filterfalse
 
     basestring = str
+    long = int
 
 else:
     from itertools import ifilterfalse as filterfalse

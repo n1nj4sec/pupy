@@ -166,9 +166,7 @@ def module_name_completer(module, args, text, context):
         clients_filter=context.handler.default_filter)
     )
 
-    return [
-        module for module in modules if module.startswith(text) or not(text)
-    ]
+    return [module for module in modules if module.startswith(text) or not text]
 
 
 def module_args_completer(module, args, text, context):

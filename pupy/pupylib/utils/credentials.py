@@ -5,7 +5,6 @@ from __future__ import print_function
 
 import os
 import json
-import codecs
 
 from pupy.network.lib.convcompat import (
     ExtendedJsonEncoder, ExtendedJsonDecoder,

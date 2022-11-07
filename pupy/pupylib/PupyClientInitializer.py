@@ -10,12 +10,10 @@ import getpass
 import uuid
 import sys
 import os
-import locale
 import logging
 import socket
 import pupy.agent as pupy
 
-import encodings
 
 
 def _as_unicode(x):
@@ -448,12 +446,12 @@ def get_uuid():
 
     try:
         uacLevel = getUACLevel()
-    except Exception as e:
+    except Exception:
         uacLevel = "?"
 
     try:
         integrity_level = get_integrity_level()
-    except Exception as e:
+    except Exception:
         integrity_level = "?"
 
     try:

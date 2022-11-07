@@ -26,8 +26,11 @@ pip install venv
 python3 -m venv pupyvenv
 source pupyvenv/bin/activate
 pip install -r requirements.txt
-
-python3 -m pupy.cli.pupysh
+```
+run pupysh from the dev install :
+```
+source pupyenv/bin/activate
+python3 -m pupy.cli
 ```
 
 ## Description

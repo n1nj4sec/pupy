@@ -59,7 +59,7 @@ from .PupyModule import (
 from .PupyCompleter import CompletionContext
 from .PupyVersion import BANNER, UPSTREAM, DISCLAIMER
 from .PupyOutput import (
-    Text, Line, Color, Title, NewLine, Info,
+    Line, Color, Title, NewLine, Info,
     ServiceInfo, Warn, Error, Success,  Indent
 )
 
@@ -538,7 +538,7 @@ class PupyCmd(cmd.Cmd):
         if cmd is None:
             return self.default(line)
         self.lastcmd = line
-        if line == 'EOF' :
+        if line == 'EOF':
             self.lastcmd = ''
         if cmd == '':
             return self.default(line)

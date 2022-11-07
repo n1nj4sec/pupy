@@ -13,7 +13,6 @@ import struct
 import platform
 import re
 import locale
-import codecs
 
 import fcntl
 import termios
@@ -660,10 +659,7 @@ def as_term_bytes(text, width=0):
         for line in hexdump.dumpgen(content):
             if text.colorize:
                 # Change to something HexdumpLexer knows
-                lines.append(
-                    line[:8] + ' ' + line[9:60] + '|' +
-                    line[60:] + '|'
-                )
+                lines.append(line[:8] + ' ' + line[9:60] + '|' + line[60:] + '|')
             else:
                 lines.append(line)
 

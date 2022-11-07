@@ -77,10 +77,7 @@ class PupyClient(object):
         # alias
         self.conn = self.desc['conn']
 
-        self.is3to2 = (
-            self.conn.remote_version[0] == 2 and
-            sys.version_info.major == 3
-        )
+        self.is3to2 = (self.conn.remote_version[0] == 2 and sys.version_info.major == 3)
 
         self.target = dependencies.Target(
             self.conn.remote_version,

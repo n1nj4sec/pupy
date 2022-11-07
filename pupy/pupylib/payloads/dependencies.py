@@ -359,8 +359,7 @@ def get_py_encoding(content):
         return
 
     line = lines[0]
-    if not (line.startswith(b'#') and
-            b'coding:' in line):
+    if not (line.startswith(b'#') and b'coding:' in line):
         return
 
     idx = line.find(b'coding:') + 7
@@ -845,13 +844,13 @@ def add_missing_init(target, modules):
             f=pathname+"/__init__.pyo"
             if f not in modules and f not in toadd and f[:-1] not in modules:
                 logger.debug("adding missing {}".format(f))
-                toadd[f] = pupycompile("", pathname , target=target.pyver)
+                toadd[f] = pupycompile("", pathname, target=target.pyver)
     modules.update(toadd)
 
 def bundle(target):
     if not target.os or not target.arch:
         return None
-    
+
     bundle_name = '{}-{}-{}{}.zip'.format(
         target.os, target.arch, target.pymaj, target.pymin
     )
