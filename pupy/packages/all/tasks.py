@@ -9,4 +9,4 @@ from __future__ import unicode_literals
 import pupy.agent
 
 def list():
-    return pupy.manager.status()
+    return pupy.agent.manager.status()

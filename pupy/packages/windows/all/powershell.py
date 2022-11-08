@@ -468,7 +468,7 @@ class PowerHost(object):
 
 
 def loaded(name=None):
-    powershell = pupy.manager.get(PowerHost)
+    powershell = pupy.agent.manager.get(PowerHost)
     if not powershell:
         if not name:
             return []
@@ -479,8 +479,8 @@ def loaded(name=None):
 
 
 def load(name, content, force=False, try_x64=False, daemon=False, width=None, v2=None):
-    powershell = pupy.manager.get(PowerHost) or \
-      pupy.manager.create(PowerHost)
+    powershell = pupy.agent.manager.get(PowerHost) or \
+      pupy.agent.manager.create(PowerHost)
 
     if not powershell:
         raise PowerHostUninitialized()
@@ -492,7 +492,7 @@ def load(name, content, force=False, try_x64=False, daemon=False, width=None, v2
 
 
 def unload(name):
-    powershell = pupy.manager.get(PowerHost)
+    powershell = pupy.agent.manager.get(PowerHost)
     if not powershell:
         raise PowerHostUninitialized()
 
@@ -500,8 +500,8 @@ def unload(name):
 
 
 def call(name, expression, nowait=False, timeout=None, content=None, try_x64=False):
-    powershell = pupy.manager.get(PowerHost) or \
-      pupy.manager.create(PowerHost)
+    powershell = pupy.agent.manager.get(PowerHost) or \
+      pupy.agent.manager.create(PowerHost)
 
     if not powershell:
         raise PowerHostUninitialized()
@@ -524,7 +524,7 @@ def call(name, expression, nowait=False, timeout=None, content=None, try_x64=Fal
 def result(name, rid):
     rid = int(rid)
 
-    powershell = pupy.manager.get(PowerHost)
+    powershell = pupy.agent.manager.get(PowerHost)
     if not powershell:
         raise PowerHostUninitialized()
 
@@ -542,7 +542,7 @@ def result(name, rid):
 
 
 def get_results():
-    powershell = pupy.manager.get(PowerHost)
+    powershell = pupy.agent.manager.get(PowerHost)
     if not powershell:
         raise PowerHostUninitialized()
 
@@ -558,4 +558,4 @@ def results():
 
 
 def stop():
-    pupy.manager.stop(PowerHost)
+    pupy.agent.manager.stop(PowerHost)

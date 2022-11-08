@@ -203,11 +203,11 @@ class USniper(pupy.Task):
 
 def start(path, addr, reg='ax', ret=False, cast=None, argtype='chr', event_id=None):
     try:
-        if pupy.manager.active(USniper):
+        if pupy.agent.manager.active(USniper):
             return False
     except:
         try:
-            pupy.manager.stop(USniper)
+            pupy.agent.manager.stop(USniper)
         except:
             pass
 
@@ -216,17 +216,17 @@ def start(path, addr, reg='ax', ret=False, cast=None, argtype='chr', event_id=No
     else:
         argtype = None
 
-    return pupy.manager.create(
+    return pupy.agent.manager.create(
         USniper, path, addr, reg, ret, cast, argtype,
         event_id=event_id
     ) is not None
 
 
 def stop():
-    return pupy.manager.stop(USniper)
+    return pupy.agent.manager.stop(USniper)
 
 
 def dump():
-    usniper = pupy.manager.get(USniper)
+    usniper = pupy.agent.manager.get(USniper)
     if usniper:
         return usniper.results

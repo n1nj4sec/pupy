@@ -184,24 +184,24 @@ class NetMon(pupy.Task):
 
 
 def netmon_start(event_id=None):
-    if pupy.manager.active(NetMon):
+    if pupy.agent.manager.active(NetMon):
         return False
 
-    pupy.manager.create(NetMon, event_id=event_id)
+    pupy.agent.manager.create(NetMon, event_id=event_id)
     return True
 
 
 def netmon_dump():
-    netmon = pupy.manager.get(NetMon)
+    netmon = pupy.agent.manager.get(NetMon)
 
     if netmon:
         return netmon.results
 
 
 def netmon_stop():
-    netmon = pupy.manager.get(NetMon)
+    netmon = pupy.agent.manager.get(NetMon)
     if netmon:
-        pupy.manager.stop(NetMon)
+        pupy.agent.manager.stop(NetMon)
 
         # Return summary table
 

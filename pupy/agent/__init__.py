@@ -881,9 +881,6 @@ def init_pupy(argv, stdlib, debug=False):
     set_stdio(null=not debug)
     set_debug(debug)
 
-    
-    LOGGER = get_logger('pupy')
-
     dprint(
         'init_pupy: argv={} sys.argv={}',
         repr(argv), repr(sys.argv)
@@ -897,6 +894,8 @@ def init_pupy(argv, stdlib, debug=False):
         sys.platform.addtarget(None)
 
     load_pupyimporter(stdlib)
+
+    LOGGER = get_logger('pupy')
 
 
     if debug:

