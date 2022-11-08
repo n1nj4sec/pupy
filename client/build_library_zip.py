@@ -30,12 +30,12 @@ else:
     PATCHES = os.path.join(ROOT, 'pupy', 'library_patches_py3')
 sys.path.insert(0, PATCHES)
 
-sys.path.append(os.path.join(ROOT, 'pupy'))
-sys.path.append(os.path.join(ROOT, 'pupy', 'pupylib'))
+sys.path.append(os.path.join(ROOT))
+#sys.path.append(os.path.join(ROOT, 'pupy', 'pupylib'))
 
 
 setattr(sys, "__from_build_library_zip_compiler__", True)
-from pupylib.PupyCompile import pupycompile
+from pupy.pupylib.PupyCompile import pupycompile
 
 sys.path.append(os.path.join(ROOT, 'pupy', 'packages', 'all'))
 
@@ -52,9 +52,9 @@ import additional_imports
 print("Load pupy")
 
 try:
-    pupy = __import__('pupy')
+    import pupy.agent
     print("Module loaded")
-    pupy.prepare(debug=True)
+    pupy.agent.prepare(debug=True)
     print("Prepare called")
 except Exception as e:
     print("Load pupy.. FAILED: {}".format(e))
@@ -102,7 +102,7 @@ all_dependencies.add('sysconfig')
 all_dependencies.add('re')
 
 exceptions = (
-    'pupy', 'network', 'pupyimporter', 'additional_imports'
+    'pupy', 'pupy.agent', 'pupy.network', 'pupyimporter', 'additional_imports'
     #'network', 'pupyimporter', 'additional_imports'
 )
 

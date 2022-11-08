@@ -21,8 +21,8 @@ class Tasks(PupyModule):
         cls.arg_parser = PupyArgumentParser(prog='tasks', description=cls.__doc__)
 
     def run(self, args):
-        pupy = self.client.remote('pupy')
-        active = obtain(pupy.manager.status)
+        agent = self.client.remote('pupy.agent')
+        active = obtain(agent.manager.status)
         data = []
         for task, state in active.items():
             color = 'grey'

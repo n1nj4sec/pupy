@@ -31,7 +31,6 @@ $PYTHON32 -m pip install -q --upgrade pylzma
 $PYTHON64 -m pip install -q --upgrade pylzma
 
 
-
 SKIP_TO_BUILD=0
 if [ ! "$SKIP_TO_BUILD" -eq "1" ]; then
 
@@ -149,19 +148,26 @@ for target in $TARGETS; do rm -f $TEMPLATES/$target; done
 
 set -e
 
+#make -f Makefile -j BUILDENV=/opt DEBUG=1 FEATURE_DYNLOAD=1 FEATURE_POSTMORTEM=1 ARCH=32
+
+make -f Makefile -j BUILDENV=/opt DEBUG=1 FEATURE_DYNLOAD=1 ARCH=32 clean
+make -f Makefile -j BUILDENV=/opt DEBUG=1 FEATURE_DYNLOAD=1 ARCH=32
+make -f Makefile -j BUILDENV=/opt DEBUG=1 FEATURE_DYNLOAD=1 ARCH=32 clean
+
 make -f Makefile -j BUILDENV=/opt FEATURE_DYNLOAD=1 ARCH=32 clean
 make -f Makefile -j BUILDENV=/opt FEATURE_DYNLOAD=1 ARCH=32
+make -f Makefile -j BUILDENV=/opt FEATURE_DYNLOAD=1 ARCH=32 clean
 
 make -f Makefile -j BUILDENV=/opt DEBUG=1 FEATURE_DYNLOAD=1 ARCH=64 clean
 make -f Makefile -j BUILDENV=/opt DEBUG=1 FEATURE_DYNLOAD=1 ARCH=64
+make -f Makefile -j BUILDENV=/opt DEBUG=1 FEATURE_DYNLOAD=1 ARCH=64 clean
 
 make -f Makefile -j BUILDENV=/opt FEATURE_DYNLOAD=1 ARCH=64 clean
 make -f Makefile -j BUILDENV=/opt FEATURE_DYNLOAD=1 ARCH=64
-
-
 make -f Makefile -j BUILDENV=/opt FEATURE_DYNLOAD=1 ARCH=64 clean
-make -f Makefile -j BUILDENV=/opt FEATURE_DYNLOAD=1 ARCH=32 clean
-make -f Makefile -j BUILDENV=/opt DEBUG=1 FEATURE_DYNLOAD=1 ARCH=64 clean
+
+
+
 
 for object in $TARGETS; do
     if [ -z "$object" ]; then

