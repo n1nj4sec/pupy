@@ -686,9 +686,9 @@ def get_parser(base_parser, config):
 
     parser.add_argument(
         '-d', '--delays-list',
-        action='append', type=int,
+        action='append', type=str,
         metavar=('<ATTEMPTS>', '<MIN SEC>', '<MAX SEC>'), nargs=3,
-        help='Format: <max attempts> <min delay (sec)> <max delay (sec)>'
+        help='Format: <max attempts, i for infinite> <min delay (sec)> <max delay (sec)>'
     )
 
     default_payload_output = '.'
@@ -917,8 +917,28 @@ def pupygen(args, config, pupsrv, display):
     }
 
     if args.delays_list:
+        int_delays = []
+        for d, mi, ma in args.delays_list:
+            if d.strip()=="i" or d.strip()=="infinite":
+                d=-1
+            try:
+                d=int(d)
+            except:
+                raise ValueError("invalid value : %s. Attempts can be \"i\" for infinite or an integer" % d)
+            try:
+                mi=int(mi)
+            except:
+                raise ValueError("invalid value : %s. min_delay needs to be an integer" % d)
+            try:
+                ma=int(ma)
+            except:
+                raise ValueError("invalid value : %s. min_delay needs to be an integer" % d)
+                return
+            int_delays.append((d, mi, ma))
+
+
         conf['delays'] = sorted(
-            args.delays_list, key=lambda x: x[0]
+            int_delays, key=lambda x: (x[0] if x[0]!=-1 else 9999999999)
         )
 
     outpath = args.output
