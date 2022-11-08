@@ -467,6 +467,8 @@ class PupyCmd(cmd.Cmd):
 
         self.display_lock = Lock()
 
+        self.history_file = self.config.get_path("history")
+
         self.init_readline()
 
         self._intro = [
@@ -478,7 +480,6 @@ class PupyCmd(cmd.Cmd):
         self.prompt = colorize('>> ', 'blue', prompt=True)
 
         self.default_filter = None
-        self.history_file = self.config.get_path("history")
 
         try:
             if not self.config.getboolean('cmdline', 'display_banner'):
@@ -589,6 +590,7 @@ class PupyCmd(cmd.Cmd):
             return True
 
     def init_readline(self):
+        readline.set_history_length(self.config.getint('cmdline', 'history_size', fallback=10000))
         try:
             readline.read_history_file(self.history_file)
         except Exception:

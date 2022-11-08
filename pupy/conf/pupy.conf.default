@@ -119,6 +119,7 @@ display_banner = yes
 colors = yes
 #If 'shadow_screen = no', this can fix some scrollback issues in some terminals (e.g. Terminator)
 shadow_screen = no
+history_size = 10000
 
 [paths]
 prefer_workdir = no

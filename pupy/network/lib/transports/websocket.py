@@ -48,7 +48,7 @@ error_response = b'\r\n'.join((
     b'Server: Apache',
     b'Content-Type: text/html; charset=utf-8',
     b'Content-Length: %d' % len(error_response_body),
-    b'\r\n',
+    b'',
     error_response_body
 ))
 
