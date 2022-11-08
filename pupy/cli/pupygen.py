@@ -958,6 +958,7 @@ def pupygen(args, config, pupsrv, display):
                 delete=False
             )
         else:
+            outpath=os.path.expanduser(outpath)
             try:
                 os.unlink(outpath)
             except OSError as e:
