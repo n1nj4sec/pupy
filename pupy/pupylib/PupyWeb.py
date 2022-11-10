@@ -140,7 +140,6 @@ class PayloadsHandler(TornadoStaticFileHandler):
     def initialize(self, **kwargs):
         self.mappings = kwargs.pop('mappings', {})
         self.templates = kwargs.pop('templates', {})
-        self.mapped = False
 
         setup_local_ips(self, kwargs)
 
@@ -151,24 +150,13 @@ class PayloadsHandler(TornadoStaticFileHandler):
             mapped_path = self.mappings[filepath]
 
             if path.isfile(mapped_path):
-                self.mapped = True
                 return path.abspath(mapped_path)
 
             elif path.isfile(path.join(root, self.mappings)):
-                self.mapped = True
                 return path.abspath(
                     path.join(root, self.mappings))
 
-        self.mapped = False
         return super(PayloadsHandler, self).get_absolute_path(root, filepath)
-
-    def validate_absolute_path(self, root, absolute_path):
-        if self.mapped:
-            return absolute_path
-
-        return super(PayloadsHandler, self).get_absolute_path(
-            root, absolute_path
-        )
 
 
 class IndexHandler(tornado.web.RequestHandler):
