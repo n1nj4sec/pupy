@@ -81,3 +81,15 @@ def is_native(os_arch, proc_arch, pyver):
     ], [
         local_pymaj, local_pymin, local_arch
     ]))
+
+def same_as_local_arch(os_arch, proc_arch):
+    target_arch = make_proc_arch(os_arch, proc_arch)
+    local_arch = make_os_arch(platform.machine())
+    local_os = sys.platform.lower()
+    if local_os=="win32":
+        local_os="windows"
+    return all(target == local for target, local in zip([
+        target_arch, os_arch
+    ], [
+        local_arch, local_os
+    ]))

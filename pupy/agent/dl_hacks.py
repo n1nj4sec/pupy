@@ -47,8 +47,9 @@ def _pupy_make_library_path(name):
 
 
 def _pupy_find_library(name):
+    import pupy_modules
     pupyized = _pupy_make_library_path(name)
-    if pupyized in pupy.modules:
+    if pupyized in pupy_modules.modules:
         pupy.dprint('FIND LIBRARY: {} => {}', name, pupyized)
         return pupyized
     else:

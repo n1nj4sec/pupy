@@ -103,6 +103,7 @@ class PupyClient(object):
 
         if self.conn.protocol_version is None:
             # Legacy client
+            logger.warning("legacy init")
             self._legacy_init()
         else:
             # Extended init

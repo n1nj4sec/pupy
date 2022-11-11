@@ -61,7 +61,6 @@ class PupyService(Service):
 
         self.modules = None
         self.namespace = None
-        self.modules = None
         self.builtin = self.builtins = None
         self.register_remote_cleanup = None
         self.unregister_remote_cleanup = None

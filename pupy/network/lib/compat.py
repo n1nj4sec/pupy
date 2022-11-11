@@ -83,9 +83,9 @@ except ImportError:
             return struct.unpack(self.format, data)
 
 
-try:
+if sys.version_info[0] < 3:
     from cStringIO import StringIO as BytesIO
-except ImportError:
+else:
     from io import BytesIO
 
 

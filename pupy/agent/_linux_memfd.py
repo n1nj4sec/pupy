@@ -19,7 +19,7 @@ except ImportError:
     import ctypes
     import platform
 
-    import agent as pupy
+    import pupy.agent
 
     SELF = ctypes.CDLL(None)
     syscall = SELF.syscall
@@ -48,11 +48,11 @@ except ImportError:
 
     def memfd_is_supported():
         if not sys.platform.startswith('linux'):
-            pupy.dprint('memfd: disabled for non-linux')
+            pupy.agent.dprint('memfd: disabled for non-linux')
             return False
 
         if platform.system() == 'Java':
-            pupy.dprint('memfd: disabled for jython')
+            pupy.agent.dprint('memfd: disabled for jython')
             return False
 
         kv_maj, kv_min = platform.release().split('.')[:2]
@@ -60,27 +60,27 @@ except ImportError:
         kv_min = int(kv_min)
 
         if kv_maj < 3:
-            pupy.dprint('memfd: kernel too old (maj < 3)')
+            pupy.agent.dprint('memfd: kernel too old (maj < 3)')
             return False
 
         elif kv_maj == 3 and kv_min < 13:
-            pupy.dprint('memfd: kernel too old (maj == 3, min < 13)')
+            pupy.agent.dprint('memfd: kernel too old (maj == 3, min < 13)')
             return False
 
         if NR_memfd_create is None:
-            pupy.dprint('memfd: Syscall NR is not defined')
+            pupy.agent.dprint('memfd: Syscall NR is not defined')
             return False
 
         fd = _memfd_create('probe')
         if fd == -1:
-            pupy.dprint('memfd: probe failed')
+            pupy.agent.dprint('memfd: probe failed')
             return False
 
         try:
             supported = os.path.isfile(
                 os.path.sep + os.path.join(
                 'proc', 'self', 'fd', str(fd)))
-            pupy.dprint('memfd: supported={} (fd={})', supported, fd)
+            pupy.agent.dprint('memfd: supported={} (fd={})', supported, fd)
 
             return supported
         finally:

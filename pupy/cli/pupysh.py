@@ -99,7 +99,7 @@ def main():
                 '%(asctime)-15s|%(levelname)-5s|%(relativeCreated)6d|%(threadName)s|%(name)s| %(message)s'))
     else:
         logging_stream = logging.StreamHandler()
-        logging_stream.setFormatter(logging.Formatter('%(asctime)-15s| %(message)s'))
+        logging_stream.setFormatter(logging.Formatter('%(asctime)-15s| %(name)s| %(message)s'))
 
     logging_stream.setLevel(logging.DEBUG)
 

@@ -20,6 +20,8 @@ from pupy.network.lib.convcompat import (
     as_unicode_string, as_unicode_string_deep
 )
 
+if sys.version_info[0]==3:
+    long = int
 
 families = {
     int(v): k[3:] for k, v in socket.__dict__.items()

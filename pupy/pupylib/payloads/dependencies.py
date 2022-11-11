@@ -17,7 +17,7 @@ from elftools.elf.elffile import ELFFile
 from io import BytesIO
 
 from pupy.pupylib.PupyCompile import pupycompile
-from pupy.pupylib.utils.arch import is_native
+from pupy.pupylib.utils.arch import is_native, same_as_local_arch
 from pupy.pupylib import ROOT, getLogger
 
 from pupy.network.lib.convcompat import reprb
@@ -157,8 +157,8 @@ WELL_KNOWN_DEPS = {
         'windows': ['pupwinutils.security']
     },
     'pupyutils.basic_cmds': {
-        'windows': ['junctions', 'ntfs_streams', '_scandir'],
-        'linux': ['xattr', '_scandir'],
+        'windows': ['junctions', 'ntfs_streams'],
+        'linux': ['xattr'],
         'all': [
             'pupyutils', 'scandir', 'zipfile',
             'tarfile', 'scandir', 'fsutils'
@@ -436,8 +436,8 @@ def get_content(target, prefix, filepath, archive=None, honor_ignore=True):
             content = filedata.read()
 
     if not target.native:
-
         content = modify_native_content(target, filepath, content)
+
 
     return content
 
@@ -503,6 +503,7 @@ def from_path(
                 modprefix = root[len(search_path.rstrip(os.sep))+1:]
                 modpath = os.path.join(modprefix, f).replace('\\', '/')
 
+                modpath=rename_cext_path(target, modpath)
                 base, ext = modpath.rsplit('.', 1)
 
                 # Garbage removing
@@ -633,6 +634,25 @@ def _dependencies(target, module_name, dependencies):
     for dependency in mod_deps.get('all', []) + mod_deps.get(target.os, []):
         _dependencies(target, dependency, dependencies)
 
+def rename_cext_path(target, path):
+    removed_endings=[]
+    if same_as_local_arch(target.os, target.arch) and sys.platform.lower()=="linux":
+        removed_endings.append(".abi"+str(sys.version_info[0])+".so")
+    elif same_as_local_arch(target.os, target.arch) and sys.platform.lower()=="win32":
+        removed_endings.append(".abi"+str(sys.version_info[0])+".pyd")
+
+    tarch = target.arch
+    # this will only work for x86_64 linux C2 server, TODO: handle other servers ?
+    if tarch=="amd64":
+        tarch="x86_64"
+    removed_endings.append(f".cpython-{target.pymaj}{target.pymin}-{tarch}-{target.os}-gnu.so")
+    for ending in removed_endings:
+        if path.endswith(ending):
+            base, ext= path.rsplit(".", 1)
+            path = path[:len(path)-len(ending)]+"."+ext
+            logger.debug("renamed cextension ending to %s", path)
+            return path
+    return path
 
 def _package(
     target, modules, module_name, remote=False,
@@ -740,37 +760,42 @@ def _package(
                             )
                         except IgnoreFileException:
                             continue
-
+                    fpath = base+'.'+ext
+                    fpath=rename_cext_path(target, fpath)
                     if content:
-                        modules_dic[base+'.'+ext] = content
+                        modules_dic[fpath] = content
 
             archive.close()
 
     # in last resort, attempt to load the package from the
     # server's sys.path if it exists
 
-    if not modules_dic:
-        for search_path in sys.path:
-            try:
-                modules_dic = from_path(
-                    target, search_path, start_path,
-                    pure_python_only=True, ignore_native=ignore_native,
-                    remote=remote
-                )
-
-                if modules_dic:
-                    logger.info(
-                        'package %s not found in packages/, but found in'
-                        'local sys.path attempting to push it remotely',
-                        initial_module_name
+    if target.pymaj == sys.version_info[0]:
+        if not modules_dic:
+            for search_path in sys.path:
+                try:
+                    pure_python_only = True
+                    if same_as_local_arch(target.os, target.arch):
+                        pure_python_only = False
+                    modules_dic = from_path(
+                        target, search_path, start_path,
+                        pure_python_only=pure_python_only, ignore_native=ignore_native,
+                        remote=remote
                     )
-                    break
 
-            except BinaryObjectError as e:
-                logger.warning(e)
+                    if modules_dic:
+                        logger.info(
+                            'package %s not found in packages/, but found in'
+                            'local sys.path attempting to push it remotely',
+                            initial_module_name
+                        )
+                        break
 
-            except UnsafePathError as e:
-                logger.error(e)
+                except BinaryObjectError as e:
+                    logger.warning(e)
+
+                except UnsafePathError as e:
+                    logger.error(e)
 
     if not modules_dic:
         raise NotFoundError(module_name)
@@ -866,7 +891,6 @@ def bundle(target):
 
     if not os.path.exists(arch_bundle):
         return None
-
     return ZipFile(arch_bundle, 'r')
 
 
