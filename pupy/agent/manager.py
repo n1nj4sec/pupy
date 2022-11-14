@@ -9,7 +9,7 @@ __all__ = ('Task', 'Manager')
 
 from threading import Thread, Event
 
-import pupy.agent as pupy
+import pupy.agent
 import sys
 
 if sys.version_info.major > 2:
@@ -41,7 +41,7 @@ class Task(Thread):
         self._manager = manager
         self._dirty = False
 
-        pupy.dprint('Create task {}', self.__class__.__name__)
+        pupy.agent.dprint('Create task {}', self.__class__.__name__)
 
     @property
     def name(self):
@@ -87,26 +87,26 @@ class Task(Thread):
             if fire_event and self._event_id is not None:
                 self.broadcast_event(self._event_id)
         except:
-            pupy.remote_error('Task (append) error: {}', self.name)
+            pupy.agent.remote_error('Task (append) error: {}', self.name)
 
     def broadcast_event(self, eventid, *args, **kwargs):
-        pupy.broadcast_event(eventid, *args, **kwargs)
+        pupy.agent.broadcast_event(eventid, *args, **kwargs)
 
     def stop(self):
-        pupy.dprint('Stopping task {}', self.__class__.__name__)
+        pupy.agent.dprint('Stopping task {}', self.__class__.__name__)
 
         if self._stopped and self.active:
             self._stopped.set()
 
     def run(self):
-        pupy.dprint('Task {} started', self.__class__.__name__)
+        pupy.agent.dprint('Task {} started', self.__class__.__name__)
 
         try:
             self.task()
         except:
-            pupy.remote_error('Task (run) error: {}', self.name)
+            pupy.agent.remote_error('Task (run) error: {}', self.name)
         finally:
-            pupy.dprint('Task {} completed', self.__class__.__name__)
+            pupy.agent.dprint('Task {} completed', self.__class__.__name__)
 
             if self._stopped:
                 self._stopped.set()
@@ -120,7 +120,7 @@ class Task(Thread):
             return not self._stopped.is_set()
 
         except:
-            pupy.remote_error('Task (active) error: {}', self.name)
+            pupy.agent.remote_error('Task (active) error: {}', self.name)
             return False
 
     def event(self, event):
@@ -152,7 +152,7 @@ class Manager(object):
                 return task
 
             except:
-                pupy.remote_error('Manager (create): {}', name)
+                pupy.agent.remote_error('Manager (create): {}', name)
 
     def stop(self, klass, force=False):
         name = klass.__name__
@@ -161,7 +161,7 @@ class Manager(object):
                 self.tasks[name].stop()
                 del self.tasks[name]
             except:
-                pupy.remote_error('Manager (stop): {}', name)
+                pupy.agent.remote_error('Manager (stop): {}', name)
                 if force:
                     del self.tasks[name]
 
@@ -195,14 +195,14 @@ class Manager(object):
             try:
                 task.event(event)
             except:
-                pupy.remote_error('Manager (event): {} evt={}', task.name, event)
+                pupy.agent.remote_error('Manager (event): {} evt={}', task.name, event)
 
         if event == self.TERMINATE:
             for task in self.tasks.values():
                 try:
                     task.stop()
                 except:
-                    pupy.remote_error(
+                    pupy.agent.remote_error(
                         'Manager (terminate): {} evt={}', task.name, event)
 
             self.pstore.store()

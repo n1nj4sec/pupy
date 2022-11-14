@@ -971,6 +971,11 @@ def setup_manager():
     Task = _Task
     manager = Manager(PStore(pstore_dir))
 
+    import pupy.agent
+    setattr(pupy.agent, "Manager", _Manager)
+    setattr(pupy.agent, "Task", _Task)
+    setattr(pupy.agent, "manager", manager)
+
 
 def setup_network():
     from pupy.network.conf import load_modules

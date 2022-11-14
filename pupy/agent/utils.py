@@ -52,9 +52,7 @@ def pupy_add_package(pkdic, compressed=False, name=None):
 def has_module(name):
     import pupy_modules
     try:
-        if (
-            name in sys.modules or name in sys.builtin_module_names or
-                name in pupy_modules.modules):
+        if (name in sys.modules or name in sys.builtin_module_names or name in pupy_modules.modules):
             return True
 
         fsname = name.replace('.', '/')
@@ -69,14 +67,16 @@ def has_module(name):
             if module.startswith(fsnames):
                 return True
 
+        """
         if not pupy.agent.is_native():
             try:
-                find_module(name)
-                return True
-
-            except ImportError:
+                from importlib.machinery import PathFinder
+                if PathFinder.find_module(name) is not None:
+                    return True
+            except Exception as e:
+                logger.debug("Exception: %s", e)
                 pass
-
+        """
         return False
 
     except Exception as e:
@@ -91,7 +91,7 @@ def has_dll(name):
 
 
 def new_modules(names):
-    pupy.agent.dprint('new_modules call: {}/{}', type(names), len(names))
+    pupy.agent.dprint('new_modules call: {}/{}', names, len(names))
 
     try:
         return [
