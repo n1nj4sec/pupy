@@ -60,6 +60,7 @@ __all__ = (
 import sys
 import marshal
 import gc
+import _imp
 
 os_ = None
 
@@ -526,7 +527,7 @@ class PupyPackageLoader(object):
         return make_module(fullname, self.path, self.is_pkg, mod)
 
     def load_module(self, fullname):
-        #imp.acquire_lock()
+        _imp.acquire_lock()
         try:
             fullname = self._rename_aliased(fullname)
 
@@ -574,8 +575,7 @@ class PupyPackageLoader(object):
                     fullname, self.path))
                 mod = import_module(self.contents, initname, fullname, self.path)
                 dprint('mod to load : {}'.format(mod))
-                sys.modules[fullname] = mod
-                #self._make_module(fullname, mod)
+                self._make_module(fullname, mod)
 
             else:
                 raise ImportError('Unsupported extension {}'.format(
@@ -593,7 +593,7 @@ class PupyPackageLoader(object):
 
         finally:
             self.contents = None
-            #imp.release_lock()
+            _imp.release_lock()
             gc.collect()
 
         return sys.modules[fullname]
@@ -721,8 +721,8 @@ class PupyPackageFinder(_bootstrap_external._LoaderBasics):
 
         dprint('Find module: {}/{}'.format(fullname, second_pass))
 
-        #if not second_pass:
-        #    imp.acquire_lock()
+        if not second_pass:
+            _imp.acquire_lock()
 
         selected = None
 
@@ -810,8 +810,8 @@ class PupyPackageFinder(_bootstrap_external._LoaderBasics):
                     fullname, selected, len(pupy_modules.modules)))
                 del pupy_modules.modules[selected]
 
-            #if not second_pass:
-            #    imp.release_lock()
+            if not second_pass:
+                _imp.release_lock()
 
             gc.collect()
 

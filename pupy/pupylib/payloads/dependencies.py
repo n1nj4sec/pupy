@@ -143,9 +143,9 @@ COMMON_SEARCH_PREFIXES = (
     'lib-dynload'
 )
 
-COMMON_MODULE_ENDINGS = (
+COMMON_MODULE_ENDINGS = [
     '/', '.py', '.pyo', '.pyc', '.pyd', '.so', '.dll'
-)
+]
 
 IGNORED_ENDINGS = (
     'tests', 'test', 'SelfTest', 'examples', 'demos', '__pycache__'
@@ -677,6 +677,11 @@ def _package(
             modules_dic = {}
 
             endings = COMMON_MODULE_ENDINGS
+            tarch = target.arch
+            # this will only work for x86_64 linux C2 server, TODO: handle other servers ?
+            if tarch=="amd64":
+                tarch="x86_64"
+            endings.append(f".cpython-{target.pymaj}{target.pymin}-{tarch}-{target.os}-gnu.so")
 
             start_paths = tuple([
                 (

