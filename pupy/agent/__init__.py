@@ -836,7 +836,7 @@ def initialize_basic_windows_modules():
         # This may happen on default python27 install
         pass
 
-    from .winerror_hacks import apply_winerror_hacks
+    from pupy.agent.winerror_hacks import apply_winerror_hacks
 
     # Enable unicode descriptions for windows errors
     apply_winerror_hacks()
@@ -850,7 +850,8 @@ def load_pupyimporter(stdlib=None):
         pass
 
     if stdlib:
-        pupy_modules.modules = stdlib
+        pupy_modules.modules.update(stdlib)
+
 
     if is_native():
         dprint('Install pupyimporter (standalone)')
@@ -875,6 +876,9 @@ def load_pupyimporter(stdlib=None):
         import collections.abc
         import collections
         collections # use collections to ignore an IDE warning
+
+        import pupy
+        setattr(pupy, 'agent', sys.modules['pupy.agent'])
 
     if sys.platform == 'win32':
         initialize_basic_windows_modules()
@@ -985,7 +989,7 @@ def setup_network():
 def setup_obtain():
     global obtain
 
-    from .utils import safe_obtain
+    from pupy.agent.utils import safe_obtain
     obtain = safe_obtain
 
 def setup_hooks():
@@ -1018,7 +1022,7 @@ def prepare(argv=sys.argv, debug=False, config={}, stdlib=None):
 
     dprint("Register pupyimporter..")
 
-    from .utils import register_pupyimporter
+    from pupy.agent.utils import register_pupyimporter
     register_pupyimporter()
 
     dprint("Prepare rest..")

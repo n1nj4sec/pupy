@@ -12,6 +12,7 @@ PACKAGES="$PACKAGES https://github.com/alxchk/urllib-auth/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/alxchk/winkerberos/archive/master.zip"
 PACKAGES="$PACKAGES https://github.com/alxchk/pyuv/archive/v1.x.zip"
 PACKAGES="$PACKAGES idna http-parser pyodbc wmi"
+PACKAGES="$PACKAGES psutil==5.9.2"
 
 SUFFIX="-310"
 SELF=$(readlink -f "$0")
@@ -31,7 +32,7 @@ $PYTHON32 -m pip install -q --upgrade pylzma
 $PYTHON64 -m pip install -q --upgrade pylzma
 
 
-SKIP_TO_BUILD=0
+SKIP_TO_BUILD=1
 if [ ! "$SKIP_TO_BUILD" -eq "1" ]; then
 
 echo "[+] Install python packages"
@@ -64,10 +65,6 @@ for PYTHON in $PYTHON32 $PYTHON64; do
     $PYTHON -m pip install --upgrade --force $PYKCP
     $PYTHON -c 'import kcp' || exit 1
 done
-
-echo "[+] Install psutil"
-$PYTHON32 -m pip install psutil
-$PYTHON64 -m pip install --upgrade psutil
 
 for PYTHON in $PYTHON32 $PYTHON64; do
     $PYTHON -m pip install -q --force pycparser

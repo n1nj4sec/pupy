@@ -193,6 +193,9 @@ kill = process_kill
 #tasklist = shell_exec 'tasklist /v'
 mount = drives
 du = download -S
+vi = edit
+vim = edit
+
 
 [rubber_ducky]
 #path to the encoder.jar file of Rubber-Ducky project (see https://github.com/hak5darren/USB-Rubber-Ducky/blob/master/Encoder/encoder.jar)

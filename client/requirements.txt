@@ -1,6 +1,6 @@
 pycryptodome==3.7.0
 pyaes
-psutil
+psutil==5.9.2
 rsa==4.0
 netaddr==0.7.19
 tinyec

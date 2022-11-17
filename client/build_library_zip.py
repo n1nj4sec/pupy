@@ -102,15 +102,19 @@ all_dependencies.add('sysconfig')
 all_dependencies.add('re')
 
 exceptions = (
-    'pupy', 'pupy.agent', 'pupy.network', 'pupyimporter', 'additional_imports'
-    #'network', 'pupyimporter', 'additional_imports'
+    'pupy', 'pupy.agent', 'pupy.network', 'pupyimporter', 'additional_imports', 'pupy_hooks', 'pupy_modules',
+    'network', 'pupyimporter', 'additional_imports'
 )
 
 all_dependencies = sorted(list(set(all_dependencies)))
 for dep in list(all_dependencies):
     for excluded in exceptions:
         if dep == excluded or dep.startswith(excluded + '.'):
-            all_dependencies.remove(dep)
+            try:
+                all_dependencies.remove(dep)
+            except Exception as e:
+                print("could not remove dependency {}: {}".format(dep, e))
+
 
 ignore = {
     '_cffi_backend.so', '_cffi_backend.pyd',

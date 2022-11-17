@@ -51,8 +51,8 @@ start_container() {
 if [ ! -z "$1" ] && [ ! -z "$2" ]; then
 	start_container $1 $2
 else
-	start_container windows-py3 sources-windows
-	start_container linux32 sources-linux
-	start_container linux64 sources-linux
-	start_container android android_sources
+    start_container windows-py3 sources-windows-py3
+	#start_container linux32 sources-linux
+	#start_container linux64 sources-linux
+	#start_container android android_sources
 fi

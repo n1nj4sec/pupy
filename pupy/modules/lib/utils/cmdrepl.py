@@ -11,9 +11,9 @@ class CmdRepl(Cmd):
     def __init__(self, stdout, write_cb, completion, CRLF=False, interpreter=None, codepage=None):
         self._write_cb = write_cb
         self._complete = completion
-        self._codepage = codepage
+        self._codepage = None # codepage
         self.prompt = '\r'
-        self._crlf = ('\r\n' if CRLF else '\n')
+        self._crlf = (b'\r\n' if CRLF else b'\n')
         self._interpreter = interpreter
         self._setting_prompt = False
         self._last_cmd = None
@@ -42,16 +42,16 @@ class CmdRepl(Cmd):
 
             self.stdout.write(data)
             self.stdout.flush()
-            if '\n' in data:
-                self.prompt = data.rsplit('\n', 1)[-1]
+            if b'\n' in data:
+                self.prompt = data.decode('utf8').rsplit('\n', 1)[-1]
             else:
-                self.prompt += data
+                self.prompt += data.decode('utf8')
 
     def do_EOF(self, line):
         return True
 
     def do_help(self, line):
-        self.default(' '.join(['help', line]))
+        self.default(b' '.join([b'help', line]))
 
     def completenames(self):
         return []
@@ -72,6 +72,7 @@ class CmdRepl(Cmd):
     def default(self, line):
         if self._codepage:
             line = line.decode('utf-8').encode(self._codepage)
+        line=line.encode('utf8')
 
         self._write_cb(line + self._crlf)
         self.prompt = ''
@@ -81,8 +82,8 @@ class CmdRepl(Cmd):
 
     def set_prompt(self, prompt='# '):
         methods = {
-            'cmd.exe': ['set PROMPT={}'.format(prompt)],
-            'sh': ['export PS1="{}"'.format(prompt)]
+            'cmd.exe': [b'set PROMPT='+(prompt.encode('utf8'))],
+            'sh': [b'export PS1="'+(prompt.encode('utf8'))+b'"']
         }
 
         method = methods.get(self._interpreter, None)

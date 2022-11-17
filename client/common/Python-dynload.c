@@ -422,9 +422,11 @@ PyObject *py_eval_package_init(
             }
             dprint("modname: %s modname_len: %d name_len: %d\n", modname, modname_len, name_len );
             
+            /*
             if (strncmp("pupy.", modname, 5)) {
                 continue;
-             }
+            }
+            */
             if (modname_len < name_len + 2)
                 continue;
 
@@ -1021,11 +1023,16 @@ void run_pupy() {
 
     if (!py_module_from_stdlib(py_stdlib, "pupy", 1))
         goto lbExit4;
+    //if (!py_module_from_stdlib(py_stdlib, "pupy.agent.winerror_hacks", 0))
+    //    goto lbExit4;
 
     pupy = py_module_from_stdlib(py_stdlib, "pupy.agent", 1);
-
     if (!pupy)
         goto lbExit4;
+
+    if (!py_module_from_stdlib(py_stdlib, "pupy.agent.utils", 0))
+        goto lbExit4;
+
 
     pupy_dict = PyModule_GetDict(pupy);
     py_main = PyDict_GetItemString(pupy_dict, "main");

