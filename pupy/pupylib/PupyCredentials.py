@@ -20,12 +20,25 @@ from datetime import datetime
 from pupy.network.lib.transports.cryptoutils import ECPV
 from getpass import getpass
 
-from M2Crypto import X509, EVP, RSA, ASN1
+from . import getLogger
+logger = getLogger('credentials')
+
+try:
+    from M2Crypto import X509, EVP, RSA, ASN1
+except Exception as e:
+    logger.warning(e)
+    M2Crypto=None
+    
 import rsa
 
 from hashlib import md5
-from Crypto.Cipher import AES
-from Crypto import Random
+try:
+    from Crypto.Cipher import AES
+    from Crypto import Random
+except Exception as e:
+    logger.warning(e)
+    AES=None
+    Random=None
 
 from io import BytesIO
 
@@ -34,8 +47,6 @@ try:
 except ImportError:
     secretstorage = None
 
-from . import getLogger
-logger = getLogger('credentials')
 
 if sys.version_info.major > 2:
     def bord(x):

@@ -7,8 +7,9 @@ from __future__ import print_function
 __all__ = ('import_module', 'load_dll')
 
 import sys
-
-if sys.platform.startswith('linux'):
+if "rustc" in sys.version:
+    from .posix import load_content
+elif sys.platform.startswith('linux'):
     from .linux import load_content
 elif sys.platform == 'win32':
     from .win32 import load_content

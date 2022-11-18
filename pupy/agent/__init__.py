@@ -1016,8 +1016,9 @@ def prepare(argv=sys.argv, debug=False, config={}, stdlib=None):
 
     dprint("Apply dl_hacks..")
 
-    from .dl_hacks import apply_dl_hacks
-    apply_dl_hacks()
+    if "rustc" not in sys.version:
+        from .dl_hacks import apply_dl_hacks
+        apply_dl_hacks()
     setup_obtain()
 
     dprint("Register pupyimporter..")

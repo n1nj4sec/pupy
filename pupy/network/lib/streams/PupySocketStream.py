@@ -42,6 +42,8 @@ from pupy.network.lib.rpc.core import SocketStream, Channel
 
 import threading
 
+COMPRESSION_ENABLED = False
+
 class addGetPeer(object):
     """ add some functions needed by some obfsproxy transports """
 
@@ -54,8 +56,8 @@ class addGetPeer(object):
 class PupyChannel(Channel):
     def __init__(self, *args, **kwargs):
         super(PupyChannel, self).__init__(*args, **kwargs)
-        self.compress = True
-        self.COMPRESSION_LEVEL = 5
+        self.compress = COMPRESSION_ENABLED
+        self.COMPRESSION_LEVEL = 5 if COMPRESSION_ENABLED else 0
         self.COMPRESSION_THRESHOLD = self.stream.MAX_IO_CHUNK
         self._send_channel_lock = threading.Lock()
         self._recv_channel_lock = threading.Lock()
@@ -206,7 +208,7 @@ class PupySocketStream(SocketStream):
 
         self.MAX_IO_CHUNK = 32000
         self.KEEP_ALIVE_REQUIRED = False
-        self.compress = True
+        self.compress = COMPRESSION_ENABLED
 
         #buffers for transport
         self.upstream = Buffer(

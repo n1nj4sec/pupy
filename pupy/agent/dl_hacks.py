@@ -4,7 +4,10 @@ __all__ = ('apply_dl_hacks',)
 
 import os
 import sys
-import ctypes
+if not "rustc" in sys.version:
+    import ctypes
+else:
+    ctypes=None
 import pupy.agent as pupy
 
 try:

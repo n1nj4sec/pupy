@@ -10,8 +10,12 @@ __all__ = (
     'load_library_common', '_Py_PackageContext'
 )
 
+import sys
 import importlib.util as imputil
-import ctypes
+if "rustc" not in sys.version:
+    import ctypes
+else:
+    ctypes=None
 
 from os import path
 from tempfile import gettempdir
