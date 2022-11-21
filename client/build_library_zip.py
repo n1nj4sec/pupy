@@ -183,13 +183,17 @@ zf.writestr(
     )
 )
 
+import platform
 #TODO: update if needed
 if 'win' in sys.platform:
-    for root, _, files in os.walk('C:\\Python27\\Lib\\site-packages'):
+    bits='64' if '64' in platform.architecture()[0] else '32'
+    for root, _, files in os.walk('C:\\Python3-'+bits+'\\Lib\\site-packages'):
         for file in files:
             if file.lower().endswith((".dll",".pyd")):
                 print("interesting file :", file)
-            if file.lower() in ('pywintypes27.dll', '_win32sysloader.pyd'):
+            if file.lower() in ('_win32sysloader.pyd'):
+                zf.write(os.path.join(root, file), file)
+            if file.lower().startswith("pywintypes") and file.lower().endswith(".dll"):
                 zf.write(os.path.join(root, file), file)
 
 try:

@@ -14,7 +14,8 @@ PACKAGES="$PACKAGES https://github.com/alxchk/pyuv/archive/v1.x.zip"
 PACKAGES="$PACKAGES idna http-parser pyodbc wmi"
 PACKAGES="$PACKAGES psutil==5.9.2"
 
-SUFFIX="-310"
+SUFFIX="-`$PYTHON64 -c 'import sys;sys.stdout.write((chr.__call__(0)[0:0]).join([str(x) for x in sys.version_info[0:2]]));sys.stdout.flush()'`"
+echo "Building with python version suffix: $SUFFIX"
 SELF=$(readlink -f "$0")
 SELFPWD=$(dirname "$SELF")
 SRC=${SELFPWD:-$(pwd)}
@@ -32,7 +33,7 @@ $PYTHON32 -m pip install -q --upgrade pylzma
 $PYTHON64 -m pip install -q --upgrade pylzma
 
 
-SKIP_TO_BUILD=1
+SKIP_TO_BUILD=0
 if [ ! "$SKIP_TO_BUILD" -eq "1" ]; then
 
 echo "[+] Install python packages"

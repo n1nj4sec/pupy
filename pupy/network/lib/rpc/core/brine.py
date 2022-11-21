@@ -73,10 +73,10 @@ REGISTERED_NAMED_TUPLES_UNPACK = {}
 MAX_REGISTERED_VERSION = 1
 
 
-I1 = Struct("!B")
-I4 = Struct("!L")
-F8 = Struct("!d")
-C16 = Struct("!dd")
+I1 = Struct(">B")
+I4 = Struct(">L")
+F8 = Struct(">d")
+C16 = Struct(">dd")
 
 _dump_registry = tuple(
     dict() for _ in xrange(MAX_REGISTERED_VERSION + 1)

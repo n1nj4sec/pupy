@@ -73,7 +73,7 @@ class RSA_AESTransport(BasePupyTransport):
                 if lremainder:
                     ltotal += BLOCK_SIZE - lremainder
 
-                data.insert(struct.pack('<I', lctext))
+                data.insert(struct.pack('>I', lctext))
                 data.truncate(ltotal)
 
                 if __debug__:
@@ -112,7 +112,7 @@ class RSA_AESTransport(BasePupyTransport):
                         break
 
                     self.first_block = self.dec_cipher.decrypt(data.read(BLOCK_SIZE))
-                    self.size_to_read = struct.unpack_from('<I', self.first_block)[0]
+                    self.size_to_read = struct.unpack_from('>I', self.first_block)[0]
 
                     if self.size_to_read == 0:
                         raise ValueError('Zero sized chunk')

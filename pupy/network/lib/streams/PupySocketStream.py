@@ -42,8 +42,6 @@ from pupy.network.lib.rpc.core import SocketStream, Channel
 
 import threading
 
-COMPRESSION_ENABLED = False
-
 class addGetPeer(object):
     """ add some functions needed by some obfsproxy transports """
 
@@ -56,9 +54,10 @@ class addGetPeer(object):
 class PupyChannel(Channel):
     def __init__(self, *args, **kwargs):
         super(PupyChannel, self).__init__(*args, **kwargs)
-        self.compress = COMPRESSION_ENABLED
-        self.COMPRESSION_LEVEL = 5 if COMPRESSION_ENABLED else 0
+        self.compress = True
+        self.COMPRESSION_LEVEL = 5
         self.COMPRESSION_THRESHOLD = self.stream.MAX_IO_CHUNK
+
         self._send_channel_lock = threading.Lock()
         self._recv_channel_lock = threading.Lock()
 
@@ -71,7 +70,7 @@ class PupyChannel(Channel):
             return self.stream.wake()
 
     def recv(self):
-        # print "RECV", threading.currentThread()
+        #print( "RECV", threading.currentThread())
         with self._recv_channel_lock:
             data = self._recv()
 
@@ -90,7 +89,7 @@ class PupyChannel(Channel):
     def _recv(self):
         """ Recv logic with interruptions """
 
-        # print "RECV! WAIT FOR LENGTH!"
+        #print( "RECV! WAIT FOR LENGTH!")
 
         packet = self.stream.read(self.FRAME_HEADER.size)
         # If no packet - then just return
@@ -106,10 +105,10 @@ class PupyChannel(Channel):
                 del packet
 
         length, compressed = self.FRAME_HEADER.unpack(header)
-        # print "RECV! WAIT FOR LENGTH COMPLETE!"
+        #print( "RECV! WAIT FOR LENGTH COMPLETE!")
 
         required_length = length + len(self.FLUSHER)
-        # print "WAIT FOR", required_length
+        #print( "WAIT FOR", required_length)
 
         decompressor = None
 
@@ -122,10 +121,10 @@ class PupyChannel(Channel):
             packet = self.stream.read(min(required_length, self.COMPRESSION_THRESHOLD))
             if packet:
                 required_length -= len(packet)
-                # print "GET", len(packet)
+                #print( "GET", len(packet))
                 if not required_length:
                     packet = packet[:-len(self.FLUSHER)]
-
+                #print( "PACKET IS FINALLY ", len(packet))
                 if compressed:
                     packet = decompressor.decompress(packet)
                     if not packet:
@@ -139,7 +138,7 @@ class PupyChannel(Channel):
             if packet:
                 buf.write(packet)
 
-        # print "COMPLETE!"
+        #print( "COMPLETE!")
         return buf
 
     def _send(self, data):
@@ -150,7 +149,7 @@ class PupyChannel(Channel):
         portion = None
         lportion = 0
 
-        # print "SEND .. ", ldata
+        #print( "SEND .. ", ldata)
 
         if self.compress and ldata > self.COMPRESSION_THRESHOLD:
             portion = data.peek(self.COMPRESSION_THRESHOLD)
@@ -164,11 +163,10 @@ class PupyChannel(Channel):
             self.stream.write(self.FRAME_HEADER.pack(ldata, compressed), notify=False)
             self.stream.write(data, notify=False)
             self.stream.write(self.FLUSHER)
-            # print "SEND .. ", ldata, "DONE"
+            #print( "SEND .. ", ldata, "DONE")
             return
 
         del portion
-
         compressor = zlib.compressobj(self.COMPRESSION_LEVEL)
 
         total_length = 0
@@ -187,18 +185,22 @@ class PupyChannel(Channel):
 
             if lportion > 0:
                 total_length += lportion
+
+                #print( "SEND .. ", lportion, "DONE")
                 self.stream.write(portion, notify=False)
 
         portion = compressor.flush()
         lportion = len(portion)
         if lportion:
             total_length += lportion
+            #print( "SEND .. ", lportion, "DONE")
             self.stream.write(portion, notify=False)
 
         del portion, data, cdata
 
         self.stream.insert(self.FRAME_HEADER.pack(total_length, compressed))
-        # print "SEND WITH TOTAL LENGTH", total_length
+        #print( "SEND WITH TOTAL LENGTH", total_length)
+        #print( "SEND FLUSHER ", len(self.FLUSHER), "DONE")
         self.stream.write(self.FLUSHER)
 
 
@@ -208,7 +210,7 @@ class PupySocketStream(SocketStream):
 
         self.MAX_IO_CHUNK = 32000
         self.KEEP_ALIVE_REQUIRED = False
-        self.compress = COMPRESSION_ENABLED
+        self.compress = True
 
         #buffers for transport
         self.upstream = Buffer(

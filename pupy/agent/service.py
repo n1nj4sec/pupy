@@ -566,6 +566,7 @@ class PupyClient(object):
                 pass
 
             except Exception as e:
+                logger.error(e)
                 agent.remote_error('Iterate launcher: {}', e)
 
             finally:

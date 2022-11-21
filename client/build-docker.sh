@@ -5,7 +5,7 @@ PUPY=`dirname "$SELF"`/../
 PUPY=`readlink -f "$PUPY"`
 
 DOCKER_COMMAND=${DOCKER_COMMAND:-docker}
-DOCKER_REPO=${DOCKER_REPO:-"alxchk"}
+DOCKER_REPO=${DOCKER_REPO:-"n1nj4sec"}
 CLEAN=${CLEAN:-"no"}
 
 if [ ! -z "$REPO" ]; then

@@ -81,7 +81,10 @@ def get_pyver(pyver, config):
     if pyver is not None:
         if pyver == 2:
             return '27'
-        elif pyver == 3:
+        elif pyver == 38:
+            # Here will be some default supported Py3 version
+            return '38'
+        elif pyver == 310:
             # Here will be some default supported Py3 version
             return '310'
     elif default:
@@ -557,7 +560,7 @@ def generate_binary_from_template(
 
     if not os.path.isfile(template):
         raise ValueError('Template not found ({})'.format(template))
-
+    display(Info("Using template: {}".format(template)))
     if target.debug:
         conf['debug'] = True
 
@@ -662,13 +665,8 @@ def get_parser(base_parser, config):
     pyver = parser.add_mutually_exclusive_group()
 
     pyver.add_argument(
-        '-2', '--python2', action='store_true',
-        help='Use python2 target'
-    )
-
-    pyver.add_argument(
-        '-3', '--python3', action='store_true',
-        help='Use python3 target'
+        '--python38', action='store_true',
+        help='Use python38 target (windows 7 supported)'
     )
 
     parser.add_argument(
@@ -973,7 +971,7 @@ def pupygen(args, config, pupsrv, display):
         os.makedirs(args.output_dir)
 
     pyver = get_pyver(
-        2 if args.python2 else 3,
+        38 if args.python38 else 310,
         config
     )
 

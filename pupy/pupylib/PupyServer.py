@@ -654,22 +654,36 @@ class PupyServer(object):
 
     def add_client(self, conn):
         client = None
+        is_rustc = True
 
-        conn.execute(
-            'import marshal;exec(marshal.loads({}))'.format(
-                reprb(
-                    pupycompile(
-                        path.join(
-                            ROOT,
-                            "pupylib",
-                            'PupyClientInitializer.py'
-                        ),
-                        path=True, raw=True,
-                        target=conn.remote_version
+        if is_rustc:
+            conn.execute(
+                'exec({})'.format(
+                    reprb(
+                            open(path.join(
+                                ROOT,
+                                "pupylib",
+                                'PupyClientInitializer.py'
+                            ), 'r').read()
                     )
                 )
             )
-        )
+        else:
+            conn.execute(
+                'import marshal;exec(marshal.loads({}))'.format(
+                    reprb(
+                        pupycompile(
+                            path.join(
+                                ROOT,
+                                "pupylib",
+                                'PupyClientInitializer.py'
+                            ),
+                            path=True, raw=True,
+                            target=conn.remote_version
+                        )
+                    )
+                )
+            )
 
         uuid = obtain(conn.namespace['get_uuid']())
 

@@ -43,31 +43,29 @@ class Shares(PupyModule):
         remote.add_argument("-H", metavar="HASH", dest='hash', default='', help='NTLM hash')
         remote.add_argument("-d", metavar="DOMAIN", dest='domain', default="WORKGROUP", help="Domain name (default WORKGROUP)")
         remote.add_argument("-P", dest='port', type=int, choices={139, 445}, default=445, help="SMB port (default 445)")
-        remote.add_argument("-t", dest='target', type=str, help="The target range or CIDR identifier")
+        remote.add_argument("-t", dest='target', type=str, default=None, help="The target range or CIDR identifier")
 
 
     def run(self, args):
 
         # Retrieve local shared folders
-        try:
-            if args.local:
-                if self.client.is_windows():
-                    shared_folders = self.client.remote('pupwinutils.drives', 'shared_folders')
+        if args.local:
+            if self.client.is_windows():
+                shared_folders = self.client.remote('pupwinutils.drives', 'shared_folders')
 
-                    folders = shared_folders()
-                    if not folders:
-                        return
+                folders = shared_folders()
+                if not folders:
+                    return
 
-                    self.log(Table([{
-                        'Name': share_name,
-                        'Path': share_path
-                    } for share_name, share_path in folders], ['Name', 'Path']))
+                self.log(Table([{
+                    'Name': share_name,
+                    'Path': share_path
+                } for share_name, share_path in folders], ['Name', 'Path']))
 
-                else:
-                    self.warning('this module works only for windows. Try using: run shares remote -t 127.0.0.1')
-                return
-        except:
-            pass
+            else:
+                self.warning('this module works only for windows. Try using: run shares remote -t 127.0.0.1')
+            return
+
 
         # Retrieve remote shared folders
         if not args.target:

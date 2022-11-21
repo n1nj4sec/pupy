@@ -79,7 +79,7 @@ class Channel(object):
         """
         if self.compress and len(data) > self.COMPRESSION_THRESHOLD:
             compressed = 1
-            data = zlib.compress(data, self.COMPRESSION_LEVEL)
+            data = zlib.compress(data)
         else:
             compressed = 0
 
