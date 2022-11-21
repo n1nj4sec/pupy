@@ -75,6 +75,7 @@ class PupyService(Service):
 
         self.protocol_version = None
         self.remote_version = (2, 7)
+        self.remote_is_rustc = False
 
         self.events_receiver = None
 
@@ -105,6 +106,7 @@ class PupyService(Service):
         self.exposed_stdout = sys.stdout
         self.exposed_stderr = sys.stderr
 
+    """
     def exposed_initialize_v1(
             self,
             namespace, modules, builtin,
@@ -139,6 +141,7 @@ class PupyService(Service):
         self.get_infos = lambda: self.infos
 
         self.pupy_srv.add_client(self)
+    """
 
     def exposed_initialize_v2(
         self,
@@ -147,7 +150,7 @@ class PupyService(Service):
         register_cleanup, unregister_cleanup,
         remote_exit, remote_eval, remote_execute,
         infos, loaded_modules, cached_modules,
-            pupyimporter, pupyimporter_funcs, *args):
+            pupyimporter, pupyimporter_funcs, is_rustc, *args):
 
         if __debug__:
             logger.debug(
@@ -157,6 +160,7 @@ class PupyService(Service):
 
         self.protocol_version = protocol_version
         self.remote_version = remote_version
+        self.remote_is_rustc = is_rustc
 
         if sys.version_info.major == 3 and \
                 self.remote_version[0] == 2:

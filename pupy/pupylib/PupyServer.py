@@ -654,9 +654,8 @@ class PupyServer(object):
 
     def add_client(self, conn):
         client = None
-        is_rustc = True
 
-        if is_rustc:
+        if conn.remote_is_rustc:
             conn.execute(
                 'exec({})'.format(
                     reprb(
