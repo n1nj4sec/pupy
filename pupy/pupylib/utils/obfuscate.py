@@ -16,7 +16,16 @@ from pupy.pupylib.PupyCompile import pupycompile
 
 # FIXME
 
-def compress_encode_obfs(code, main=False):
-    return 'import zlib,marshal;exec(marshal.loads(zlib.decompress(%s)))' % repr(
+def compress_encode_obfs(code, main=False, py=True):
+    if py:
+        # compatible version without compiling bytecode
+        data = zlib.compress(code.encode('utf8'), 9)
+        formatted = '('
+        for i in range(0, len(data), 100):
+            formatted+="%s\n"%repr(data[i:i+100])
+        formatted += ")"
+        return 'import zlib;exec(zlib.decompress(%s).decode("utf8"))'%formatted
+    else:
+        return 'import zlib,marshal;exec(marshal.loads(zlib.decompress(%s)))' % repr(
             zlib.compress(pupycompile(code, main=main, raw=True), 9)
         )
