@@ -255,12 +255,12 @@ def set_debug(is_enabled):
     global __debug
     
     if is_enabled:
-        sys.tracebacklimit = 20
+        sys.tracebacklimit = 30
         __debug = True
         setattr(sys, "__debug", True)
 
     else:
-        sys.tracebacklimit = 0
+        sys.tracebacklimit = 20
         __debug = False
         setattr(sys, "__debug", False)
 
