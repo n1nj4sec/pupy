@@ -136,8 +136,8 @@ fi
 
 echo "[+] Build pupy"
 
-TARGETS="pupyx64d.dll pupyx64d.exe pupyx64.dll pupyx64.exe"
-TARGETS="$TARGETS pupyx86d.dll pupyx86d.exe pupyx86.dll pupyx86.exe"
+TARGETS="pupyx64d${SUFFIX}.dll pupyx64d${SUFFIX}.exe pupyx64${SUFFIX}.dll pupyx64${SUFFIX}.exe"
+TARGETS="$TARGETS pupyx86d${SUFFIX}.dll pupyx86d${SUFFIX}.exe pupyx86${SUFFIX}.dll pupyx86${SUFFIX}.exe"
 TARGETS="$TARGETS "
 
 cd ${SRC}

@@ -144,7 +144,7 @@ class EventLog(object):
 
         key = OpenKeyEx(
             HKEY_LOCAL_MACHINE,
-            ur'SYSTEM\CurrentControlSet\Services\EventLog',
+            u'SYSTEM\\CurrentControlSet\\Services\\EventLog',
             0, KEY_READ
         )
 
@@ -276,7 +276,7 @@ class EventLog(object):
                         if type(source_name) == str:
                             source_name = source_name.decode(getdefaultencoding())
 
-                        subkey = ur'SYSTEM\CurrentControlSet\Services\EventLog\{}\{}'.format(
+                        subkey = u'SYSTEM\\CurrentControlSet\\Services\\EventLog\\{}\\{}'.format(
                             logtype, source_name
                         )
 
