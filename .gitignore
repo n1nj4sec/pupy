@@ -19,6 +19,9 @@ client/sources/*.obj
 client/sources/_pupy*
 client/sources/resources
 
+client/pyoxidizer-build/lib/pupy
+client/pyoxidizer-build/library_patches_py3
+
 client/sources-linux/*.o
 client/sources-linux/*.lin
 client/sources-linux/*.so
@@ -43,3 +46,5 @@ pupy/proxy/proxy
 
 build
 pupy.egg-info
+.pupy_history
+pupyvenv

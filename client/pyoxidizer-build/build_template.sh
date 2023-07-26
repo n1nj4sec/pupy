@@ -3,10 +3,14 @@
 
 python3 -m pip install pyoxidizer
 
-# symblinks don't work with the build, so let's copy important files
+# so let's copy important files necessary for the build
 cp -r ../../pupy/agent lib/pupy/
 cp -r ../../pupy/network lib/pupy/
+cp -r ../../pupy/library_patches_py3 .
 
-pyoxidizer build --release
+docker run -ti -v $(pwd):/pupy --rm n1nj4sec/pyoxidizer-builder:linux-x86_64 /bin/bash -c 'export PATH="/build/python/bin:$PATH"; cd /pupy; python3 -m pip install pyoxidizer; pyoxidizer build --release'
+
+strip -s build/x86_64-unknown-linux-gnu/release/install/pyoxydizer_pupy
+echo "saving built template to ~/.pupy/payload_templates/ ..."
+mkdir -p ~/.pupy/payload_templates
 cp ./build/x86_64-unknown-linux-gnu/release/install/pyoxydizer_pupy ~/.pupy/payload_templates/pupyx86-310.lin
-

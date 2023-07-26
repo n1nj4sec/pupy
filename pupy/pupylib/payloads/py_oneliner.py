@@ -27,9 +27,9 @@ def getLinuxImportedModules():
     return lines
 
 
-def pack_py_payload(target, display, conf, autostart=True):
+def pack_py_payload(target, display, conf, autostart=True, rustc = True):
     display(Success('Generating PY payload ...'))
-    target._rustc = True
+    target._rustc = rustc # rustc=True force the use of .py files instead of .pyo
     stdlib = dependencies.importer(
         target, (
             'pyasn1', 'rsa', 'pyaes',
