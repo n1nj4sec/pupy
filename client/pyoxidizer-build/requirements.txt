@@ -1,0 +1,4 @@
+netaddr
+pyaes
+tinyec @ https://github.com/alxchk/tinyec/archive/master.zip
+rsa
