@@ -94,7 +94,11 @@ try:
 
     # Reset search paths ASAP
 
-    del sys.meta_path[:]
+    #del sys.meta_path[:]
+    # removing path imports from meta_path
+    import _frozen_importlib_external
+    if _frozen_importlib_external.PathFinder in sys.meta_path:
+        sys.meta_path.remove(_frozen_importlib_external.PathFinder)
     del sys.path[:]
     del sys.path_hooks[:]
 

