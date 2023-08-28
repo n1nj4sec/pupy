@@ -60,7 +60,6 @@ inline static int pupy_memfd_create(char *path, unsigned int path_size)
 #else
     char _path[PATH_MAX] = "libc.so.6";
 #endif
-
     /* Do not make syscall billion times */
     if (memfd_checked && !memfd_works) {
       errno = ENOSYS;

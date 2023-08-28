@@ -4,6 +4,7 @@ import socket
 import threading
 import queue
 import collections
+import _struct
 import struct
 import os
 import sys

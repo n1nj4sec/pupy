@@ -1,0 +1,35 @@
+--- Modules/Setup	2023-08-25 15:57:16.039376911 +0000
++++ Modules/Setup.new	2023-08-25 15:59:07.427185196 +0000
+@@ -107,7 +107,6 @@
+ 					# if $HOME is not set
+ _sre -DPy_BUILD_CORE_BUILTIN _sre.c	# Fredrik Lundh's new regular expressions
+ _codecs _codecsmodule.c			# access to the builtin codecs and codec registry
+-_weakref _weakref.c			# weak references
+ _functools -DPy_BUILD_CORE_BUILTIN -I$(srcdir)/Include/internal _functoolsmodule.c   # Tools for working with functions and callable objects
+ _operator -DPy_BUILD_CORE_BUILTIN _operator.c	        	# operator.add() and similar goodies
+ _collections _collectionsmodule.c	# Container types
+@@ -118,6 +117,24 @@
+ _stat _stat.c				# stat.h interface
+ time -DPy_BUILD_CORE_BUILTIN -I$(srcdir)/Include/internal timemodule.c	# -lm # time operations and variables
+ _thread -DPy_BUILD_CORE_BUILTIN -I$(srcdir)/Include/internal _threadmodule.c	# low-level threading interface
++_struct -DPy_BUILD_CORE_BUILTIN _struct.c	# binary structure packing/unpacking
++_pickle -DPy_BUILD_CORE_BUILTIN _pickle.c	# pickle accelerator
++_random _randommodule.c -DPy_BUILD_CORE_BUILTIN	# Random number generator
++math mathmodule.c _math.c -DPy_BUILD_CORE_BUILTIN # -lm # math library functions, e.g. sin()
++zlib zlibmodule.c -I$(prefix)/include -L$(exec_prefix)/lib -lz -DPy_BUILD_CORE_BUILTIN
++_sha1 sha1module.c -DPy_BUILD_CORE_BUILTIN
++_sha256 sha256module.c -DPy_BUILD_CORE_BUILTIN
++_sha512 sha512module.c -DPy_BUILD_CORE_BUILTIN
++_md5 md5module.c -DPy_BUILD_CORE_BUILTIN
++_posixsubprocess _posixsubprocess.c -DPy_BUILD_CORE_BUILTIN # POSIX subprocess module helper
++unicodedata unicodedata.c -DPy_BUILD_CORE_BUILTIN   # static Unicode character database
++_socket socketmodule.c -DPy_BUILD_CORE_BUILTIN 
++select selectmodule.c -DPy_BUILD_CORE_BUILTIN 
++mmap mmapmodule.c -DPy_BUILD_CORE_BUILTIN 
++_weakref _weakref.c  -DPy_BUILD_CORE_BUILTIN 
++binascii binascii.c  -DPy_BUILD_CORE_BUILTIN 
++fcntl fcntlmodule.c  -DPy_BUILD_CORE_BUILTIN 
++array arraymodule.c -DPy_BUILD_CORE_BUILTIN 
+ 
+ # access to ISO C locale support
+ _locale -DPy_BUILD_CORE_BUILTIN _localemodule.c  # -lintl

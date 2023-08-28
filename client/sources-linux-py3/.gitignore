@@ -2,13 +2,11 @@ import-tab.c
 import-tab.h
 resources_bootloader_pyc.c
 resources_library_compressed_string_txt.c
-resources_python27_so.c
+resources_python3x_so.c
 resources_libcrypto_so.c
 resources_libssl_so.c
 resources_zlib_so.c
-resources/bootloader.pyc
-resources/library.zip
-resources/library_compressed_string.txt
-resources/python27.so
+resources/*
 *.pyc
 *.o
+build/*

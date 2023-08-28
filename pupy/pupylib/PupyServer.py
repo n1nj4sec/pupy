@@ -1298,6 +1298,7 @@ class PupyServer(object):
             alias = path.basename(served.name)
 
         self.served_content[served.name] = alias
+        self.handler.display_srvinfo(f"serving {served.name}, {url}")
 
         return '/' + url
 

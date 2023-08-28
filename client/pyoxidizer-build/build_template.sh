@@ -14,3 +14,7 @@ strip -s build/x86_64-unknown-linux-gnu/release/install/pyoxydizer_pupy
 echo "saving built template to ~/.pupy/payload_templates/ ..."
 mkdir -p ~/.pupy/payload_templates
 cp ./build/x86_64-unknown-linux-gnu/release/install/pyoxydizer_pupy ~/.pupy/payload_templates/pupyx86-310.lin
+
+
+# not working, missing msvc on windows
+#docker run --rm -v $(pwd):/opt/win/drive_c/tools/pupy -ti wine 'set PATH=%PATH%;C:\\Program Files\\PyOxidizer && C: && cd C:\\tools\\pupy && pyoxidizer build --release'

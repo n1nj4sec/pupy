@@ -128,7 +128,6 @@ int , Py_NoUserSiteDirectory
 int , Py_DontWriteBytecodeFlag
 int , Py_IgnoreEnvironmentFlag
 int , Py_IsolatedFlag
-int , Py_LegacyWindowsFSEncodingFlag
 int , Py_UnbufferedStdioFlag
 
 PyObject, PyUnicode_Type
@@ -149,8 +148,11 @@ int, PyRun_SimpleString, (const char *command)
 int, _PyImport_FixupExtensionObject, (PyObject *mod, PyObject *name, PyObject *filename, PyObject *modules)
 PyObject *, PyImport_GetModuleDict, ()
 
+PyObject *, PyFile_FromFd, (int fd, const char *name, const char *mode, int buffering, const char *encoding, const char *errors, const char *newline, int closefd)
+
 '''.strip().splitlines()
 
+#int , Py_LegacyWindowsFSEncodingFlag
 
 # useful types ?
 """

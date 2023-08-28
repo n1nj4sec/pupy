@@ -350,12 +350,11 @@ import_module(PyObject *self, PyObject *args)
         
         PyObject *dataobj;
         PyObject *spec;
-        /* code, initfuncname, fqmodulename, path */
         if (!PyArg_ParseTuple(args, "SsssO:import_module",
                               &dataobj,
                               &initfuncname, &modname, &pathname, &spec)) {
             dprint("error in PyArg_ParseTuple()\n");
-                return NULL;
+            return NULL;
         }
 
         if (PyBytes_AsStringAndSize(dataobj, &data, &size)==-1) {

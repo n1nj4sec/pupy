@@ -7,9 +7,12 @@
 #ifdef DEBUG
 
 int dprint(const char *fmt, ...);
+#ifdef _WIN32
 int dwprint(const wchar_t *fmt, ...);
+#endif
 
 void set_debug_log(const char *dest);
+
 
 #define DOC(x) x
 
@@ -17,7 +20,7 @@ void set_debug_log(const char *dest);
 #define DOC(x) ""
 
 #define dprint(...)	do {} while (0)
-#define dwprint(...)	do {} while (0)
+#define dwprint(...)	do {} while (0)//
 
 #endif
 

@@ -279,8 +279,6 @@ def get_raw_conf(display, conf, verbose=False):
             (10, 5, 10), (50, 30, 50), (-1, 150, 300)
         ])
     }
-    if verbose:
-        print(config)
 
     return config
 
@@ -557,7 +555,6 @@ def generate_binary_from_template(
             config.user_root, 'payload_templates'
         )
         if not os.path.isdir(templatedir):
-            print(display)
             display(Error("payload binary templates are not available."))
             display(Info("You must compile them or download precompiled templates."))
             res=input(f"Do you want to download precompiled templates from {PRECOMPILED_TEMPLATES_DOWNLOAD_URL} ? Y/n ")
@@ -803,7 +800,6 @@ def pupygen(args, config, pupsrv, display):
     scriptlets = load_scriptlets(args.os, args.arch)
 
     if args.list:
-        print("ok")
         display(MultiPart([
             Table(
                 [{

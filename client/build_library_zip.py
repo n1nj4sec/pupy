@@ -103,7 +103,7 @@ all_dependencies.add('re')
 
 exceptions = (
     'pupy', 'pupy.agent', 'pupy.network', 'pupyimporter', 'additional_imports', 'pupy_hooks', 'pupy_modules',
-    'network', 'pupyimporter', 'additional_imports'
+    'network', 'pupyimporter', 'additional_imports', '_openssl'
 )
 
 all_dependencies = sorted(list(set(all_dependencies)))
@@ -117,7 +117,7 @@ for dep in list(all_dependencies):
 
 
 ignore = {
-    '_cffi_backend.so', '_cffi_backend.pyd',
+    '_cffi_backend.pyd',
 
     # We don't use this anyway
     'Crypto/PublicKey/ElGamal.py',

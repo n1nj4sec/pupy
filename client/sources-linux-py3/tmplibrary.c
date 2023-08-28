@@ -147,7 +147,6 @@ int drop_library(char *path, size_t path_size, const char *buffer, size_t size) 
             return fd;
         }
     }
-
     if (size > 2 && buffer[0] == '\x1f' && buffer[1] == '\x8b') {
         dprint("Decompressing library %s\n", path);
         int r = decompress(fd, buffer, size);
@@ -157,6 +156,7 @@ int drop_library(char *path, size_t path_size, const char *buffer, size_t size) 
             return -1;
         }
     } else {
+        dprint("Wrining library to fd : %s\n", path);
         while (size > 0) {
             size_t n = write(fd, buffer, size);
             if (n == -1) {
@@ -170,13 +170,15 @@ int drop_library(char *path, size_t path_size, const char *buffer, size_t size) 
             size -= n;
         }
     }
-
+    
 #ifdef Linux
     if (memfd) {
+        dprint("calling fcntl on fd=%d\n", fd);
         fcntl(fd, F_ADD_SEALS, F_SEAL_SEAL | F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE);
     }
 #endif
 
+    dprint("returning fd=%d\n", fd);
     return fd;
 }
 
@@ -572,7 +574,7 @@ void *_dlopen(int fd, const char *path, int flags, const char *soname) {
     handle = dlopen(path, flags);
 #endif
 
-    dprint("memdlopen - dlmopen - _dlopen(lmid=%08x, %s, %s)\n", lmid, path, soname);
+    dprint("memdlopen - dlmopen - _dlopen(lmid=%08x, %s, %s); handle=%p\n", lmid, path, soname, handle);
 
     if (flags & RTLD_NOLOAD || !handle) {
         return handle;

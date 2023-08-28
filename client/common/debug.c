@@ -17,6 +17,7 @@ int dprint(const char *fmt, ...) {
     return n;
 }
 
+#ifdef _WIN32
 int dwprint(const wchar_t *fmt, ...) {
     va_list args;
     int n;
@@ -31,6 +32,7 @@ int dwprint(const wchar_t *fmt, ...) {
     fflush(log);
     return n;
 }
+#endif
 
 void set_debug_log(const char *dest) {
     FILE * new_debug_log = fopen(dest, "w+");

