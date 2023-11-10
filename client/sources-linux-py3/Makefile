@@ -185,11 +185,11 @@ main_so.o: main_so.c import-tab.h
 main_exe.o:	main_exe.c import-tab.h 
 	$(CC) $(CFLAGS) -c -o $@ $< 
 
-pupy_load.o: pupy_load.c $(LOAD_DEPS) resources/$(MACH)/_pupy.c import-tab.h
+pupy_load.o: pupy_load.c $(LOAD_DEPS) resources/$(MACH)/_pupy.c import-tab.h Python-dynload-os.h
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 tmplibrary.o: tmplibrary.c
-	$(CC) -c -o $@ $< $(CFLAGS)
+	$(CC) -c -o $@ $< $(CFLAGS) -DWIP_LMID
 
 tmplibrary_lmid.o: tmplibrary.c
 	$(CC) -c -o $@ $< $(CFLAGS) -DWIP_LMID

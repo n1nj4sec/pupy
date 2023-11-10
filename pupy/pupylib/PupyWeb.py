@@ -187,9 +187,6 @@ class PupyWebServer(object):
             'webserver', 'static_webroot_uri', None
         ) or self.random_path()
 
-        self.publish_payloads = self.config.getboolean(
-            'webserver', 'publish_payloads'
-        )
         self.preserve_payloads = self.config.getboolean(
             'webserver', 'preserve_payloads'
         )
@@ -241,9 +238,6 @@ class PupyWebServer(object):
              (self.wwwroot + '/(.*)', PayloadsHandler, {
                  'path': self.root,
                  'mappings': self.mappings,
-             }),
-             (r'/static/(.*)', TornadoStaticFileHandler, {
-                 'path': webstatic
              }),
             ],
             debug=False, template_path=webstatic,

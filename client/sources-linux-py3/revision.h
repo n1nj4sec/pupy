@@ -1,1 +1,1 @@
-#define GIT_REVISION_HEAD "4ae6ce47"
+#define GIT_REVISION_HEAD "90a8f7a9"

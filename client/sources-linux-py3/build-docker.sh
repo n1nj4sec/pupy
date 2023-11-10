@@ -163,6 +163,7 @@ export PKG_CONFIG_PATH=$(echo ~/.pyenv/versions/*/lib/pkgconfig)
 
 make $MAKEFLAGS distclean
 make -j $MAKEFLAGS
+#make $MAKEFLAGS
 make $MAKEFLAGS clean
 make -j DEBUG=1 $MAKEFLAGS
 #make DEBUG=1 $MAKEFLAGS

@@ -89,8 +89,6 @@ secret = false
 [webserver]
 # Serve payloads via tornado web server
 listen = 0.0.0.0:9000
-# URI for payloads download
-payloads = /payloads/
 # SSL Certificates if any
 # cert = /path/to/cert
 # key = /path/to/key

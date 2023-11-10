@@ -156,7 +156,7 @@ int drop_library(char *path, size_t path_size, const char *buffer, size_t size) 
             return -1;
         }
     } else {
-        dprint("Wrining library to fd : %s\n", path);
+        dprint("Writing library to fd : %s\n", path);
         while (size > 0) {
             size_t n = write(fd, buffer, size);
             if (n == -1) {

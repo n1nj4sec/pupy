@@ -161,11 +161,11 @@ typedef struct PyConfig {
         FALSE                                 \
     }, {                                      \
         "libffi.so.6",                        \
-        libffi_c_start,                     \
-        libffi_c_size,                      \
-        FALSE                                  \
+        libffi_c_start,                       \
+        libffi_c_size,                        \
+        FALSE                                 \
     }, {                                      \
-        "python310.so",                      \
+        "python310.so",                       \
         python3x_c_start,                     \
         python3x_c_size,                      \
         TRUE                                  \
