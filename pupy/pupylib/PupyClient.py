@@ -85,7 +85,7 @@ class PupyClient(object):
                 self.platform, self.arch
             ),
             debug='debug_logfile' in self.desc,
-            rustc=self.conn.remote_is_rustc
+            purepy=self.conn.remote_is_purepy
         )
 
         self.conn.events_receiver = self._event_receiver

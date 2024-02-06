@@ -53,16 +53,16 @@ class IgnoreFileException(Exception):
 class Target(object):
     __slots__ = (
         'os', 'arch', 'pymaj', 'pymin', 'debug',
-        '_native', '_so', '_platform', '_rustc'
+        '_native', '_so', '_platform', '_purepy'
     )
 
-    def __init__(self, python, platform=None, debug=False, rustc=False):
+    def __init__(self, python, platform=None, debug=False, purepy=False):
         self.pymaj, self.pymin = python[:2]
         self.debug = debug
 
         self.pymaj = int(self.pymaj)
         self.pymin = int(self.pymin)
-        self._rustc = rustc
+        self._purepy = purepy
 
         if platform:
             self.os, self.arch = platform[:2]
@@ -88,8 +88,8 @@ class Target(object):
         return self._native
 
     @property
-    def rustc(self):
-        return self._rustc
+    def purepy(self):
+        return self._purepy
 
     @property
     def so(self):
@@ -279,7 +279,7 @@ def dict2code(d):
     """ convert a dict into its python code representation, that should be compatible with any python implementation """
 
 
-def bootstrap(stdlib, config, autostart=True):
+def bootstrap(stdlib, config, autostart=True, purepy=False):
     if "pupy/agent/__init__.pyo" in stdlib:
         actions = [
             'from __future__ import absolute_import',
@@ -288,7 +288,16 @@ def bootstrap(stdlib, config, autostart=True):
             'from __future__ import unicode_literals',
 
             'import importlib.util, sys, marshal',
-
+        ]
+        if purepy:
+            actions += [
+                'setattr(sys,"purepy",True)'
+            ]
+        else:
+            actions += [
+                'setattr(sys,"purepy",False)'
+            ]
+        actions += [
             'stdlib = marshal.loads({stdlib})',
             'config = marshal.loads({config})',
             'spec = importlib.util.spec_from_loader("pupy.agent", loader=None)',
@@ -321,7 +330,17 @@ def bootstrap(stdlib, config, autostart=True):
             'from __future__ import unicode_literals',
 
             'import importlib.util, sys',
+        ]
+        if purepy:
+            actions += [
+                'setattr(sys,"purepy",True)'
+            ]
+        else:
+            actions += [
+                'setattr(sys,"purepy",False)'
+            ]
 
+        actions +=[
             'stdlib = {stdlib}',
             'config = {config}',
             'spec = importlib.util.spec_from_loader("pupy.agent", loader=None)',
@@ -549,7 +568,7 @@ def from_path(
                 base, ext = modpath.rsplit('.', 1)
 
                 # Garbage removing
-                if target.rustc:
+                if target.purepy:
                     if ext == 'py':
                         modpath = base+'.py'
                         if module_code is not None:
@@ -617,7 +636,7 @@ def from_path(
                     cur += rep + '/'
 
                 if ext == '.py':
-                    if target.rustc:
+                    if target.purepy:
                         ext = '.py'
                     else:
                         module_code = pupycompile(
@@ -758,7 +777,7 @@ def _package(
                         continue
 
                     # Garbage removing
-                    if target.rustc:
+                    if target.purepy:
                         if ext == "py":
                             try:
                                 content = get_content(
@@ -932,7 +951,7 @@ def add_missing_init(target, modules):
         tab=k.split("/")
         for i in range(1, len(tab)-1):
             pathname="/".join(tab[0:i])
-            if not target.rustc:
+            if not target.purepy:
                 f=pathname+"/__init__.pyo"
                 if f not in modules and f not in toadd and f[:-1] not in modules:
                     logger.debug("adding missing {}".format(f))

@@ -27,9 +27,9 @@ def getLinuxImportedModules():
     return lines
 
 
-def pack_py_payload(target, display, conf, autostart=True, rustc = True):
+def pack_py_payload(target, display, conf, autostart=True, purepy=True):
     display(Success('Generating PY payload ...'))
-    target._rustc = rustc # rustc=True force the use of .py files instead of .pyo
+    target._purepy = purepy # purepy=True force the use of .py files instead of .pyo
     stdlib = dependencies.importer(
         target, (
             'pyasn1', 'rsa', 'pyaes',
@@ -49,8 +49,7 @@ def pack_py_payload(target, display, conf, autostart=True, rustc = True):
     )
 
     payload = dependencies.bootstrap(
-        stdlib, conf, autostart
-    ) + '\n'
+        stdlib, conf, autostart, purepy=purepy) + '\n'
 
     if target.debug:
         return payload

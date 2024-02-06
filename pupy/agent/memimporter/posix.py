@@ -40,7 +40,7 @@ def _does_dest_allows_executable_mappings(folder):
         return True
 
     except IOError as e:
-        pupy.dprint('Exception during mmap {}: {}', e)
+        pupy.dprint('Exception during mmap {}', e)
         return False
 
     except OSError as e:

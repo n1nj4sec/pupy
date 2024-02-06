@@ -355,7 +355,7 @@ def get_edit_apk(target, display, path, conf):
 
     try:
         packed_payload = pack_py_payload(
-            target, display, get_raw_conf(display, conf), False
+            target, display, get_raw_conf(display, conf), autostart=False
         )
 
         shutil.copy(path, tempapk)
@@ -1065,7 +1065,7 @@ def pupygen(args, config, pupsrv, display):
 
         packed_payload = pack_py_payload(
             target, display,
-            get_raw_conf(display, conf, verbose=True)
+            get_raw_conf(display, conf, verbose=True), purepy=True
         )
 
         outfile.write(
@@ -1083,7 +1083,8 @@ def pupygen(args, config, pupsrv, display):
         packed_payload = pack_py_payload(
             target, display, get_raw_conf(
                 display, conf, verbose=True
-            )
+            ),
+            purepy=True
         )
 
         if not isinstance(packed_payload, bytes):

