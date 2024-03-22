@@ -455,11 +455,10 @@ def create_container_env(
 
 def main():
     args = parser.parse_args()
-
     default_orchestrator = 'docker'
 
     # Check some programs in advance
-    if args.environment == 'virtualenv':
+    if args.environment == 'virtualenv' and not args.do_not_compile_templates:
         available = check_programs([
             'podman', 'docker'
         ], available=True)
@@ -469,7 +468,8 @@ def main():
                 default_orchestrator = orchestrator
                 break
     else:
-        default_orchestrator = args.environment
+        if args.environment != "virtualenv":
+            default_orchestrator = args.environment
 
     required_programs = {'git'}
     required_modules = set()
@@ -488,14 +488,13 @@ def main():
             'Warning! You have chosen persistent images. '
             'This known to have problems with podman + fuse-overlayfs'
         )
-
-    if args.environment == 'virtualenv':
-        required_modules.add('virtualenv')
-        required_programs.add(default_orchestrator)
-    else:
-        required_programs.add(args.environment)
-
+    
     if not args.do_not_compile_templates:
+        if args.environment == 'virtualenv':
+            required_programs.add(default_orchestrator)
+        else:
+            required_programs.add(args.environment)
+
         required_abis.add('vsyscall32')
         required_programs.add(default_orchestrator)
 

@@ -224,7 +224,7 @@ def _generate_ssl_ca():
     cert.set_issuer(cert.get_subject())
     cert.set_pubkey(pk)
     cert.add_ext(X509.new_extension('basicConstraints', 'CA:TRUE'))
-    cert.add_ext(X509.new_extension('subjectKeyIdentifier', str(cert.get_fingerprint())))
+    #cert.add_ext(X509.new_extension('subjectKeyIdentifier', str(cert.get_fingerprint())))
     cert.sign(pk, 'sha256')
 
     return pk.as_pem(cipher=None), cert.as_pem(), pk, cert
@@ -250,7 +250,7 @@ def _generate_ssl_keypair(rsa_key, ca_key, ca_cert, role='CONTROL', client=False
     cert.set_issuer(ca_cert.get_subject())
     cert.set_pubkey(pk)
     cert.add_ext(X509.new_extension('basicConstraints', 'critical,CA:FALSE'))
-    cert.add_ext(X509.new_extension('subjectKeyIdentifier', str(cert.get_fingerprint())))
+    #cert.add_ext(X509.new_extension('subjectKeyIdentifier', str(cert.get_fingerprint())))
     if client:
         cert.add_ext(X509.new_extension('keyUsage', 'critical,digitalSignature'))
         cert.add_ext(X509.new_extension('nsCertType', 'client'))
@@ -350,8 +350,8 @@ def _generate_apk_keypair():
     cert.set_not_after(expire)
     cert.set_pubkey(pk)
     cert.set_issuer(cert.get_subject())
-    cert.add_ext(X509.new_extension(
-        'subjectKeyIdentifier', str(cert.get_fingerprint())))
+    #cert.add_ext(X509.new_extension(
+    #    'subjectKeyIdentifier', str(cert.get_fingerprint())))
     cert.sign(pk, 'sha256')
 
     return {
