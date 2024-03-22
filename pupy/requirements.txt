@@ -37,7 +37,7 @@ keyboard==0.13.4
 ldap3==2.8.1
 ldapdomaindump==0.9.3
 logutils==0.3.5
-M2Crypto
+M2Crypto==0.40.1
 MarkupSafe==1.1.1
 mccabe==0.6.1
 msgpack==0.6.2
